@@ -1,916 +1,2955 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Examination Middleware | v4.3 Release</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Examination Middleware - LMS-SAE Bridge | Smart Answer Sheet Processor</title>
+  <meta name="description" content="A robust, secure, and automated bridge designed to streamline the digitization and submission of physical examination answer sheets to the Moodle Learning Management System.">
+  <meta name="keywords" content="examination middleware, LMS, Moodle, answer sheet processor, digital grading, FastAPI, PostgreSQL">
+  <meta name="author" content="D. Kavinraja">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Examination Middleware - LMS-SAE Bridge">
+  <meta property="og:description" content="Streamline digitization and submission of physical examination answer sheets to Moodle LMS">
+  <link rel="canonical" href="https://d-kavinraja.github.io/Smart-answer-sheet-processor-for-LMS/">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       CSS VARIABLES & RESET
+    ============================================ */
+    :root {
+      --bg: #e8eef3;
+      --bg-card: #f5f8fa;
+      --bg-dark: #1a2332;
+      --text: #1a2332;
+      --text-muted: #5a6a7a;
+      --primary: #0891b2;
+      --primary-light: #22d3ee;
+      --primary-dark: #0e7490;
+      --secondary: #334155;
+      --secondary-light: #94a3b8;
+      --accent: #06b6d4;
+      --destructive: #ef4444;
+      --border: #cbd5e1;
+      --radius: 0.5rem;
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+    }
 
-        :root {
-            /* HYPER-GLASS PALETTE */
-            --bg-deep: #030712;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            
-            --neon-blue: #3b82f6;
-            --neon-purple: #8b5cf6;
-            --neon-cyan: #06b6d4;
-            --neon-green: #10b981;
-            
-            --glass-surface: rgba(17, 24, 39, 0.6);
-            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
-            
-            --glow-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
-        }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        html {
-            overflow-x: hidden;
-            width: 100%;
-        }
+    html {
+      scroll-behavior: smooth;
+    }
 
-        body {
-            background-color: var(--bg-deep);
-            color: var(--text-primary);
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-            position: relative;
-            width: 100vw;
-            box-sizing: border-box;
-        }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
 
-        /* --- BACKGROUND FX --- */
-        .ambient-light {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: -1; overflow: hidden;
-        }
-        .blob {
-            position: absolute; border-radius: 50%;
-            filter: blur(80px); opacity: 0.4;
-            animation: float-blob 20s infinite alternate;
-        }
-        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: var(--neon-blue); animation-delay: 0s; }
-        .blob-2 { bottom: -10%; right: -10%; width: 60vw; height: 60vw; background: var(--neon-purple); animation-delay: -5s; }
-        .blob-3 { top: 40%; left: 40%; width: 40vw; height: 40vw; background: var(--neon-cyan); animation-delay: -10s; opacity: 0.2; }
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
 
-        @keyframes float-blob {
-            0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(30px, 50px) scale(1.1); }
-        }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
 
-        .grid-overlay {
-            position: fixed; inset: 0; z-index: -1;
-            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-        }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
 
-        /* --- NAVIGATION --- */
-        .navbar-container {
-            position: fixed; top: 20px; left: 0; right: 0;
-            display: flex; justify-content: center; z-index: 1000;
-            padding: 0 1rem;
-            animation: slide-down 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        
-        @keyframes slide-down {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+    /* ============================================
+       ANIMATIONS
+    ============================================ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-        .navbar {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 100px;
-            padding: 0.75rem 2rem;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 2rem;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            max-width: 1000px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        
-        .logo { 
-            font-weight: 800; 
-            /* Responsive Font Size: adjusts automatically between 1rem and 1.25rem */
-            font-size: clamp(1rem, 4vw, 1.25rem); 
-            display: flex; align-items: center; gap: 0.75rem; 
-            letter-spacing: -0.02em; white-space: nowrap; 
-        }
-        .logo span { background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
-        .nav-links { display: flex; gap: 0.25rem; }
-        .nav-item {
-            padding: 0.5rem 1rem; border-radius: 100px; cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; color: #94a3b8;
-            transition: all 0.3s;
-            white-space: nowrap;
-        }
-        .nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
-        .nav-item.active { color: #fff; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
 
-        /* --- MAIN LAYOUT --- */
-        .main-content {
-            margin-top: 100px;
-            padding: 0 1rem 4rem;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
-            width: 100%;
-            box-sizing: border-box;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        section {
-            scroll-margin-top: 120px;
-            margin-bottom: 5rem;
-            width: 100%;
-            box-sizing: border-box;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 0 1rem;
-        }
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
 
-        /* --- GLASS CARDS --- */
-        .glass-card {
-            background: var(--glass-surface);
-            backdrop-filter: blur(12px);
-            border: var(--glass-border);
-            border-radius: 24px;
-            padding: 1.5rem;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            box-sizing: border-box;
-            animation: fade-up 0.8s ease-out backwards;
-            width: 100%;
-            text-align: center;
-        }
-        
-        .glass-card:nth-child(1) { animation-delay: 0.1s; }
-        .glass-card:nth-child(2) { animation-delay: 0.2s; }
-        .glass-card:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
 
-        @keyframes fade-up {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .glass-card::after {
-            content: ''; position: absolute; inset: 0; border-radius: 24px; padding: 1px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor; pointer-events: none;
-        }
-        
-        .glass-card:hover {
-            transform: translateY(-5px) scale(1.005);
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
-            border-color: rgba(255,255,255,0.2);
-        }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
 
-        /* --- TYPOGRAPHY --- */
-        h1 {
-            font-size: clamp(2rem, 5vw, 4rem);
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(to bottom right, #fff 30%, #94a3b8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(255,255,255,0.1);
-            animation: float-text 6s ease-in-out infinite;
-            text-align: center;
-            width: 100%;
-        }
-        
-        @keyframes float-text {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
 
-        h2 {
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            color: #fff;
-            width: 100%;
-            text-align: center;
-        }
-        h2::before { content: ''; width: 4px; height: 32px; background: var(--neon-blue); border-radius: 2px; box-shadow: 0 0 10px var(--neon-blue); }
-        p { color: #94a3b8; line-height: 1.6; font-size: clamp(0.875rem, 2.5vw, 1rem); max-width: 65ch; margin-bottom: 1.5rem; text-align: center; margin-left: auto; margin-right: auto; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(8, 145, 178, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(8, 145, 178, 0.6); }
+    }
 
-        /* --- LAYOUT UTILITIES --- */
-        .auto-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            justify-items: center;
-        }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
 
-        /* --- 3D DEMO AREA --- */
-        #demo-container {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 2rem;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 24px;
-            padding: 1.5rem;
-            min-height: 600px;
-            height: auto;
-            animation: zoom-in 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-            width: 100%;
-            box-sizing: border-box;
-        }
-        
-        @keyframes zoom-in {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        
-        .sidebar-panel {
-            background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;
-            height: fit-content;
-        }
+    .animate-fade-up { animation: fadeUp 0.6s ease-out forwards; opacity: 0; }
+    .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
+    .animate-slide-left { animation: slideInLeft 0.6s ease-out forwards; opacity: 0; }
+    .animate-slide-right { animation: slideInRight 0.6s ease-out forwards; opacity: 0; }
+    .animate-scale { animation: scaleIn 0.5s ease-out forwards; opacity: 0; }
+    .animate-bounce { animation: bounce 2s ease-in-out infinite; }
+    .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+    .animate-float { animation: float 3s ease-in-out infinite; }
 
-        .btn-glow {
-            width: 100%; padding: 1rem; border-radius: 12px; border: none;
-            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
-            color: white; font-weight: 700; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-            transition: all 0.3s; position: relative; overflow: hidden;
-            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-        }
-        
-        .btn-glow::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            transform: skewX(-25deg);
-            animation: shimmer 3s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { left: -100%; }
-            20% { left: 200%; }
-            100% { left: 200%; }
-        }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+    .delay-6 { animation-delay: 0.6s; }
+    .delay-7 { animation-delay: 0.7s; }
+    .delay-8 { animation-delay: 0.8s; }
 
-        .btn-glow:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6); }
+    /* ============================================
+       HEADER
+    ============================================ */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 1rem 0;
+      transition: all 0.3s ease;
+    }
 
-        .console-log {
-            flex-grow: 1; background: #000; border-radius: 8px; padding: 1rem;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--neon-green);
-            overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);
-            min-height: 150px;
-            max-height: 300px;
-        }
-        
-        .status-pulse {
-            width: 8px; height: 8px; border-radius: 50%; background: var(--neon-green);
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-            animation: pulse-green 2s infinite;
-        }
-        
-        @keyframes pulse-green {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
+    header.scrolled {
+      background: rgba(245, 248, 250, 0.95);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      border-bottom: 1px solid var(--border);
+    }
 
-        /* --- 3D ARTIFACT VISUALS --- */
-        .viewport-3d {
-            perspective: 2000px; display: flex; align-items: center; justify-content: center;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%);
-            min-height: 400px;
-        }
-        .scene-container { animation: float-idle 8s ease-in-out infinite; transform-style: preserve-3d; }
-        @keyframes float-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+    header .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-        .paper-sheet {
-            width: 320px; height: 460px; background: #fff;
-            position: relative; transform-style: preserve-3d; border-radius: 2px;
-            box-shadow: 0 0 0 1px #e2e8f0, 0 20px 50px rgba(0,0,0,0.5), 0 0 100px rgba(255,255,255,0.1);
-            transition: transform 0.1s cubic-bezier(0.1, 0.5, 0.2, 1);
-        }
-        .paper-sheet::before { content: ''; position: absolute; inset: 2px 0 0 2px; background: #f1f5f9; transform: translateZ(-2px); border: 1px solid #cbd5e1; }
-        .paper-sheet::after { content: ''; position: absolute; inset: 4px 0 0 4px; background: #e2e8f0; transform: translateZ(-4px); box-shadow: 10px 10px 30px rgba(0,0,0,0.5); }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
 
-        .paper-content {
-            padding: 2rem; height: 100%; box-sizing: border-box;
-            background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
-            color: #1e293b; font-family: 'Times New Roman', serif;
-            transform: translateZ(1px); position: relative;
-        }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--primary);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
 
-        .exam-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1rem; }
-        .handwritten {
-            font-family: 'Comic Sans MS', cursive; color: #1d4ed8; font-weight: bold;
-            transform: rotate(-1deg); display: inline-block;
-        }
-        .stamp {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(3);
-            border: 6px solid var(--neon-green); color: var(--neon-green);
-            font-size: 3rem; font-weight: 900; padding: 0.5rem 2rem; text-transform: uppercase;
-            border-radius: 12px; opacity: 0; pointer-events: none; mix-blend-mode: multiply; z-index: 10;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .stamp.visible { transform: translate(-50%, -50%) scale(1) rotate(-15deg); opacity: 1; }
+    .logo:hover .logo-icon {
+      transform: scale(1.1);
+    }
 
-        /* --- TECH STACK GRID --- */
-        .tech-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.5rem; width: 100%; max-width: 1200px; margin: 0 auto; justify-items: center; }
-        .tech-card {
-            background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 16px; padding: 1.5rem; text-align: center; position: relative; overflow: hidden;
-            transition: all 0.3s;
-        }
-        .tech-card:hover { background: rgba(255,255,255,0.05); border-color: var(--color); box-shadow: 0 0 20px var(--glow); transform: translateY(-5px); }
-        .tech-icon { font-size: 2rem; margin-bottom: 0.5rem; color: var(--color); display: flex; justify-content: center; }
-        .tech-name { font-weight: 700; color: #fff; font-size: 0.9rem; }
-        .tech-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; }
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      color: white;
+    }
 
-        /* --- SETUP TERMINAL --- */
-        .terminal {
-            background: #0f172a; border-radius: 12px; border: 1px solid #334155;
-            font-family: 'JetBrains Mono', monospace; padding: 0; overflow: hidden;
-            max-width: 100%;
-            width: 100%;
-            margin: 0 auto;
-        }
-        .terminal-header {
-            background: #1e293b; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem;
-            border-bottom: 1px solid #334155;
-        }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot-red { background: #ef4444; } .dot-yellow { background: #f59e0b; } .dot-green { background: #22c55e; }
-        .terminal-body { padding: 1.5rem; color: #e2e8f0; font-size: 0.9rem; line-height: 1.6; overflow-x: auto; }
-        .cmd { color: var(--neon-green); margin-right: 0.5rem; user-select: none; } .comment { color: #64748b; }
+    .logo-text {
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--text);
+    }
 
-        /* --- SCHEMA & API --- */
-        .schema-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; width: 100%; max-width: 1200px; margin: 0 auto; justify-items: center; }
-        .db-card {
-            background: rgba(0,0,0,0.3); border-radius: 16px; padding: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.05); position: relative;
-        }
-        .db-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--accent-color, #fff); opacity: 0.7; }
-        .db-row { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding: 0.5rem 0; border-bottom: 1px dashed rgba(255,255,255,0.1); color: #cbd5e1; }
-        
-        .api-group { margin-bottom: 2rem; }
-        .api-title { font-size: 1.2rem; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-        .endpoint {
-            background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;
-            display: flex; align-items: center; gap: 1rem; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s;
-            flex-wrap: wrap;
-        }
-        .endpoint:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
-        .method { padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; font-size: 0.75rem; min-width: 50px; text-align: center; }
-        .GET { background: rgba(16, 185, 129, 0.2); color: #34d399; } .POST { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-        .path { font-family: 'JetBrains Mono', monospace; color: #e2e8f0; font-size: 0.9rem; word-break: break-all; }
+    nav {
+      display: none;
+    }
 
-        /* --- FOOTER --- */
-        .site-footer {
-            background: rgba(15, 23, 42, 0.9); border-top: 1px solid rgba(255,255,255,0.1);
-            padding: 3rem 0; margin-top: auto;
-        }
-        .footer-content {
-            max-width: 1400px; margin: 0 auto; padding: 0 2rem;
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;
-        }
-        .footer-col h4 { color: #fff; margin-bottom: 1rem; font-size: 1rem; }
-        .footer-link { display: block; color: #94a3b8; text-decoration: none; margin-bottom: 0.5rem; font-size: 0.9rem; transition: color 0.2s; }
-        .footer-link:hover { color: var(--neon-blue); }
-        .system-status {
-            display: inline-flex; align-items: center; gap: 0.5rem;
-            background: rgba(16, 185, 129, 0.1); color: var(--neon-green);
-            padding: 0.25rem 0.75rem; border-radius: 100px; font-size: 0.75rem; font-weight: 700;
-        }
+    @media (min-width: 1024px) {
+      nav {
+        display: flex;
+        gap: 2rem;
+      }
+    }
 
-        /* Utilities */
-        .hidden { display: none !important; }
-        .text-accent { color: var(--neon-blue); }
-        
-        /* FIXED: Header Media Queries */
-        @media (max-width: 1024px) { 
-            #demo-container { grid-template-columns: 1fr; } 
-            .sidebar-panel { display: none; }
-            /* Adjusted navbar for mobile */
-            .navbar { 
-                width: 95%; /* Use more width */
-                justify-content: center; 
-                padding: 0.75rem 1rem; /* Less padding so text fits */
-                gap: 0.5rem;
-            }
-            .nav-links { display: none; }
-            h1 { font-size: 2.5rem; }
-            
-            /* Hide the full college name on mobile to prevent overflow/shifting */
-            .logo-subtitle-full { display: none; }
-            .logo-subtitle-short { display: inline-block !important; }
-        }
+    nav a {
+      color: var(--text-muted);
+      font-weight: 500;
+      transition: color 0.3s ease;
+      position: relative;
+    }
 
-        /* Tablet and small desktop */
-        @media (max-width: 768px) {
-            .main-content { padding: 0 1rem 3rem; margin-top: 80px; text-align: center; }
-            section { text-align: center; align-items: center; }
-            #demo-container { grid-template-columns: 1fr; padding: 1rem; }
-            .glass-card { padding: 1.5rem; text-align: center; }
-            h2 { font-size: 1.5rem; justify-content: center; }
-        }
+    nav a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
 
-        /* Mobile devices */
-        @media (max-width: 600px) {
-            body { width: 100vw; overflow-x: hidden; }
-            .navbar-container { display: none !important; }
-            .auto-grid, .schema-grid, .tech-grid { grid-template-columns: 1fr; gap: 1rem; justify-items: center; width: 100%; }
-            .main-content { padding: 1rem; margin-top: 1rem; text-align: center; width: 100%; max-width: 100%; }
-            section { padding: 0 1rem; text-align: center; align-items: center; width: 100%; max-width: 100%; }
-            .glass-card { padding: 1rem; border-radius: 16px; max-width: 100%; text-align: center; width: 100%; box-sizing: border-box; }
-            .paper-sheet { width: 100%; max-width: 280px; height: auto; min-height: 350px; margin: 0 auto; }
-            h1 { font-size: 1.75rem; margin-bottom: 1rem; text-align: center; padding: 0; width: 100%; }
-            h2 { font-size: 1.25rem; margin-bottom: 1.5rem; text-align: center; justify-content: center; width: 100%; }
-            #demo-container { padding: 0.75rem; gap: 1rem; min-height: auto; width: 100%; box-sizing: border-box; }
-            .terminal { font-size: 0.8rem; width: 100%; }
-            .terminal-body { padding: 1rem; font-size: 0.75rem; }
-            p { font-size: 0.875rem; text-align: center; padding: 0; width: 100%; }
-            h3 { text-align: center; width: 100%; }
-        }
+    nav a:hover {
+      color: var(--primary);
+    }
 
-        /* Extra small mobile devices */
-        @media (max-width: 400px) {
-            body { width: 100vw; overflow-x: hidden; }
-            .navbar-container { display: none !important; }
-            .main-content { padding: 0.75rem; margin-top: 0.5rem; text-align: center; width: 100%; max-width: 100%; }
-            section { padding: 0 0.75rem; text-align: center; align-items: center; width: 100%; max-width: 100%; }
-            .glass-card { padding: 0.75rem; max-width: 100%; text-align: center; width: 100%; box-sizing: border-box; }
-            h1 { font-size: 1.5rem; text-align: center; padding: 0; width: 100%; }
-            h2 { font-size: 1.1rem; text-align: center; justify-content: center; width: 100%; }
-            .navbar { padding: 0.5rem 0.75rem; }
-            p { font-size: 0.8rem; text-align: center; padding: 0; width: 100%; }
-            h3 { font-size: 1rem; text-align: center; width: 100%; }
-        }
-        
-        .logo-subtitle-short { display: none; }
-    </style>
+    nav a:hover::after {
+      width: 100%;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .github-link {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    @media (min-width: 640px) {
+      .github-link {
+        display: flex;
+      }
+    }
+
+    .github-link:hover {
+      color: var(--text);
+    }
+
+    .github-link svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-card);
+    }
+
+    .mobile-menu-btn {
+      display: block;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .mobile-menu-btn {
+        display: none;
+      }
+    }
+
+    .mobile-menu-btn svg {
+      width: 24px;
+      height: 24px;
+      color: var(--text);
+    }
+
+    /* ============================================
+       HERO SECTION
+    ============================================ */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #0f172a 100%);
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80') center/cover no-repeat;
+      opacity: 0.3;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, rgba(26, 35, 50, 0.95), rgba(26, 35, 50, 0.7), rgba(26, 35, 50, 0.5));
+    }
+
+    .hero-overlay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, var(--bg-dark), transparent);
+    }
+
+    .hero .container {
+      position: relative;
+      z-index: 10;
+      padding-top: 6rem;
+      padding-bottom: 4rem;
+    }
+
+    .hero-content {
+      max-width: 48rem;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      background: rgba(8, 145, 178, 0.2);
+      border: 1px solid rgba(8, 145, 178, 0.3);
+      color: white;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: white;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .hero h1 {
+        font-size: 3.5rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .hero h1 {
+        font-size: 4.5rem;
+      }
+    }
+
+    .hero h1 span {
+      color: var(--primary-light);
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-description {
+      font-size: 1.125rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 2rem;
+      max-width: 36rem;
+    }
+
+    .hero-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.2);
+    }
+
+    @media (min-width: 640px) {
+      .hero-stats {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    @media (min-width: 640px) {
+      .stat-item {
+        text-align: left;
+      }
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-light);
+      margin-bottom: 0.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .stat-value {
+        font-size: 2rem;
+      }
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .scroll-indicator-inner {
+      width: 24px;
+      height: 40px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 9999px;
+      display: flex;
+      justify-content: center;
+      padding-top: 0.5rem;
+    }
+
+    .scroll-indicator-dot {
+      width: 6px;
+      height: 12px;
+      background: var(--primary-light);
+      border-radius: 9999px;
+      animation: bounce 1.5s ease-in-out infinite;
+    }
+
+    /* ============================================
+       SECTION STYLES
+    ============================================ */
+    section {
+      padding: 5rem 0;
+    }
+
+    @media (min-width: 1024px) {
+      section {
+        padding: 8rem 0;
+      }
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-header h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .section-header h2 {
+        font-size: 2.5rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .section-header h2 {
+        font-size: 3rem;
+      }
+    }
+
+    .section-header h2 span {
+      color: var(--primary);
+    }
+
+    .section-header h2 .destructive {
+      color: var(--destructive);
+    }
+
+    .section-header p {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      max-width: 36rem;
+      margin: 0 auto;
+    }
+
+    /* ============================================
+       PROBLEM SECTION
+    ============================================ */
+    .problems {
+      background: var(--bg-card);
+    }
+
+    .problem-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .problem-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .problem-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-4px);
+    }
+
+    .problem-card:hover {
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-icon.destructive {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--destructive);
+    }
+
+    .card-icon.primary {
+      background: rgba(8, 145, 178, 0.1);
+      color: var(--primary);
+    }
+
+    .card-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       SOLUTION SECTION
+    ============================================ */
+    .solution-grid {
+      display: grid;
+      gap: 2rem;
+      position: relative;
+      margin-top: 4rem;
+    }
+
+    @media (min-width: 1024px) {
+      .solution-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .solution-line {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(to right, rgba(8, 145, 178, 0.2), var(--primary), rgba(8, 145, 178, 0.2));
+      transform: translateY(-50%);
+      z-index: 0;
+    }
+
+    @media (min-width: 1024px) {
+      .solution-line {
+        display: block;
+      }
+    }
+
+    .solution-card {
+      background: var(--bg);
+      border: 2px solid rgba(8, 145, 178, 0.3);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+      transition: all 0.3s ease;
+    }
+
+    .solution-card:hover {
+      border-color: var(--primary);
+    }
+
+    .solution-number {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .solution-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+
+    .solution-card p {
+      color: var(--text-muted);
+    }
+
+    /* Core Concept Box */
+    .core-concept {
+      margin-top: 4rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-radius: 1rem;
+      padding: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+      .core-concept {
+        padding: 3rem;
+      }
+    }
+
+    .core-concept-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    @media (min-width: 1024px) {
+      .core-concept-inner {
+        flex-direction: row;
+      }
+    }
+
+    .core-concept-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 1rem;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .core-concept-icon svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    .core-concept h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+
+    .core-concept p {
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--primary);
+    }
+
+    .feature-item svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ============================================
+       ARCHITECTURE SECTION
+    ============================================ */
+    .architecture {
+      background: var(--bg);
+    }
+
+    .arch-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .arch-flow {
+      display: grid;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .arch-flow {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .arch-node {
+      text-align: center;
+      position: relative;
+    }
+
+    .arch-node-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+    }
+
+    .arch-node-icon.muted {
+      background: var(--secondary-light);
+      color: var(--text-muted);
+    }
+
+    .arch-node-icon.primary {
+      background: var(--primary);
+      color: white;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .arch-node-icon.secondary {
+      background: var(--secondary);
+      color: white;
+    }
+
+    .arch-node-icon svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .arch-node h4 {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .arch-node p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .arch-node-tags {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .arch-tag {
+      padding: 0.5rem;
+      background: rgba(8, 145, 178, 0.1);
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--primary);
+    }
+
+    .arch-connector {
+      display: none;
+      position: absolute;
+      top: 32px;
+      width: 32px;
+      height: 2px;
+      background: var(--primary);
+    }
+
+    @media (min-width: 768px) {
+      .arch-connector {
+        display: block;
+      }
+      .arch-connector.left {
+        left: -16px;
+      }
+      .arch-connector.right {
+        right: -16px;
+      }
+    }
+
+    /* Database Table */
+    .db-table {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .db-table-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.5rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .db-table-header svg {
+      width: 24px;
+      height: 24px;
+      color: var(--primary);
+    }
+
+    .db-table-header h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 1rem 1.5rem;
+      text-align: left;
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover {
+      background: rgba(8, 145, 178, 0.02);
+    }
+
+    .model-name {
+      font-family: 'Space Mono', monospace;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .model-desc {
+      color: var(--text-muted);
+    }
+
+    /* Security Cards */
+    .security-grid {
+      display: grid;
+      gap: 1rem;
+      margin-top: 3rem;
+    }
+
+    @media (min-width: 768px) {
+      .security-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .security-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .security-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius);
+      background: rgba(8, 145, 178, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .security-card-icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--primary);
+    }
+
+    .security-card h4 {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .security-card p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       WORKFLOW SECTION
+    ============================================ */
+    .workflow {
+      background: var(--bg-card);
+    }
+
+    .phase-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .phase-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius);
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .phase-icon svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+    }
+
+    .phase-label {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      background: var(--secondary);
+      color: white;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .phase-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .phase-content {
+      padding: 1.5rem;
+    }
+
+    .steps-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .steps-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .steps-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .step-item {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: rgba(8, 145, 178, 0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all 0.3s ease;
+    }
+
+    .step-item:hover {
+      border-color: rgba(8, 145, 178, 0.5);
+    }
+
+    .step-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(8, 145, 178, 0.1);
+      color: var(--primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-item h4 {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .step-item p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* File Naming Box */
+    .file-naming {
+      background: var(--secondary);
+      border-radius: 1rem;
+      padding: 2rem;
+      color: white;
+      margin-top: 4rem;
+    }
+
+    .file-naming h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .file-pattern {
+      background: rgba(255,255,255,0.1);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .file-pattern .var {
+      color: rgba(255,255,255,0.8);
+    }
+
+    .file-pattern .sep {
+      color: var(--primary-light);
+    }
+
+    .file-examples {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .file-examples {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .file-example {
+      background: rgba(255,255,255,0.05);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    .file-rules {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .file-rules {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .file-rule {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .file-rule svg {
+      width: 16px;
+      height: 16px;
+      color: var(--primary-light);
+      flex-shrink: 0;
+    }
+
+    /* ============================================
+       API SECTION
+    ============================================ */
+    .api {
+      background: var(--bg);
+    }
+
+    .access-points {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .access-points h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .access-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .access-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .access-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+
+    .access-item {
+      background: rgba(8, 145, 178, 0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+
+    .access-item h4 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .access-item code {
+      font-size: 0.75rem;
+      color: var(--primary);
+      word-break: break-all;
+    }
+
+    /* Tabs */
+    .tabs {
+      margin-bottom: 2rem;
+    }
+
+    .tab-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .tab-list {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn:hover {
+      background: var(--bg);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .tab-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .endpoint-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .endpoint-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.3s ease;
+    }
+
+    @media (min-width: 640px) {
+      .endpoint-item {
+        flex-direction: row;
+        align-items: center;
+        gap: 1.5rem;
+      }
+    }
+
+    .endpoint-item:last-child {
+      border-bottom: none;
+    }
+
+    .endpoint-item:hover {
+      background: rgba(8, 145, 178, 0.02);
+    }
+
+    .method-badge {
+      display: inline-flex;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+      width: fit-content;
+    }
+
+    .method-badge.get {
+      background: rgba(34, 197, 94, 0.2);
+      color: #16a34a;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .method-badge.post {
+      background: rgba(8, 145, 178, 0.2);
+      color: var(--primary);
+      border: 1px solid rgba(8, 145, 178, 0.3);
+    }
+
+    .endpoint-path {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .endpoint-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* cURL Example */
+    .curl-example {
+      background: var(--secondary);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 3rem;
+    }
+
+    .curl-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .curl-header svg {
+      width: 20px;
+      height: 20px;
+      color: white;
+    }
+
+    .curl-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+    }
+
+    .curl-code {
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .curl-code pre {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    /* ============================================
+       INSTALLATION SECTION
+    ============================================ */
+    .installation {
+      background: var(--bg-card);
+    }
+
+    .prereq-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .prereq-card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .prereq-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .prereq-badge {
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: white;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .prereq-badge.optional {
+      background: var(--secondary);
+    }
+
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .install-step {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .install-step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .install-step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .install-step-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .install-step-title svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+
+    .install-step-code {
+      background: var(--secondary);
+      padding: 1rem 1.5rem;
+      overflow-x: auto;
+    }
+
+    .install-step-code pre {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.6;
+    }
+
+    .install-step-code .comment {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .install-step-note {
+      padding: 0.75rem 1.5rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-top: 1px solid var(--border);
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       PROJECT STRUCTURE SECTION
+    ============================================ */
+    .structure {
+      background: var(--bg);
+    }
+
+    .structure-card {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .structure-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      background: rgba(8, 145, 178, 0.05);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .structure-header svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+
+    .structure-tree {
+      padding: 0.5rem;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.25rem;
+      transition: background 0.2s ease;
+    }
+
+    .tree-item:hover {
+      background: rgba(8, 145, 178, 0.05);
+    }
+
+    .tree-item svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .tree-item svg.folder {
+      color: var(--primary);
+    }
+
+    .tree-item svg.file {
+      color: #22d3ee;
+    }
+
+    .tree-item svg.config {
+      color: var(--text-muted);
+    }
+
+    .tree-item span {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+    }
+
+    .tree-item span.folder-name {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .tree-item span.file-name {
+      color: var(--text-muted);
+    }
+
+    .tree-item .desc {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .tree-item .desc {
+        display: block;
+      }
+    }
+
+    /* ============================================
+       MOODLE CONFIG SECTION
+    ============================================ */
+    .moodle-config {
+      background: var(--bg-card);
+    }
+
+    .config-steps {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .config-step {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .config-step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .config-step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .config-step h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .config-step-path {
+      background: rgba(8, 145, 178, 0.05);
+      border-radius: var(--radius);
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      white-space: pre-line;
+    }
+
+    .config-step-functions {
+      margin-top: 1rem;
+    }
+
+    .config-step-functions p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .function-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .function-badge {
+      padding: 0.375rem 0.75rem;
+      background: var(--secondary);
+      color: white;
+      border-radius: var(--radius);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+    }
+
+    /* Security Box */
+    .security-box {
+      max-width: 900px;
+      margin: 4rem auto 0;
+      background: var(--secondary);
+      border-radius: 1rem;
+      padding: 2rem;
+      color: white;
+    }
+
+    .security-box h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+
+    .security-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .security-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .security-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .security-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .security-item svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary-light);
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+    }
+
+    .security-item h4 {
+      font-weight: 600;
+    }
+
+    .security-item p {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* ============================================
+       FOOTER
+    ============================================ */
+    footer {
+      background: var(--secondary);
+      color: white;
+      padding: 4rem 0 2rem;
+    }
+
+    .footer-grid {
+      display: grid;
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (min-width: 768px) {
+      .footer-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .footer-brand .logo {
+      margin-bottom: 1rem;
+    }
+
+    .footer-brand .logo-text {
+      color: white;
+    }
+
+    .footer-brand p {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 1rem;
+    }
+
+    .footer-links h4,
+    .footer-tech h4 {
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .footer-links ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .footer-links a {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary-light);
+    }
+
+    .tech-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .tech-tag {
+      padding: 0.375rem 0.75rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .footer-bottom {
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      text-align: center;
+    }
+
+    .footer-bottom p {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .footer-bottom a {
+      color: var(--primary-light);
+    }
+
+    .footer-bottom a:hover {
+      text-decoration: underline;
+    }
+
+    .heart {
+      color: var(--destructive);
+    }
+
+    /* ============================================
+       UTILITIES
+    ============================================ */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
 </head>
 <body>
-
-    <div class="ambient-light">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-        <div class="grid-overlay"></div>
-    </div>
-
-    <div class="navbar-container">
-        <nav class="navbar">
-            <div class="logo">
-                <i data-lucide="layers" class="text-accent" width="32" height="32"></i>
-                <div style="display: flex; flex-direction: column; line-height: 1;">
-                    <span>ExamMiddleware</span>
-                    <span class="logo-subtitle-full" style="font-size: 0.85rem; color: #64748b; font-weight: 400; letter-spacing: 0.05em; margin-top: 2px;">SAVEETHA ENG. COLLEGE</span>
-                    <span class="logo-subtitle-short" style="font-size: 0.85rem; color: #64748b; font-weight: 400; letter-spacing: 0.05em; margin-top: 2px;">SEC</span>
-                </div>
-            </div>
-            <div class="nav-links">
-                <div class="nav-item active" onclick="app.scroll('hero')">Live Demo</div>
-                <div class="nav-item" onclick="app.scroll('tech')">Tech Stack</div>
-                <div class="nav-item" onclick="app.scroll('setup')">Setup</div>
-                <div class="nav-item" onclick="app.scroll('schema')">Data Schema</div>
-                <div class="nav-item" onclick="app.scroll('api')">API Spec</div>
-            </div>
-        </nav>
-    </div>
-
-    <main class="main-content">
-
-        <section id="hero" style="min-height: auto; padding: 4rem 0; display: flex; flex-direction: column; justify-content: center;">
-            <div style="text-align: center; margin-bottom: 3rem;">
-                <h1>The 3-Step<br>Verification Workflow</h1>
-                <p style="margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-                    <span style="color:var(--neon-blue); white-space: nowrap;">1. Bulk Ingestion</span> <i data-lucide="arrow-right" width="16"></i>
-                    <span style="color:var(--neon-purple); white-space: nowrap;">2. Intelligent Processing</span> <i data-lucide="arrow-right" width="16"></i>
-                    <span style="color:var(--neon-green); white-space: nowrap;">3. Student Submission</span>
-                </p>
-            </div>
-
-            <div id="demo-container">
-                
-                <div class="sidebar-panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
-                        <span style="font-weight: 700; color: #fff;">System Console</span>
-                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--neon-green);">
-                            <div class="status-pulse"></div>
-                            Connected
-                        </div>
-                    </div>
-
-                    <div id="login-view">
-                        <label style="font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;">Student ID</label>
-                        <input type="text" value="212222230134" readonly style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 0.8rem; border-radius: 8px; color: #fff; margin-bottom: 1rem; box-sizing: border-box;">
-                        <button class="btn-glow" onclick="app.login()">
-                            <i data-lucide="shield-check" width="18"></i> Authenticate
-                        </button>
-                    </div>
-
-                    <div id="action-view" class="hidden">
-                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Active Session</div>
-                            <div style="color: #fff; font-weight: 700;">212222230134</div>
-                            <div style="color: var(--neon-blue); font-size: 0.9rem;">1 Pending Artifact</div>
-                        </div>
-                        <button id="submit-btn" class="btn-glow" onclick="app.submit()">
-                            <i data-lucide="upload-cloud" width="18"></i> Submit to LMS
-                        </button>
-                    </div>
-
-                    <div class="console-log" id="console">
-                        <div style="opacity: 0.5;">[INIT] System ready. Waiting for input...</div>
-                    </div>
-                </div>
-
-                <div class="viewport-3d" id="viewport">
-                    <div class="scene-container">
-                        <div id="paper" class="paper-sheet">
-                            <div id="stamp" class="stamp">SUBMITTED</div>
-                            
-                            <div class="paper-content">
-                                <div class="exam-header">
-                                    <div style="font-weight: 900; font-size: 0.8rem;">SAVEETHA AUTONOMOUS<br>ENGINEERING COLLEGE</div>
-                                    <div style="font-size: 0.6rem; margin-top: 4px; font-style: italic;">Affiliated to Anna University</div>
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.7rem; border: 1px solid #000; padding: 0.5rem; margin-bottom: 1.5rem;">
-                                    <div>Reg No: <span class="handwritten">212222230134</span></div>
-                                    <div>Date: <span class="handwritten">21/11/23</span></div>
-                                    <div>Sub Code: <span class="handwritten">19A1406</span></div>
-                                    <div>Sem: <span class="handwritten">AI-DS</span></div>
-                                </div>
-
-                                <div style="font-size: 0.8rem;">
-                                    <strong>PART-B</strong><br><br>
-                                    <strong>60)</strong> Huffman Coding Problem...
-                                    <div class="handwritten" style="display: block; margin: 0.5rem 0 1rem 1rem;">
-                                        Tree: Left(0), Right(1)<br>
-                                        Avg Length = 2.4 bits<br>
-                                        Efficiency = 96%
-                                    </div>
-                                    
-                                    <strong>7)</strong> Probability Distribution...
-                                    <div class="handwritten" style="display: block; margin: 0.5rem 0 0 1rem;">
-                                        Redundancy calculation<br>
-                                        Answer verified.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </section>
-
-        <section>
-            <h2>Core Architectural Pillars</h2>
-            <div class="auto-grid">
-                <div class="glass-card">
-                    <h3 style="color:var(--neon-blue); margin-bottom: 1rem;">Zero-Trust Security Model</h3>
-                    <p style="font-size: 0.9rem;">
-                        Utilizes student-scoped ephemeral tokens to ensure non-repudiation and strict access control. The middleware never stores student passwords.
-                    </p>
-                </div>
-                <div class="glass-card">
-                    <h3 style="color:var(--neon-purple); margin-bottom: 1rem;">Idempotent Transaction Layer</h3>
-                    <p style="font-size: 0.9rem;">
-                        Prevents double-submission anomalies through unique transaction identifiers and state locking. Once a file is verified, re-submissions are rejected.
-                    </p>
-                </div>
-                <div class="glass-card">
-                    <h3 style="color:var(--neon-green); margin-bottom: 1rem;">Asynchronous Orchestration</h3>
-                    <p style="font-size: 0.9rem;">
-                        Decouples high-volume physical scanning from Moodle's synchronous API limits. Includes <strong>Scenario B Mitigation</strong> (Circuit Breaker) for maintenance windows.
-                    </p>
-                    <div style="margin-top: auto; font-size: 0.8rem; background: rgba(16, 185, 129, 0.1); padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
-                        <strong>Tech Note:</strong> Enforces Strict Typing (Pydantic).
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="tech">
-            <h2>Core Technologies</h2>
-            <div class="tech-grid">
-                <div class="tech-card" style="--color: #3b82f6; --glow: rgba(59, 130, 246, 0.4);">
-                    <div class="tech-icon"><i data-lucide="server"></i></div>
-                    <div class="tech-name">Python 3.10+</div>
-                    <div class="tech-desc">Core Runtime Environment</div>
-                </div>
-                <div class="tech-card" style="--color: #f59e0b; --glow: rgba(245, 158, 11, 0.4);">
-                    <div class="tech-icon"><i data-lucide="graduation-cap"></i></div>
-                    <div class="tech-name">Moodle LMS</div>
-                    <div class="tech-desc">Web Services Integration</div>
-                </div>
-                <div class="tech-card" style="--color: #3b82f6; --glow: rgba(59, 130, 246, 0.4);">
-                    <div class="tech-icon"><i data-lucide="database"></i></div>
-                    <div class="tech-name">PostgreSQL 14</div>
-                    <div class="tech-desc">Relational State Store</div>
-                </div>
-                <div class="tech-card" style="--color: #10b981; --glow: rgba(16, 185, 129, 0.4);">
-                    <div class="tech-icon"><i data-lucide="zap"></i></div>
-                    <div class="tech-name">FastAPI</div>
-                    <div class="tech-desc">High-Performance Framework</div>
-                </div>
-            </div>
-        </section>
-
-        <section id="setup">
-            <h2>Installation & Setup</h2>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <div class="dot dot-red"></div>
-                    <div class="dot dot-yellow"></div>
-                    <div class="dot dot-green"></div>
-                    <div style="font-size: 0.8rem; color: #cbd5e1; margin-left: 0.5rem;">bash — 80x24</div>
-                </div>
-                <div class="terminal-body">
-                    <div><span class="cmd">$</span> git clone https://github.com/d-kavinraja/exam_middleware</div>
-                    <div><span class="cmd">$</span> cd exam_middleware</div>
-                    <div><span class="cmd">$</span> python -m venv venv</div>
-                    <div><span class="cmd">$</span> source venv/bin/activate</div>
-                    <div class="comment"># Installing dependencies...</div>
-                    <div><span class="cmd">$</span> pip install -r requirements.txt</div>
-                    <br>
-                    <div class="comment"># Configuring environment variables</div>
-                    <div><span class="cmd">$</span> cp .env.example .env</div>
-                    <div><span class="cmd">$</span> nano .env <span class="comment"># Add MOODLE_TOKEN & DB_URL</span></div>
-                    <br>
-                    <div class="comment"># Starting the application server</div>
-                    <div><span class="cmd">$</span> python run.py</div>
-                    <div style="color: var(--neon-green); margin-top: 0.5rem;">> Server running at http://localhost:8000 🚀</div>
-                </div>
-            </div>
-        </section>
-
-        <section id="schema">
-            <h2>Staging Database Blueprint</h2>
-            <div class="glass-card" style="padding: 1.5rem;">
-                <div class="schema-grid">
-                    <div class="db-card" style="--accent-color: var(--neon-blue)">
-                        <h4 style="color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i data-lucide="file-text" width="16"></i> ExamArtifact
-                        </h4>
-                        <div class="db-row"><span>uuid</span><span>UUID (PK)</span></div>
-                        <div class="db-row"><span>file_hash</span><span>SHA256</span></div>
-                        <div class="db-row"><span>reg_no</span><span>VARCHAR</span></div>
-                        <div class="db-row"><span>status</span><span>ENUM</span></div>
-                    </div>
-
-                    <div class="db-card" style="--accent-color: var(--neon-purple)">
-                        <h4 style="color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i data-lucide="map" width="16"></i> SubMapping
-                        </h4>
-                        <div class="db-row"><span>sub_code</span><span>VARCHAR (PK)</span></div>
-                        <div class="db-row"><span>moodle_id</span><span>INT</span></div>
-                        <div class="db-row"><span>assign_id</span><span>INT</span></div>
-                        <div class="db-row"><span>strict</span><span>BOOL</span></div>
-                    </div>
-
-                    <div class="db-card" style="--accent-color: var(--neon-cyan)">
-                        <h4 style="color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i data-lucide="clipboard-list" width="16"></i> AuditLog
-                        </h4>
-                        <div class="db-row"><span>id</span><span>BIGINT (PK)</span></div>
-                        <div class="db-row"><span>actor_id</span><span>VARCHAR</span></div>
-                        <div class="db-row"><span>action</span><span>VARCHAR</span></div>
-                        <div class="db-row"><span>timestamp</span><span>DATETIME</span></div>
-                    </div>
-
-                    <div class="db-card" style="--accent-color: var(--neon-green)">
-                        <h4 style="color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i data-lucide="server" width="16"></i> SubQueue
-                        </h4>
-                        <div class="db-row"><span>id</span><span>BIGINT (PK)</span></div>
-                        <div class="db-row"><span>art_id</span><span>UUID (FK)</span></div>
-                        <div class="db-row"><span>retry</span><span>INT</span></div>
-                        <div class="db-row"><span>error</span><span>JSONB</span></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="api">
-            <h2>Complete API Specification</h2>
-            <div class="glass-card">
-                
-                <div class="auto-grid" style="gap: 1.5rem;">
-                    <div class="api-group">
-                        <div class="api-title"><i data-lucide="lock" width="20" class="text-accent"></i> Authentication</div>
-                        <div class="endpoint">
-                            <div class="method POST">POST</div>
-                            <div class="path">/auth/staff/login</div>
-                        </div>
-                        <div class="endpoint">
-                            <div class="method POST">POST</div>
-                            <div class="path">/auth/student/login</div>
-                        </div>
-                    </div>
-
-                    <div class="api-group">
-                        <div class="api-title"><i data-lucide="upload-cloud" width="20" class="text-accent"></i> Ingestion</div>
-                        <div class="endpoint">
-                            <div class="method POST">POST</div>
-                            <div class="path">/upload/single</div>
-                        </div>
-                        <div class="endpoint">
-                            <div class="method POST">POST</div>
-                            <div class="path">/upload/bulk</div>
-                        </div>
-                    </div>
-
-                    <div class="api-group">
-                        <div class="api-title"><i data-lucide="user" width="20" class="text-accent"></i> Student Ops</div>
-                        <div class="endpoint">
-                            <div class="method GET">GET</div>
-                            <div class="path">/student/dashboard</div>
-                        </div>
-                        <div class="endpoint">
-                            <div class="method POST">POST</div>
-                            <div class="path">/student/submit/{id}</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </section>
-
-
-    </main>
-
-    <footer class="site-footer">
-        <div class="footer-content">
-            <div class="footer-col">
-                <div style="display: flex; align-items: center; gap: 0.5rem; color: #fff; font-weight: 800; margin-bottom: 1rem;">
-                    <i data-lucide="layers" class="text-accent"></i> ExamMiddleware
-                </div>
-                <p style="font-size: 0.85rem; max-width: 250px; margin-bottom: 1rem;">
-                    Enterprise examination bridge securing the physical-to-digital grading pipeline for Saveetha Engineering College.
-                </p>
-                <div class="system-status">
-                    <div style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></div>
-                    System Operational
-                </div>
-            </div>
-            
-            <div class="footer-col">
-                <h4>Platform</h4>
-                <a href="#" class="footer-link">Architecture</a>
-                <a href="#" class="footer-link">Security Specs</a>
-                <a href="#" class="footer-link">API Reference</a>
-            </div>
-
-            <div class="footer-col">
-                <h4>Support</h4>
-                <a href="#" class="footer-link">Documentation</a>
-                <a href="#" class="footer-link">Department of Tech</a>
-                <a href="#" class="footer-link">Report Issue</a>
-            </div>
-
-            <div class="footer-col">
-                <h4>Stack</h4>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;">Python</span>
-                    <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;">Postgres</span>
-                    <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;">Moodle</span>
-                </div>
-                <div style="margin-top: 1rem; font-size: 0.75rem; color: #64748b;">
-                    &copy; 2026 ExamMiddleware TEAM.
-                </div>
-            </div>
+  <!-- Header -->
+  <header id="header">
+    <div class="container">
+      <a href="#" class="logo">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         </div>
-    </footer>
+        <span class="logo-text">Exam Middleware</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#api">API</a>
+        <a href="#installation">Installation</a>
+      </nav>
+      <div class="header-actions">
+        <a href="https://github.com/d-kavinraja/Smart-answer-sheet-processor-for-LMS" target="_blank" class="github-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="#installation" class="btn btn-primary">Get Started</a>
+      </div>
+    </div>
+  </header>
 
-    <script>
-        const app = {
-            init() {
-                lucide.createIcons();
-                this.init3D();
-            },
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-overlay"></div>
+    <div class="container">
+      <div class="hero-content">
+        <div class="badges animate-fade-up delay-1">
+          <span class="badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            Python 3.10+
+          </span>
+          <span class="badge">FastAPI</span>
+          <span class="badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            PostgreSQL
+          </span>
+          <span class="badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            Moodle LMS
+          </span>
+        </div>
 
-            scroll(id) {
-                document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
-            },
+        <h1 class="animate-fade-up delay-2">Examination <span>Middleware</span></h1>
+        <p class="hero-subtitle animate-fade-up delay-3">LMS-SAE Bridge</p>
+        <p class="hero-description animate-fade-up delay-4">
+          A robust, secure, and automated bridge designed to streamline the digitization
+          and submission of physical examination answer sheets to the Moodle Learning
+          Management System.
+        </p>
 
-            log(msg) {
-                const consoleEl = document.getElementById('console');
-                const time = new Date().toLocaleTimeString().split(' ')[0];
-                const div = document.createElement('div');
-                div.innerHTML = `<span style="color:#64748b">[${time}]</span> ${msg}`;
-                consoleEl.appendChild(div);
-                consoleEl.scrollTop = consoleEl.scrollHeight;
-            },
+        <div class="hero-buttons animate-fade-up delay-5">
+          <a href="#installation" class="btn btn-primary">
+            Quick Start
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+          <a href="#architecture" class="btn btn-secondary">View Architecture</a>
+        </div>
 
-            login() {
-                this.log('Initiating handshake with Moodle...');
-                setTimeout(() => {
-                    this.log('Token acquired: mdl_8f9...2x');
-                    document.getElementById('login-view').classList.add('hidden');
-                    document.getElementById('action-view').classList.remove('hidden');
-                    this.log('Session Active. Artifact loaded.');
-                }, 800);
-            },
+        <div class="hero-stats animate-fade-up delay-6">
+          <div class="stat-item">
+            <div class="stat-value">3-Step</div>
+            <div class="stat-label">Upload-Verify-Push</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">100%</div>
+            <div class="stat-label">Student Verification</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">Complete</div>
+            <div class="stat-label">Audit Trail</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">15+</div>
+            <div class="stat-label">API Endpoints</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-            submit() {
-                const btn = document.getElementById('submit-btn');
-                if(btn.disabled) return;
-                btn.disabled = true;
-                btn.innerHTML = 'Processing...';
+    <div class="scroll-indicator animate-fade-up delay-8">
+      <div class="scroll-indicator-inner">
+        <div class="scroll-indicator-dot"></div>
+      </div>
+    </div>
+  </section>
 
-                const steps = [
-                    "POST core_files_upload (Draft ID: 902)",
-                    "POST mod_assign_save (ID: 450)",
-                    "POST mod_assign_submit (Lock)"
-                ];
+  <!-- Problem Section -->
+  <section id="features" class="problems">
+    <div class="container">
+      <div class="section-header">
+        <h2>The <span class="destructive">Problem</span></h2>
+        <p>In academic institutions transitioning to digital grading, handling physical answer scripts presents significant challenges.</p>
+      </div>
 
-                let i = 0;
-                const interval = setInterval(() => {
-                    if (i < steps.length) {
-                        this.log(steps[i]);
-                        i++;
-                    } else {
-                        clearInterval(interval);
-                        this.log('<span style="color:var(--neon-green)">Submission Successful.</span>');
-                        document.getElementById('stamp').classList.add('visible');
-                        
-                        setTimeout(() => {
-                            const paper = document.getElementById('paper');
-                            paper.style.transition = 'all 0.8s ease-in';
-                            paper.style.transform = 'translateY(-100vh) rotate(5deg)';
-                            paper.style.opacity = '0';
-                        }, 1000);
+      <div class="problem-grid">
+        <div class="card problem-card animate-fade-up delay-1">
+          <div class="card-icon destructive">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h3>Manual Labor</h3>
+          <p>Individually scanning, renaming, and uploading hundreds of answer scripts is time-consuming and inefficient.</p>
+        </div>
 
-                        btn.innerHTML = 'Done';
-                        btn.style.background = 'var(--neon-green)';
-                    }
-                }, 800);
-            },
+        <div class="card problem-card animate-fade-up delay-2">
+          <div class="card-icon destructive">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <h3>Human Error</h3>
+          <p>Manual processes are prone to uploading wrong files or mislabeling student submissions.</p>
+        </div>
 
-            init3D() {
-                const container = document.getElementById('viewport');
-                const paper = document.getElementById('paper');
+        <div class="card problem-card animate-fade-up delay-3">
+          <div class="card-icon destructive">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <h3>Security & Integrity</h3>
+          <p>Direct database manipulation or unverified uploads can compromise the chain of custody.</p>
+        </div>
 
-                container.addEventListener('mousemove', (e) => {
-                    if(document.getElementById('stamp').classList.contains('visible')) return;
+        <div class="card problem-card animate-fade-up delay-4">
+          <div class="card-icon destructive">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <h3>Student Verification</h3>
+          <p>Students lack a mechanism to verify their physical paper was scanned correctly before grading.</p>
+        </div>
+      </div>
 
-                    const rect = container.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    
-                    const centerX = rect.width / 2;
-                    const centerY = rect.height / 2;
-                    
-                    const rotateX = ((y - centerY) / centerY) * -15;
-                    const rotateY = ((x - centerX) / centerX) * 15;
+      <!-- Solution -->
+      <div class="section-header" style="margin-top: 5rem;">
+        <h2>The <span>Solution</span></h2>
+        <p>Our 3-Step "Upload-Verify-Push" workflow decouples scanning from submission with a secure validation layer.</p>
+      </div>
 
-                    paper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-                });
+      <div class="solution-grid">
+        <div class="solution-line"></div>
 
-                container.addEventListener('mouseleave', () => {
-                    if(!document.getElementById('stamp').classList.contains('visible')) {
-                        paper.style.transform = 'rotateX(0deg) rotateY(0deg)';
-                    }
-                });
-            }
-        };
+        <div class="solution-card animate-scale delay-4">
+          <div class="solution-number">1</div>
+          <h3>Bulk Ingestion</h3>
+          <p>Administrative staff upload bulk batches of scanned PDF/Images.</p>
+        </div>
 
-        app.init();
-    </script>
+        <div class="solution-card animate-scale delay-5">
+          <div class="solution-number">2</div>
+          <h3>Intelligent Processing</h3>
+          <p>System parses filenames to extract Student Register Number and Subject Code automatically.</p>
+        </div>
+
+        <div class="solution-card animate-scale delay-6">
+          <div class="solution-number">3</div>
+          <h3>Student-Led Submission</h3>
+          <p>Students log in, view their scripts, and trigger final submission ensuring non-repudiation.</p>
+        </div>
+      </div>
+
+      <!-- Core Concept -->
+      <div class="core-concept animate-fade-up delay-7">
+        <div class="core-concept-inner">
+          <div class="core-concept-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </div>
+          <div>
+            <h3>Core Concept</h3>
+            <p>The system acts as an intelligent intermediary between the physical examination hall and the digital grading environment, ensuring secure validation and student verification at every step.</p>
+            <div class="feature-list">
+              <span class="feature-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Non-repudiation
+              </span>
+              <span class="feature-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Audit Trail
+              </span>
+              <span class="feature-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Secure Tokens
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section id="architecture" class="architecture">
+    <div class="container">
+      <div class="section-header">
+        <h2>System <span>Architecture</span></h2>
+        <p>Designed for data integrity, security, and complete auditability</p>
+      </div>
+
+      <!-- Architecture Diagram -->
+      <div class="arch-diagram animate-fade-up delay-1">
+        <div class="arch-flow">
+          <div class="arch-node">
+            <div class="arch-node-icon muted">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <h4>Physical Layer</h4>
+            <p>Scanned Answer Sheets</p>
+            <div class="arch-node-tags">
+              <code class="arch-tag">611221104088_19AI405.pdf</code>
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-connector left"></div>
+            <div class="arch-connector right"></div>
+            <div class="arch-node-icon primary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            </div>
+            <h4>Examination Middleware</h4>
+            <p>FastAPI + PostgreSQL</p>
+            <div class="arch-node-tags">
+              <div class="arch-tag">Authentication</div>
+              <div class="arch-tag">Validation</div>
+              <div class="arch-tag">Submission</div>
+            </div>
+          </div>
+
+          <div class="arch-node">
+            <div class="arch-node-icon secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            </div>
+            <h4>Moodle LMS</h4>
+            <p>Learning Management System</p>
+            <div class="arch-node-tags">
+              <code class="arch-tag">Assignment Submissions</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Database Table -->
+      <div class="db-table animate-fade-up delay-2">
+        <div class="db-table-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          <h3>Database Schema Overview</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="model-name">ExaminationArtifact</td>
+              <td class="model-desc">Core entity storing UUID, file path, SHA-256 hash, extracted metadata, and workflow status.</td>
+            </tr>
+            <tr>
+              <td class="model-name">SubjectMapping</td>
+              <td class="model-desc">Configuration mapping Subject Code to Moodle Course ID and Assignment ID.</td>
+            </tr>
+            <tr>
+              <td class="model-name">StaffUser</td>
+              <td class="model-desc">Accounts for administrative staff authorized to perform bulk uploads.</td>
+            </tr>
+            <tr>
+              <td class="model-name">StudentSession</td>
+              <td class="model-desc">Manages ephemeral sessions with encrypted Moodle access tokens.</td>
+            </tr>
+            <tr>
+              <td class="model-name">AuditLog</td>
+              <td class="model-desc">Rigid ledger tracking every action with IP addresses and timestamps.</td>
+            </tr>
+            <tr>
+              <td class="model-name">SubmissionQueue</td>
+              <td class="model-desc">Buffer for handling Moodle API failures, ensuring no submission is lost.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Security Cards -->
+      <div class="security-grid">
+        <div class="security-card animate-scale delay-3">
+          <div class="security-card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <div>
+            <h4>bcrypt Hashing</h4>
+            <p>Password hashing with 12 rounds</p>
+          </div>
+        </div>
+
+        <div class="security-card animate-scale delay-4">
+          <div class="security-card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <div>
+            <h4>AES-256 Encryption</h4>
+            <p>Fernet encryption for Moodle tokens</p>
+          </div>
+        </div>
+
+        <div class="security-card animate-scale delay-5">
+          <div class="security-card-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <div>
+            <h4>Audit Logging</h4>
+            <p>Complete chain of custody tracking</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow Section -->
+  <section id="workflow" class="workflow">
+    <div class="container">
+      <div class="section-header">
+        <h2>Platform <span>Workflow</span></h2>
+        <p>A streamlined 3-phase process ensuring secure and verified submissions</p>
+      </div>
+
+      <!-- Phase 1 -->
+      <div class="phase-card animate-slide-left delay-1">
+        <div class="phase-header">
+          <div class="phase-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </div>
+          <div>
+            <span class="phase-label">Phase 1</span>
+            <h3 class="phase-title">Administration & Setup</h3>
+          </div>
+        </div>
+        <div class="phase-content">
+          <div class="steps-grid">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div>
+                <h4>Mapping</h4>
+                <p>Admin configures SubjectMapping table (e.g., CS101 → Assignment ID: 55)</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div>
+                <h4>Scanning</h4>
+                <p>Examination cell scans answer sheets using naming convention: {RegisterNumber}_{SubjectCode}.pdf</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="phase-card animate-slide-left delay-2">
+        <div class="phase-header">
+          <div class="phase-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <div>
+            <span class="phase-label">Phase 2</span>
+            <h3 class="phase-title">Staff Operations</h3>
+          </div>
+        </div>
+        <div class="phase-content">
+          <div class="steps-grid">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div>
+                <h4>Login</h4>
+                <p>Staff logs into the Staff Portal</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div>
+                <h4>Bulk Upload</h4>
+                <p>Staff drags and drops folders of scanned files</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div>
+                <h4>Validation</h4>
+                <p>System validates filenames; valid files are hashed and stored as ExaminationArtifacts</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="phase-card animate-slide-left delay-3">
+        <div class="phase-header">
+          <div class="phase-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+          </div>
+          <div>
+            <span class="phase-label">Phase 3</span>
+            <h3 class="phase-title">Student Operations</h3>
+          </div>
+        </div>
+        <div class="phase-content">
+          <div class="steps-grid">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div>
+                <h4>Login</h4>
+                <p>Student logs in with Moodle credentials</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div>
+                <h4>Dashboard</h4>
+                <p>System displays all papers tagged with their Register Number</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div>
+                <h4>Review</h4>
+                <p>Student previews the PDF to ensure it's their paper</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">4</div>
+              <div>
+                <h4>Submit</h4>
+                <p>Student clicks 'Submit' to finalize</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">5</div>
+              <div>
+                <h4>Backend</h4>
+                <p>System authenticates with Moodle, uploads file, and finalizes submission</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">6</div>
+              <div>
+                <h4>Confirmation</h4>
+                <p>Status updates to SUBMITTED_TO_LMS</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File Naming Convention -->
+      <div class="file-naming animate-fade-up delay-4">
+        <h3>File Naming Convention</h3>
+        <div class="file-pattern">
+          <span class="var">{RegisterNumber}</span><span class="sep">_</span><span class="var">{SubjectCode}</span><span class="sep">.</span><span class="var">{extension}</span>
+        </div>
+        <div class="file-examples">
+          <div class="file-example">611221104088_19AI405.pdf</div>
+          <div class="file-example">611221104089_ML.jpg</div>
+          <div class="file-example">611221104090_19AI411.png</div>
+        </div>
+        <div class="file-rules">
+          <div class="file-rule">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Register Number: 12 digits
+          </div>
+          <div class="file-rule">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Subject Code: 2-10 alphanumeric
+          </div>
+          <div class="file-rule">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Extensions: pdf, jpg, jpeg, png
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API Section -->
+  <section id="api" class="api">
+    <div class="container">
+      <div class="section-header">
+        <h2>API <span>Endpoints</span></h2>
+        <p>Complete RESTful API with authentication, file management, and submission handling</p>
+      </div>
+
+      <!-- Access Points -->
+      <div class="access-points animate-fade-up delay-1">
+        <h3>🔗 Access Points</h3>
+        <div class="access-grid">
+          <div class="access-item">
+            <h4>Staff Upload Portal</h4>
+            <code>http://localhost:8000/portal/staff</code>
+          </div>
+          <div class="access-item">
+            <h4>Student Portal</h4>
+            <code>http://localhost:8000/portal/student</code>
+          </div>
+          <div class="access-item">
+            <h4>API Documentation</h4>
+            <code>http://localhost:8000/docs</code>
+          </div>
+          <div class="access-item">
+            <h4>ReDoc</h4>
+            <code>http://localhost:8000/redoc</code>
+          </div>
+          <div class="access-item">
+            <h4>Health Check</h4>
+            <code>http://localhost:8000/health</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Tabs -->
+      <div class="tabs animate-fade-up delay-2">
+        <div class="tab-list">
+          <button class="tab-btn active" onclick="showTab('auth')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Auth
+          </button>
+          <button class="tab-btn" onclick="showTab('upload')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Upload
+          </button>
+          <button class="tab-btn" onclick="showTab('student')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Student
+          </button>
+          <button class="tab-btn" onclick="showTab('admin')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Admin
+          </button>
+        </div>
+
+        <div id="auth" class="tab-content active">
+          <div class="endpoint-list">
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/auth/staff/login</code>
+              <span class="endpoint-desc">Staff login</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/auth/student/login</code>
+              <span class="endpoint-desc">Student login with Moodle credentials</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/auth/student/logout</code>
+              <span class="endpoint-desc">Student logout</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="upload" class="tab-content">
+          <div class="endpoint-list">
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/upload/single</code>
+              <span class="endpoint-desc">Upload single file</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/upload/bulk</code>
+              <span class="endpoint-desc">Upload multiple files</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/upload/validate</code>
+              <span class="endpoint-desc">Validate filename</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="student" class="tab-content">
+          <div class="endpoint-list">
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/student/dashboard</code>
+              <span class="endpoint-desc">Get assigned papers</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/student/paper/{id}/view</code>
+              <span class="endpoint-desc">View paper content</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/student/submit/{id}</code>
+              <span class="endpoint-desc">Submit paper to Moodle</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/student/submission/{id}/status</code>
+              <span class="endpoint-desc">Check submission status</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin" class="tab-content">
+          <div class="endpoint-list">
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/admin/mappings</code>
+              <span class="endpoint-desc">List subject mappings</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge post">POST</span>
+              <code class="endpoint-path">/admin/mappings</code>
+              <span class="endpoint-desc">Create mapping</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/admin/queue</code>
+              <span class="endpoint-desc">View submission queue</span>
+            </div>
+            <div class="endpoint-item">
+              <span class="method-badge get">GET</span>
+              <code class="endpoint-path">/admin/stats</code>
+              <span class="endpoint-desc">System statistics</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- cURL Example -->
+      <div class="curl-example animate-fade-up delay-3">
+        <div class="curl-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          <h3>API Testing with cURL</h3>
+        </div>
+        <div class="curl-code">
+          <pre># Staff Login
+curl -X POST http://localhost:8000/auth/staff/login \
+  -F "username=admin" \
+  -F "password=admin123"
+
+# Upload File (use token from login)
+curl -X POST http://localhost:8000/upload/single \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@611221104088_19AI405.pdf" \
+  -F "exam_session=2024SPRING"
+
+# Health Check
+curl http://localhost:8000/health</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Section -->
+  <section id="installation" class="installation">
+    <div class="container">
+      <div class="section-header">
+        <h2>Quick <span>Start</span></h2>
+        <p>Get up and running in minutes with our simple setup process</p>
+      </div>
+
+      <!-- Prerequisites -->
+      <div class="prereq-card animate-fade-up delay-1">
+        <h3>Prerequisites</h3>
+        <div class="prereq-list">
+          <span class="prereq-badge">Python 3.10+</span>
+          <span class="prereq-badge">PostgreSQL 14+</span>
+          <span class="prereq-badge">Moodle LMS with Web Services</span>
+          <span class="prereq-badge optional">Redis (optional)</span>
+        </div>
+      </div>
+
+      <!-- Installation Steps -->
+      <div class="install-steps">
+        <div class="install-step animate-slide-right delay-2">
+          <div class="install-step-header">
+            <div class="install-step-number">1</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+              Clone and Setup
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>cd exam_middleware</pre>
+          </div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-3">
+          <div class="install-step-header">
+            <div class="install-step-number">2</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Create Virtual Environment
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>python -m venv venv
+
+<span class="comment"># Windows</span>
+.\venv\Scripts\activate
+
+<span class="comment"># Linux/Mac</span>
+source venv/bin/activate</pre>
+          </div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-4">
+          <div class="install-step-header">
+            <div class="install-step-number">3</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+              Install Dependencies
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>pip install -r requirements.txt</pre>
+          </div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-5">
+          <div class="install-step-header">
+            <div class="install-step-number">4</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Configure Environment
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>copy .env.example .env</pre>
+          </div>
+          <div class="install-step-note">Edit .env with your database and Moodle settings</div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-6">
+          <div class="install-step-header">
+            <div class="install-step-number">5</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+              Setup PostgreSQL Database
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>psql -U postgres -c "CREATE DATABASE exam_middleware;"</pre>
+          </div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-7">
+          <div class="install-step-header">
+            <div class="install-step-number">6</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+              Initialize Database
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>python init_db.py</pre>
+          </div>
+          <div class="install-step-note">Creates tables, default admin user (admin/admin123), and subject mappings</div>
+        </div>
+
+        <div class="install-step animate-slide-right delay-8">
+          <div class="install-step-header">
+            <div class="install-step-number">7</div>
+            <div class="install-step-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Run the Application
+            </div>
+          </div>
+          <div class="install-step-code">
+            <pre>python run.py</pre>
+          </div>
+          <div class="install-step-note">Server starts at http://localhost:8000</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Project Structure Section -->
+  <section class="structure">
+    <div class="container">
+      <div class="section-header">
+        <h2>Project <span>Structure</span></h2>
+        <p>Clean, modular architecture following Python best practices</p>
+      </div>
+
+      <div class="structure-card animate-fade-up delay-1">
+        <div class="structure-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          exam_middleware
+        </div>
+        <div class="structure-tree">
+          <div class="tree-item" style="padding-left: 12px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">app/</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">api/routes/</span>
+          </div>
+          <div class="tree-item" style="padding-left: 52px;">
+            <svg class="file" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span class="file-name">admin.py, auth.py, health.py, student.py, upload.py</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">core/</span>
+            <span class="desc">config.py, security.py</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">db/</span>
+            <span class="desc">database.py, models.py</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">schemas/</span>
+            <span class="desc">schemas.py</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">services/</span>
+            <span class="desc">artifact, file processor, moodle, submission</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">templates/</span>
+            <span class="desc">staff_upload.html, student_portal.html</span>
+          </div>
+          <div class="tree-item" style="padding-left: 32px;">
+            <svg class="file" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span class="file-name">main.py</span>
+            <span class="desc">FastAPI application</span>
+          </div>
+          <div class="tree-item" style="padding-left: 12px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">uploads/</span>
+            <span class="desc">Temporary upload storage</span>
+          </div>
+          <div class="tree-item" style="padding-left: 12px;">
+            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="folder-name">storage/</span>
+            <span class="desc">Permanent file storage</span>
+          </div>
+          <div class="tree-item" style="padding-left: 12px;">
+            <svg class="config" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span class="file-name">.env, .env.example, init_db.py, run.py, requirements.txt</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Moodle Config Section -->
+  <section class="moodle-config">
+    <div class="container">
+      <div class="section-header">
+        <h2>🔧 Moodle <span>Configuration</span></h2>
+        <p>Required Moodle setup for Web Services integration</p>
+      </div>
+
+      <div class="config-steps">
+        <div class="config-step animate-slide-left delay-1">
+          <div class="config-step-header">
+            <div class="config-step-number">1</div>
+            <h3>Enable Web Services</h3>
+          </div>
+          <div class="config-step-path">Site administration → Advanced features → Enable web services</div>
+        </div>
+
+        <div class="config-step animate-slide-left delay-2">
+          <div class="config-step-header">
+            <div class="config-step-number">2</div>
+            <h3>Create External Service</h3>
+          </div>
+          <div class="config-step-path">Site administration → Server → Web services → External services
+Create service: "FileUpload"</div>
+          <div class="config-step-functions">
+            <p>Add these functions:</p>
+            <div class="function-list">
+              <span class="function-badge">core_webservice_get_site_info</span>
+              <span class="function-badge">mod_assign_save_submission</span>
+              <span class="function-badge">mod_assign_submit_for_grading</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-step animate-slide-left delay-3">
+          <div class="config-step-header">
+            <div class="config-step-number">3</div>
+            <h3>Create Token</h3>
+          </div>
+          <div class="config-step-path">Site administration → Server → Web services → Manage tokens
+Create token for admin user with "FileUpload" service</div>
+        </div>
+
+        <div class="config-step animate-slide-left delay-4">
+          <div class="config-step-header">
+            <div class="config-step-number">4</div>
+            <h3>Enable Upload</h3>
+          </div>
+          <div class="config-step-path">Ensure webservice/upload.php is accessible
+Configure max upload size in Moodle settings</div>
+        </div>
+      </div>
+
+      <!-- Security Box -->
+      <div class="security-box animate-fade-up delay-5">
+        <h3>🛡️ Security Considerations</h3>
+        <div class="security-list">
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>Password Hashing</h4>
+              <p>bcrypt with 12 rounds</p>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>Token Encryption</h4>
+              <p>AES-256 (Fernet)</p>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>JWT Tokens</h4>
+              <p>Short-lived access tokens</p>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>File Validation</h4>
+              <p>Extension and size checks</p>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>Audit Logging</h4>
+              <p>All operations logged</p>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div>
+              <h4>CORS</h4>
+              <p>Configurable origin whitelist</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="logo">
+            <div class="logo-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <span class="logo-text">Exam Middleware</span>
+          </a>
+          <p>A robust, secure, and automated bridge designed to streamline the digitization and submission of physical examination answer sheets to Moodle LMS.</p>
+          <a href="https://github.com/d-kavinraja/Smart-answer-sheet-processor-for-LMS" target="_blank" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="footer-links">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#workflow">Workflow</a></li>
+            <li><a href="#api">API</a></li>
+            <li><a href="#installation">Installation</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-tech">
+          <h4>Tech Stack</h4>
+          <div class="tech-tags">
+            <span class="tech-tag">Python 3.10+</span>
+            <span class="tech-tag">FastAPI</span>
+            <span class="tech-tag">PostgreSQL</span>
+            <span class="tech-tag">SQLAlchemy</span>
+            <span class="tech-tag">Moodle LMS</span>
+            <span class="tech-tag">bcrypt</span>
+            <span class="tech-tag">JWT</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>Made with <span class="heart"></span> by <a href="https://github.com/d-kavinraja" target="_blank">D. Kavinraja</a></p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">© 2026 Examination Middleware(TEAM). All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Header scroll effect
+    window.addEventListener('scroll', function() {
+      const header = document.getElementById('header');
+      if (window.scrollY > 20) {
+        header.classList.add('scrolled');
+      } else {
+        header.classList.remove('scrolled');
+      }
+    });
+
+    // Tab functionality
+    function showTab(tabId) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from all buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      document.getElementById(tabId).classList.add('active');
+      
+      // Add active class to clicked button
+      event.target.closest('.tab-btn').classList.add('active');
+    }
+
+    // Intersection Observer for animations
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+        }
+      });
+    }, observerOptions);
+
+    // Observe all animated elements
+    document.querySelectorAll('[class*="animate-"]').forEach(el => {
+      el.style.animationPlayState = 'paused';
+      observer.observe(el);
+    });
+
+    // Start hero animations immediately
+    document.querySelectorAll('.hero [class*="animate-"]').forEach(el => {
+      el.style.animationPlayState = 'running';
+    });
+  </script>
 </body>
 </html>
