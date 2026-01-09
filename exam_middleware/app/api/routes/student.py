@@ -218,22 +218,28 @@ async def get_dashboard(
             message=None if assignment_id else "Assignment mapping not found. Contact admin."
         ))
     
-    # Build submitted papers list
-    submitted_papers = [
-        ArtifactResponse(
-            id=a.id,
-            artifact_uuid=str(a.artifact_uuid),
-            raw_filename=a.raw_filename,
-            original_filename=a.original_filename,
-            parsed_reg_no=a.parsed_reg_no,
-            parsed_subject_code=a.parsed_subject_code,
-            workflow_status=WorkflowStatusEnum(a.workflow_status.value),
-            moodle_assignment_id=a.moodle_assignment_id,
-            uploaded_at=a.uploaded_at,
-            submit_timestamp=a.submit_timestamp
+    # Build submitted papers list (include subject_name from mapping if available)
+    submitted_papers = []
+    for a in submitted_artifacts:
+        mapping = None
+        if a.parsed_subject_code:
+            mapping = await mapping_service.get_mapping(a.parsed_subject_code)
+
+        submitted_papers.append(
+            ArtifactResponse(
+                id=a.id,
+                artifact_uuid=str(a.artifact_uuid),
+                raw_filename=a.raw_filename,
+                original_filename=a.original_filename,
+                subject_name=mapping.subject_name if mapping else None,
+                parsed_reg_no=a.parsed_reg_no,
+                parsed_subject_code=a.parsed_subject_code,
+                workflow_status=WorkflowStatusEnum(a.workflow_status.value),
+                moodle_assignment_id=a.moodle_assignment_id,
+                uploaded_at=a.uploaded_at,
+                submit_timestamp=a.submit_timestamp
+            )
         )
-        for a in submitted_artifacts
-    ]
     
     return StudentDashboardResponse(
         moodle_user_id=session.moodle_user_id,

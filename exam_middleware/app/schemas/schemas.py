@@ -144,6 +144,7 @@ class ArtifactResponse(BaseModel):
     artifact_uuid: str
     raw_filename: str
     original_filename: str
+    subject_name: Optional[str] = None
     parsed_reg_no: Optional[str]
     parsed_subject_code: Optional[str]
     workflow_status: WorkflowStatusEnum
