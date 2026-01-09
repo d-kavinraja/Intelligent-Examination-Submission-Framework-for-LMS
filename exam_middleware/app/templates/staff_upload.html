@@ -682,6 +682,13 @@
                     </button>
                 </div>
                 <div class="card-body p-4">
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="search" id="pendingFilesSearch" class="form-control" placeholder="Search files, reg no, subject, status...">
+                        </div>
+                    </div>
+
                     <div id="pendingFilesList">
                         <div class="text-center text-muted py-4">
                             <i class="bi bi-hourglass-split fs-1"></i>
@@ -781,6 +788,7 @@
         let authToken = null; 
         let selectedFiles = [];
         let validatedFiles = [];
+        let pendingArtifacts = []; // cached server-side file list for searching/filtering
         let serverUploadedCount = 0; // Track server uploaded files
         
         // Filename pattern
@@ -994,40 +1002,10 @@
                 updateStats();
                 
                 if (artifacts && artifacts.length > 0) {
-                    let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
-                    html += `<thead>
-                        <tr>
-                            <th>Filename</th>
-                            <th>Register No.</th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th>Uploaded</th>
-                        </tr>
-                    </thead><tbody>`;
-                    
-                    artifacts.forEach(a => {
-                        const statusBadge = getStatusBadge(a.status);
-                        const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() : 
-                                          (a.created_at ? new Date(a.created_at).toLocaleString() : 
-                                          (a.timestamp ? new Date(a.timestamp).toLocaleString() : '-'));
-                        const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
-                        const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
-                        const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
-                        
-                        html += `
-                            <tr>
-                                <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
-                                <td><span class="badge bg-secondary">${regNo}</span></td>
-                                <td><span class="badge bg-primary">${subCode}</span></td>
-                                <td>${statusBadge}</td>
-                                <td><small class="text-muted">${uploadDate}</small></td>
-                            </tr>
-                        `;
-                    });
-                    
-                    html += '</tbody></table></div>';
-                    html += `<div class="text-muted small mt-3">Showing ${artifacts.length} of ${total} files</div>`;
-                    pendingFilesList.innerHTML = html;
+                    // Cache artifacts for client-side search/filtering
+                    pendingArtifacts = artifacts;
+                    // Render initial (unfiltered) view
+                    renderPendingFiles('');
                 } else if (artifacts && artifacts.length === 0) {
                     pendingFilesList.innerHTML = `
                         <div class="text-center text-muted py-4">
@@ -1086,6 +1064,87 @@
             document.getElementById('invalidFiles').textContent = '0';
             document.getElementById('uploadedFiles').textContent = '0';
         }
+
+        // Render pending files with optional client-side search/filter
+        function renderPendingFiles(query) {
+            const pendingFilesList = document.getElementById('pendingFilesList');
+            const q = (query || '').toString().toLowerCase().trim();
+
+            if (!pendingArtifacts || pendingArtifacts.length === 0) {
+                pendingFilesList.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-0">No files uploaded yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const filtered = pendingArtifacts.filter(a => {
+                const filename = (a.filename || a.file_name || a.name || a.original_filename || '') .toString().toLowerCase();
+                const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '') .toString().toLowerCase();
+                const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '') .toString().toLowerCase();
+                const status = (a.status || '') .toString().toLowerCase();
+
+                if (!q) return true;
+                return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q);
+            });
+
+            if (filtered.length === 0) {
+                pendingFilesList.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-search fs-1"></i>
+                        <p class="mt-2 mb-0">No matching files</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+            html += `<thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Register No.</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Uploaded</th>
+                        </tr>
+                    </thead><tbody>`;
+
+            filtered.forEach(a => {
+                const statusBadge = getStatusBadge(a.status);
+                const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() : 
+                                  (a.created_at ? new Date(a.created_at).toLocaleString() : 
+                                  (a.timestamp ? new Date(a.timestamp).toLocaleString() : '-'));
+                const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
+                const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
+                const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
+
+                html += `
+                    <tr>
+                        <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
+                        <td><span class="badge bg-secondary">${regNo}</span></td>
+                        <td><span class="badge bg-primary">${subCode}</span></td>
+                        <td>${statusBadge}</td>
+                        <td><small class="text-muted">${uploadDate}</small></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            html += `<div class="text-muted small mt-3">Showing ${filtered.length} of ${pendingArtifacts.length} files</div>`;
+            pendingFilesList.innerHTML = html;
+        }
+
+        // Attach search listener
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('pendingFilesSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    renderPendingFiles(e.target.value);
+                });
+            }
+        });
         
         // File upload zone handlers
         uploadZone.addEventListener('click', () => fileInput.click());
