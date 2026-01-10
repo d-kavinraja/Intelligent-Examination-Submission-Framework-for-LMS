@@ -809,9 +809,11 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="footer-logo">
-                        <i class="bi bi-mortarboard-fill me-2"></i>
-                        Saveetha Engineering College
+                    <div class="footer-logo d-flex align-items-center">
+                        <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png" alt="Saveetha Logo" style="height:50px; margin-right:10px;" />
+                        <div>
+                            <div style="font-weight:800; color: var(--gray-900);"></div>
+                        </div>
                     </div>
                     <p class="mb-3">
                         Leading institution dedicated to excellence in technical education and innovation.
@@ -867,7 +869,7 @@
             
             <div class="footer-bottom">
                 <p>
-                    © 2024 Saveetha Engineering College. All rights reserved. | 
+                    © 2026 Saveetha Engineering College. All rights reserved. | 
                     <a href="#" class="ms-1">Privacy Policy</a> | 
                     <a href="#" class="ms-1">Terms of Service</a>
                 </p>
@@ -1065,10 +1067,14 @@
                 const statusClass = isSubmitted ? 'submitted' : 'pending';
                 const statusText = isSubmitted ? 'Submitted' : 'Pending';
                 
+                // include session token in preview URL when available (server requires X-Session-ID or session param)
+                const previewUrl = `/student/paper/${paper.artifact_uuid}/view${sessionToken ? '?session=' + encodeURIComponent(sessionToken) : ''}`;
                 const isImage = ['jpg', 'jpeg', 'png'].includes(paper.file_extension?.toLowerCase());
                 const previewContent = isImage 
-                    ? `<img src="/student/paper/${paper.artifact_uuid}/view" alt="Paper preview" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-image text-secondary\\' style=\\'font-size: 5rem;\\'></i>'">` 
-                    : `<i class="bi bi-file-pdf pdf-icon"></i>`;
+                    ? `<img src="${previewUrl}" alt="Paper preview" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-image text-secondary\\' style=\\'font-size: 5rem;\\'></i>'">`
+                    : `<object data="${previewUrl}" type="application/pdf" style="width:100%; height:100%;">
+                            <iframe src="${previewUrl}" style="width:100%; height:100%; border:0;"></iframe>
+                       </object>`;
                 
                 return `
                     <div class="col-md-6 col-lg-4 mb-4">
