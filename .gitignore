@@ -1,4 +1,7 @@
-.venv
-# Logs
+__pycache__/
+*.pyc
 *.log
-
+exam_middleware/uploads/
+exam_middleware/storage/
+.env
+venv/
