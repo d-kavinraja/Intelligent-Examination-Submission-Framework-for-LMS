@@ -5,9 +5,10 @@ __pycache__/
 # Logs
 *.log
 
-# Uploads / runtime data
+# Runtime folders
 exam_middleware/uploads/
+exam_middleware/storage/
 
-# Virtual environment
+# Environment
+.env
 venv/
-
