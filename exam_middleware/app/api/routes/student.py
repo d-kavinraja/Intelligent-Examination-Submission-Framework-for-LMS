@@ -214,6 +214,7 @@ async def get_dashboard(
             assignment_name=mapping.moodle_assignment_name if mapping else None,
             filename=artifact.original_filename,
             uploaded_at=artifact.uploaded_at,
+            workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
             can_submit=assignment_id is not None,
             message=None if assignment_id else "Assignment mapping not found. Contact admin."
         ))

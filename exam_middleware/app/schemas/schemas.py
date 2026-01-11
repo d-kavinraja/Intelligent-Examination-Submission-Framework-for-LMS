@@ -179,6 +179,7 @@ class StudentPendingPaper(BaseModel):
     assignment_name: Optional[str]
     filename: str
     uploaded_at: datetime
+    workflow_status: Optional[str]
     can_submit: bool
     message: Optional[str] = None
 
