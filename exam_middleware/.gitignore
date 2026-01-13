@@ -1,2 +1,7 @@
+__pycache__/
+*.pyc
+*.log
+exam_middleware/uploads/
+exam_middleware/storage/
 .env
-.envexample
+venv/

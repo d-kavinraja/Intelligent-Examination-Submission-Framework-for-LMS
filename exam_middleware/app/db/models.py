@@ -31,6 +31,7 @@ class WorkflowStatus(str, PyEnum):
     SUBMITTED_TO_LMS = "SUBMITTED_TO_LMS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    DELETED = "DELETED"
     QUEUED = "QUEUED"  # For Moodle maintenance mode
 
 
