@@ -6,6 +6,8 @@ Creates all tables and seeds initial data
 import asyncio
 import sys
 import os
+import argparse
+from datetime import datetime
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +18,8 @@ from app.db.models import (
     StaffUser,
     SubjectMapping,
     SystemConfig,
+    ExaminationArtifact,
+    AuditLog,
 )
 from app.core.security import get_password_hash
 
@@ -174,7 +178,57 @@ async def verify_database():
     return True
 
 
-async def main():
+async def seed_sample_data():
+    """Create a small sample artifact and associated audit logs for local testing."""
+    async with async_session_maker() as session:
+        # Create a sample artifact
+        sample = ExaminationArtifact(
+            raw_filename='sample_999999999999_DEMO.pdf',
+            original_filename='999999999999_DEMO.pdf',
+            file_blob_path='storage/sample/999999999999_DEMO.pdf',
+            file_hash='deadbeefcafebabefeedfacecafebeef00000000000000000000000000000000',
+            parsed_reg_no='999999999999',
+            parsed_subject_code='DEMO',
+            file_size_bytes=1024,
+            mime_type='application/pdf',
+            workflow_status='PENDING'
+        )
+        session.add(sample)
+        await session.flush()
+
+        # Create a sample report_issue audit log
+        issue = AuditLog(
+            action='report_issue',
+            action_category='report',
+            actor_type='student',
+            actor_id='999999999999',
+            actor_username='999999999999',
+            artifact_id=sample.id,
+            description='Sample report (for testing)',
+            request_data={'notes': 'Sample report created by init_db'},
+        )
+        session.add(issue)
+        await session.flush()
+
+        # Optionally create a deleted log (commented out by default)
+        # deleted = AuditLog(
+        #     action='report_deleted',
+        #     action_category='report',
+        #     actor_type='student',
+        #     actor_id='999999999999',
+        #     actor_username='999999999999',
+        #     artifact_id=sample.id,
+        #     target_type='audit_log',
+        #     target_id=str(issue.id),
+        #     description='Sample withdrawn report'
+        # )
+        # session.add(deleted)
+
+        await session.commit()
+        print('✓ Seeded sample artifact and report_issue audit log (reg 999999999999)')
+
+
+async def main(seed_samples: bool = False):
     """Main initialization function."""
     print("=" * 60)
     print("  Examination Middleware - Database Initialization")
@@ -190,6 +244,9 @@ async def main():
     await seed_staff_user()
     await seed_subject_mappings()
     await seed_system_config()
+    if seed_samples:
+        print("Seeding optional sample data...")
+        await seed_sample_data()
     print()
     
     # Verify
@@ -213,4 +270,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description='Initialize database and seed data')
+    parser.add_argument('--seed-samples', action='store_true', help='Seed sample artifacts and audit logs for local testing')
+    args = parser.parse_args()
+
+    asyncio.run(main(seed_samples=args.seed_samples))

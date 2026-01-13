@@ -9,6 +9,40 @@
 
 ---
 
+## ⚠️ Recent updates (2026-01-12)
+
+The codebase has received several maintenance and UX updates to improve safety, auditing and staff workflows. Highlights:
+
+- New maintenance scripts:
+   - `setup_username_reg.py` — upsert a single Moodle `username -> register_number` mapping. Useful to seed or correct mappings used during student login and pending-list authorization. Example:
+
+      ```bash
+      # interactive
+      python setup_username_reg.py
+
+      # direct
+      python setup_username_reg.py --username 22007928 --register 212222240047
+      ```
+
+   - `setup_subject_mapping.py` — interactive workflow to find an assignment by course-module-id (CMID) in Moodle, create or update a `SubjectMapping`, and optionally fix existing artifacts that reference the wrong assignment id.
+
+- Staff UI changes:
+   - `app/templates/staff_upload.html` now contains a Reports modal (view/resolve/edit/delete reports) and improved listing behaviour.
+   - The `Total Uploaded` stat is computed from the visible (non-deleted) artifacts returned by the listing endpoint, so the navbar count now matches the visible table ("Showing X of Y files").
+   - Client-side behaviour was hardened: the student/staff login flows no longer call `localStorage.clear()`; only session keys are removed on logout.
+
+- Backend/service changes (important for deploy and troubleshooting):
+   - `app/services/artifact_service.py` was hardened to explicitly catch `IntegrityError` on DB flush/commit and to rollback safely. This reduces silent failures for duplicate transaction IDs.
+   - `get_pending_for_student()` requires either a valid 12-digit `register_number` OR both `moodle_user_id` and `moodle_username`. This prevents ambiguous or leaking results when student identity is unclear.
+   - Admin remediation: if a deterministic `transaction_id` collides with an existing (deleted/archived) artifact, clearing or nulling the `transaction_id` in the DB row will allow a re-upload. Use the `audit_logs` and `ExaminationArtifact` table to locate problematic rows before manual edits.
+
+- API and client notes:
+   - Staff UI attempts multiple common listing endpoints (e.g. `/api/upload/all`, `/upload/all`, `/api/artifacts`) to be resilient against different backend deployments. Prefer endpoints that return an array of `artifacts` for best UI compatibility.
+   - Consider returning HTTP 409 for DB integrity conflicts (duplicate transaction / unique constraint) so the client can surface a clear message instead of a generic 500.
+
+---
+
+
 ##  The Problem Statement
 
 In academic institutions transitioning to digital grading, handling physical answer scripts presents significant logistical challenges:
@@ -54,6 +88,151 @@ The database is designed for data integrity and auditability. Key models include
 
 ---
 
+## Database tables created by `init_db.py`
+
+When you run `python init_db.py` it executes SQLAlchemy's `Base.metadata.create_all()` which creates the database tables defined in `app/db/models.py`. On PostgreSQL, the necessary sequences for integer primary keys are created automatically.
+
+The `init_db.py` script seeds minimal configuration (default admin user, subject mappings, system config). If you run with the `--seed-samples` flag it will also add a sample artifact and `report_issue` audit log useful for local testing.
+
+Below is the full list of tables and sequences that should be present after running `init_db.py` (example `\d` output):
+
+```
+ public | audit_logs                       | table    | postgres
+ public | audit_logs_id_seq                | sequence | postgres
+ public | examination_artifacts            | table    | postgres
+ public | examination_artifacts_id_seq     | sequence | postgres
+ public | staff_users                      | table    | postgres
+ public | staff_users_id_seq               | sequence | postgres
+ public | student_sessions                 | table    | postgres
+ public | student_sessions_id_seq          | sequence | postgres
+ public | student_username_register        | table    | postgres
+ public | student_username_register_id_seq | sequence | postgres
+ public | subject_mappings                 | table    | postgres
+ public | subject_mappings_id_seq          | sequence | postgres
+ public | submission_queue                 | table    | postgres
+ public | submission_queue_id_seq          | sequence | postgres
+ public | system_config                    | table    | postgres
+ public | system_config_id_seq             | sequence | postgres
+```
+
+If any of these tables are missing after running `init_db.py`:
+
+- Ensure your `DATABASE_URL` is set and points to the database you initialized.
+- Confirm the DB user has privileges to create tables in the `public` schema.
+- Check `init_db.py` output for errors and fix any import or connection issues before re-running.
+
+For production deployments we strongly recommend using Alembic for schema migrations instead of `create_all()` so you can evolve the schema safely across releases.
+
+## Detailed schema (information_schema.columns)
+
+Below is a dump of `information_schema.columns` for the `public` schema taken from a development database. It lists every table, column, data type, nullability and default value. This is useful for developers who want to inspect the actual physical schema created by `init_db.py`.
+
+```
+audit_logs                | id                     | integer                  | NO          | nextval('audit_logs_id_seq'::regclass)
+audit_logs                | action                 | character varying        | NO          |
+audit_logs                | action_category        | character varying        | NO          |
+audit_logs                | description            | text                     | YES         |
+audit_logs                | actor_type             | character varying        | NO          |
+audit_logs                | actor_id               | character varying        | YES         |
+audit_logs                | actor_username         | character varying        | YES         |
+audit_logs                | actor_ip               | character varying        | YES         |
+audit_logs                | artifact_id            | integer                  | YES         |
+audit_logs                | target_type            | character varying        | YES         |
+audit_logs                | target_id              | character varying        | YES         |
+audit_logs                | request_data           | jsonb                    | YES         |
+audit_logs                | response_data          | jsonb                    | YES         |
+audit_logs                | error_details          | jsonb                    | YES         |
+audit_logs                | moodle_api_function    | character varying        | YES         |
+audit_logs                | moodle_response_code   | integer                  | YES         |
+audit_logs                | created_at             | timestamp with time zone | YES         | now()
+examination_artifacts     | id                     | integer                  | NO          | nextval('examination_artifacts_id_seq'::regclass)
+examination_artifacts     | artifact_uuid          | uuid                     | NO          |
+examination_artifacts     | raw_filename           | character varying        | NO          |
+examination_artifacts     | original_filename      | character varying        | NO          |
+examination_artifacts     | parsed_reg_no          | character varying        | YES         |
+examination_artifacts     | parsed_subject_code    | character varying        | YES         |
+examination_artifacts     | file_blob_path         | character varying        | NO          |
+examination_artifacts     | file_hash              | character varying        | NO          |
+examination_artifacts     | file_size_bytes        | bigint                   | YES         |
+examination_artifacts     | mime_type              | character varying        | YES         |
+examination_artifacts     | moodle_user_id         | bigint                   | YES         |
+examination_artifacts     | moodle_username        | character varying        | YES         |
+examination_artifacts     | moodle_course_id       | integer                  | YES         |
+examination_artifacts     | moodle_assignment_id   | integer                  | YES         |
+examination_artifacts     | workflow_status        | USER-DEFINED             | NO          |
+examination_artifacts     | moodle_draft_item_id   | bigint                   | YES         |
+examination_artifacts     | moodle_submission_id   | character varying        | YES         |
+examination_artifacts     | lms_transaction_id     | character varying        | YES         |
+examination_artifacts     | transaction_id         | character varying        | YES         |
+examination_artifacts     | uploaded_at            | timestamp with time zone | YES         | now()
+examination_artifacts     | validated_at           | timestamp with time zone | YES         |
+examination_artifacts     | submit_timestamp       | timestamp with time zone | YES         |
+examination_artifacts     | completed_at           | timestamp with time zone | YES         |
+examination_artifacts     | uploaded_by_staff_id   | integer                  | YES         |
+examination_artifacts     | submitted_by_user_id   | bigint                   | YES         |
+examination_artifacts     | transaction_log        | jsonb                    | YES         |
+examination_artifacts     | error_message          | text                     | YES         |
+examination_artifacts     | retry_count            | integer                  | YES         |
+staff_users               | id                     | integer                  | NO          | nextval('staff_users_id_seq'::regclass)
+staff_users               | username               | character varying        | NO          |
+staff_users               | email                  | character varying        | NO          |
+staff_users               | hashed_password        | character varying        | NO          |
+staff_users               | full_name              | character varying        | YES         |
+staff_users               | role                   | character varying        | YES         |
+staff_users               | is_active              | boolean                  | YES         |
+staff_users               | created_at             | timestamp with time zone | YES         | now()
+staff_users               | last_login_at          | timestamp with time zone | YES         |
+student_sessions          | id                     | integer                  | NO          | nextval('student_sessions_id_seq'::regclass)
+student_sessions          | session_id             | character varying        | NO          |
+student_sessions          | moodle_user_id         | bigint                   | NO          |
+student_sessions          | moodle_username        | character varying        | NO          |
+student_sessions          | moodle_fullname        | character varying        | YES         |
+student_sessions          | encrypted_token        | text                     | NO          |
+student_sessions          | token_expires_at       | timestamp with time zone | YES         |
+student_sessions          | ip_address             | character varying        | YES         |
+student_sessions          | user_agent             | character varying        | YES         |
+student_sessions          | created_at             | timestamp with time zone | YES         | now()
+student_sessions          | last_activity_at       | timestamp with time zone | YES         | now()
+student_sessions          | expires_at             | timestamp with time zone | NO          |
+student_sessions          | register_number        | character varying        | YES         |
+student_username_register | id                     | integer                  | NO          | nextval('student_username_register_id_seq'::regclass)
+student_username_register | moodle_username        | character varying        | NO          |
+student_username_register | register_number        | character varying        | NO          |
+student_username_register | created_at             | timestamp with time zone | YES         | now()
+student_username_register | updated_at             | timestamp with time zone | YES         |
+subject_mappings          | id                     | integer                  | NO          | nextval('subject_mappings_id_seq'::regclass)
+subject_mappings          | subject_code           | character varying        | NO          |
+subject_mappings          | subject_name           | character varying        | YES         |
+subject_mappings          | moodle_course_id       | integer                  | NO          |
+subject_mappings          | moodle_course_idnumber | character varying        | YES         |
+subject_mappings          | moodle_assignment_id   | integer                  | NO          |
+subject_mappings          | moodle_assignment_name | character varying        | YES         |
+subject_mappings          | exam_session           | character varying        | YES         |
+subject_mappings          | is_active              | boolean                  | YES         |
+subject_mappings          | created_at             | timestamp with time zone | YES         | now()
+subject_mappings          | updated_at             | timestamp with time zone | YES         |
+subject_mappings          | last_verified_at       | timestamp with time zone | YES         |
+submission_queue          | id                     | integer                  | NO          | nextval('submission_queue_id_seq'::regclass)
+submission_queue          | artifact_id            | integer                  | NO          |
+submission_queue          | status                 | character varying        | YES         |
+submission_queue          | priority               | integer                  | YES         |
+submission_queue          | retry_count            | integer                  | YES         |
+submission_queue          | max_retries            | integer                  | YES         |
+submission_queue          | next_retry_at          | timestamp with time zone | YES         |
+submission_queue          | queued_at              | timestamp with time zone | YES         | now()
+submission_queue          | processed_at           | timestamp with time zone | YES         |
+submission_queue          | last_error             | text                     | YES         |
+system_config             | id                     | integer                  | NO          | nextval('system_config_id_seq'::regclass)
+system_config             | key                    | character varying        | NO          |
+system_config             | value                  | text                     | YES         |
+system_config             | value_type             | character varying        | YES         |
+system_config             | description            | text                     | YES         |
+system_config             | updated_at             | timestamp with time zone | YES         |
+```
+
+This listing is provided for convenience—your actual schema may differ slightly depending on the database version and any future schema changes. Always inspect your database with `\d` (psql) or `information_schema.columns` when debugging.
+
+
 ## 🔄 Workflow of the Platform
 
 ### Phase 1: Administration & Setup
@@ -82,7 +261,7 @@ The database is designed for data integrity and auditability. Key models include
 - Moodle LMS with Web Services enabled
 - Redis (optional, for background tasks)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone and Setup
 
@@ -140,6 +319,64 @@ SUBJECT_ASSIGNMENT_MAP=19AI405:4,19AI411:6,ML:2
 # Create database
 psql -U postgres -c "CREATE DATABASE exam_middleware;"
 ```
+
+### Developer setup (recommended)
+
+These additional steps make it easy for a new developer to get a working local environment.
+
+1. Create a dedicated DB role and grant privileges (run in psql as a superuser):
+
+```sql
+-- Replace <devuser> and <devpassword>
+CREATE ROLE devuser WITH LOGIN PASSWORD '<devpassword>';
+CREATE DATABASE exam_middleware OWNER devuser;
+GRANT ALL PRIVILEGES ON DATABASE exam_middleware TO devuser;
+\c exam_middleware
+GRANT ALL PRIVILEGES ON SCHEMA public TO devuser;
+```
+
+2. Export a `DATABASE_URL` for local development (example):
+
+```powershell
+$env:DATABASE_URL = 'postgresql+asyncpg://devuser:<devpassword>@localhost:5432/exam_middleware'
+# Linux/macOS
+export DATABASE_URL='postgresql+asyncpg://devuser:<devpassword>@localhost:5432/exam_middleware'
+```
+
+3. Create a virtualenv and install dependencies:
+
+```bash
+python -m venv .venv
+# Windows
+.\.venv\Scripts\activate
+# Linux/macOS
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+4. Initialize the database (creates tables and seeds minimal config):
+
+```bash
+python init_db.py
+```
+
+5. Seed optional sample data (useful for manual testing):
+
+```bash
+python init_db.py --seed-samples
+```
+
+6. Run the app with a production-like server during development:
+
+```bash
+# Use uvicorn directly (recommended in dev)
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Notes:
+- The project uses `Base.metadata.create_all` in `init_db.py` to create tables. For production, use Alembic migrations instead of `create_all`.
+- Replace placeholder passwords and secrets in `.env.example` before use; never commit real secrets to git.
+- Consider running the app behind a reverse-proxy (nginx) and enabling TLS for production.
 
 ### 6. Initialize Database
 

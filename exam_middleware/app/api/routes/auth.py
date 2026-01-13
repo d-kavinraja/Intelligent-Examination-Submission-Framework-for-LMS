@@ -13,6 +13,7 @@ import secrets
 
 from app.db.database import get_db
 from app.db.models import StaffUser, StudentSession
+from app.db.models import StudentUsernameRegister
 from app.schemas import (
     StaffLoginRequest,
     StaffLoginResponse,
@@ -213,7 +214,28 @@ async def student_login(
         moodle_username = site_info["username"]
         moodle_fullname = site_info.get("fullname", "")
         
-        # Step 3: Create session
+        # Step 3: Validate mapping between Moodle username and provided register number
+        # Look up mapping table to ensure the Moodle account is allowed to claim the provided register number
+        result_map = await db.execute(
+            select(StudentUsernameRegister).where(StudentUsernameRegister.moodle_username == moodle_username)
+        )
+        mapping = result_map.scalar_one_or_none()
+        if mapping is None:
+            # No explicit mapping found; deny login to prevent unauthorized access
+            logger.warning(f"Login denied: no username->register mapping for {moodle_username}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account not mapped to a register number. Contact administration."
+            )
+
+        if mapping.register_number != credentials.register_number:
+            logger.warning(f"Login denied: register mismatch for {moodle_username} (provided {credentials.register_number} expected {mapping.register_number})")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Register number does not match the account. Access denied."
+            )
+
+        # Step 4: Create session
         session_id = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
         
@@ -240,7 +262,8 @@ async def student_login(
         artifact_service = ArtifactService(db)
         pending_papers = await artifact_service.get_pending_for_student(
             register_number=credentials.register_number,
-            moodle_user_id=moodle_user_id
+            moodle_user_id=moodle_user_id,
+            moodle_username=moodle_username
         )
         
         logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Pending papers: {len(pending_papers)}")

@@ -605,33 +605,117 @@
         #dashboardSection.active {
             display: block;
         }
+        
+        /* Mobile navbar tweaks */
+        @media (max-width: 576px) {
+            .navbar { padding: 0.5rem 0; }
+            .navbar .container { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+            .navbar-brand { font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+            .navbar-brand i { font-size: 1.1rem; }
+            .navbar-nav { display: flex; align-items: center; gap: 0.5rem; }
+            .navbar-text { gap: 6px; font-size: 0.95rem; }
+            .navbar .user-name { white-space: normal; overflow: visible; text-overflow: initial; max-width: none; }
+            .user-row, .actions-row { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .actions-row { flex-wrap: nowrap; }
+            .actions-row .btn { min-width: 44px; }
+        }
+
+        /* Desktop: ensure actions align vertically centered */
+        @media (min-width: 992px) {
+            .navbar .actions-row { align-items: center; }
+            .navbar .user-row { align-items: center; display: flex; }
+            /* On large screens, place user info next to actions on the right */
+            .navbar .d-flex.flex-column.flex-lg-row { justify-content: flex-end; }
+            .navbar .flex-grow-1.user-row { flex: 0 0 auto; order: 2; margin-right: 0.75rem; justify-content: flex-end; }
+            .navbar .actions-row { order: 3; }
+            .navbar .user-name { white-space: nowrap; }
+        }
+            .btn { padding: 0.35rem 0.6rem; font-size: 0.82rem; }
+            .btn-outline-primary, .btn-outline-secondary, .btn-outline-danger { padding: 0.25rem 0.5rem; font-size: 0.78rem; }
+            .btn-group .dropdown-menu { right: 0; left: auto; }
+            /* Ensure logout button aligns to the right and stays visible */
+            #logoutBtn { margin-left: 0.5rem; }
+        }
     </style>
     <link href="/static/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div>
-            <div class="loading-spinner"></div>
-            <p class="mt-3 fw-medium" style="color: var(--gray-600);">Processing...</p>
+    <div class="loader-overlay" id="loadingOverlay" role="status" aria-hidden="true">
+        <div style="text-align:center;">
+            <div class="spinner" aria-hidden="true">
+                <div></div><div></div><div></div><div></div><div></div>
+                <div></div><div></div><div></div><div></div><div></div>
+            </div>
+            
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
             <a class="navbar-brand" href="#">
                 <i class="bi bi-mortarboard-fill me-2"></i>
                 Student Portal
             </a>
-            <div class="navbar-nav ms-auto align-items-center">
-                <span class="navbar-text me-3" id="userInfo" style="display: none;">
-                    <i class="bi bi-person-circle me-1"></i>
-                    <span id="userName" class="fw-semibold"></span>
-                </span>
-                <button class="btn btn-outline-danger btn-sm" id="logoutBtn" style="display: none;" onclick="logout()">
-                    <i class="bi bi-box-arrow-right me-1"></i> Logout
-                </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#studentNavbar" aria-controls="studentNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="studentNavbar">
+                <div class="navbar-nav ms-auto align-items-center w-100">
+                    <div class="d-flex flex-column flex-lg-row align-items-center w-100 py-2 py-lg-0">
+                        <!-- user info will render inline with actions on large screens -->
+
+                        <div class="d-flex align-items-center actions-row" style="gap:0.5rem;">
+                            <div id="userInfo" class="d-flex d-lg-none justify-content-center w-100 mb-2">
+                                <i class="bi bi-person-circle me-1"></i>
+                                <span id="userNameMobile" class="fw-semibold user-name"></span>
+                            </div>
+                            <div class="user-inline d-none d-lg-flex align-items-center me-2">
+                                <i class="bi bi-person-circle me-1"></i>
+                                <span id="userNameDesktop" class="fw-semibold user-name"></span>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button id="reportsBtn" class="btn btn-outline-primary btn-sm" onclick="openMyReportsModal()">
+                                    <i class="bi bi-bell"></i>
+                                    <span id="reportsBadge" class="badge bg-danger ms-1" style="display:none;">0</span>
+                                </button>
+                                <button id="reportsSettingsBtn" class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="visually-hidden">Toggle polling interval</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end p-3" aria-labelledby="reportsSettingsBtn" style="min-width:200px;">
+                                    <li class="mb-2"><strong>Report Poll Interval</strong></li>
+                                    <li>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pollInterval" id="poll10" value="10000">
+                                            <label class="form-check-label" for="poll10">10 seconds</label>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pollInterval" id="poll30" value="30000">
+                                            <label class="form-check-label" for="poll30">30 seconds (default)</label>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pollInterval" id="poll60" value="60000">
+                                            <label class="form-check-label" for="poll60">60 seconds</label>
+                                        </div>
+                                    </li>
+                                    <li class="mt-2">
+                                        <button class="btn btn-sm btn-primary" id="savePollIntervalBtn">Save</button>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <button class="btn btn-outline-danger btn-sm" id="logoutBtn" style="display: none;" onclick="logout()">
+                                    <i class="bi bi-box-arrow-right me-1"></i> Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
     </nav>
 
     <div class="container main-container">
@@ -753,9 +837,29 @@
         </div>
     </div>
 
+            <!-- My Reports Modal (student) -->
+            <div class="modal fade" id="myReportsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">My Reports</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="myReportsModalBody">
+                            <div class="text-center py-4 text-muted">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toast container for non-blocking notifications -->
+            <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+                <div id="toastContainer"></div>
+            </div>
+
     <!-- Submission Confirmation Modal -->
     <div class="modal fade" id="confirmModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -803,6 +907,45 @@
             </div>
         </div>
     </div>
+
+            <!-- Report Issue Modal -->
+            <div class="modal fade" id="reportModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title mb-0">
+                                <i class="bi bi-flag-fill me-2"></i>
+                                Report an Issue with this Paper
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Describe the problem</label>
+                                <textarea id="reportMessage" class="form-control" rows="4" placeholder="Explain what's wrong (wrong register number, subject code, damaged file etc.)"></textarea>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Suggested Register No</label>
+                                    <input id="reportSuggestedReg" class="form-control" maxlength="12" placeholder="12-digit reg (optional)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Suggested Subject Code</label>
+                                    <input id="reportSuggestedSub" class="form-control" placeholder="e.g. 19AI405">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <div>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-danger" id="reportSubmitBtn" onclick="submitReport()">Submit Report</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
     <!-- Footer -->
     <footer class="footer">
@@ -887,6 +1030,8 @@
         let studentRegNo = null;
         let papers = [];
         let currentPaperId = null;
+        let currentReportArtifact = null;
+        let studentReportsCache = []; // cache of last-fetched reports for change detection
         
         // DOM Elements
         const loginSection = document.getElementById('loginSection');
@@ -907,6 +1052,8 @@
                     showLoading();
                     showDashboard(name || regNo);
                     await loadPapers();
+                    await loadReportNotifications();
+                    startReportPolling();
                     hideLoading();
                 } catch (error) {
                     console.log('Session validation failed:', error);
@@ -938,23 +1085,67 @@
                         register_number: registerNumber
                     })
                 });
-                
-                const data = await response.json();
-                
+
+                // Attempt to parse JSON, but fall back to text for non-JSON responses
+                let data = {};
+                try {
+                    const text = await response.text();
+                    data = text ? JSON.parse(text) : {};
+                } catch (err) {
+                    // not JSON
+                    data = { _raw: err ? String(err) : undefined };
+                }
+
                 if (response.ok && data.session_id) {
-                    localStorage.clear();
-                    
+                    // Clear only session-related keys (avoid wiping user preferences)
+                    try {
+                        localStorage.removeItem('studentToken');
+                        localStorage.removeItem('studentRegNo');
+                        localStorage.removeItem('studentName');
+                    } catch (e) {}
+
                     sessionToken = data.session_id;
                     studentRegNo = registerNumber;
-                    
+
                     localStorage.setItem('studentToken', sessionToken);
                     localStorage.setItem('studentRegNo', registerNumber);
                     localStorage.setItem('studentName', data.full_name || username);
-                    
+
                     showDashboard(data.full_name || username);
                     await loadPapers();
+                    await loadReportNotifications();
+                    startReportPolling();
                 } else {
-                    showLoginError(data.detail || 'Login failed. Please check your credentials.');
+                    // Derive a friendly error message from common API shapes
+                    let message = 'Login failed. Please check your credentials.';
+
+                    if (data) {
+                        if (data.detail) {
+                            if (Array.isArray(data.detail)) {
+                                // FastAPI validation error array
+                                message = data.detail.map(d => d.msg || d.message || JSON.stringify(d)).join('; ');
+                            } else if (typeof data.detail === 'string') {
+                                message = data.detail;
+                            } else if (data.detail.message) {
+                                message = data.detail.message;
+                            } else {
+                                message = JSON.stringify(data.detail);
+                            }
+                        } else if (data.message) {
+                            message = data.message;
+                        } else if (data.error) {
+                            message = data.error;
+                        } else if (data._raw) {
+                            message = data._raw;
+                        }
+                    }
+
+                    // If still generic, prefer status text when available
+                    if ((!message || message === '{}') && response.statusText) {
+                        message = response.statusText;
+                    }
+
+                    showLoginError(message);
                 }
             } catch (error) {
                 showLoginError('Connection error. Please try again.');
@@ -974,7 +1165,10 @@
             loginSection.classList.remove('active');
             dashboardSection.classList.add('active');
             document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('userName').textContent = studentRegNo;
+            const mobileName = document.getElementById('userNameMobile');
+            const desktopName = document.getElementById('userNameDesktop');
+            if (mobileName) mobileName.textContent = studentRegNo;
+            if (desktopName) desktopName.textContent = studentRegNo;
             document.getElementById('logoutBtn').style.display = 'block';
             document.getElementById('studentName').textContent = name;
         }
@@ -1101,6 +1295,9 @@
                                     <button class="btn btn-outline-primary btn-sm flex-grow-1" onclick="viewPaper('${paper.artifact_uuid}', '${paper.subject_code}', ${isSubmitted})">
                                         <i class="bi bi-eye me-1"></i> View
                                     </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="openReportModal('${paper.artifact_uuid}')">
+                                        <i class="bi bi-flag-fill me-1"></i> Report
+                                    </button>
                                     ${!isSubmitted ? `
                                         <button class="btn btn-submit btn-sm flex-grow-1" ${!canSubmit ? 'disabled' : ''} onclick="initSubmission('${paper.artifact_uuid}', '${paper.subject_code}', '${paper.filename || paper.original_filename}')">
                                             <i class="bi bi-cloud-upload me-1"></i> Submit
@@ -1146,6 +1343,74 @@
                 if (paper) {
                     initSubmission(paper.id, paper.subject_code, paper.original_filename);
                 }
+            }
+        }
+
+        function openReportModal(artifactId) {
+            currentReportArtifact = artifactId;
+            document.getElementById('reportMessage').value = '';
+            document.getElementById('reportSuggestedReg').value = '';
+            document.getElementById('reportSuggestedSub').value = '';
+            const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+            modal.show();
+        }
+
+        async function submitReport() {
+            const msg = document.getElementById('reportMessage').value.trim();
+            const suggestedReg = document.getElementById('reportSuggestedReg').value.trim();
+            const suggestedSub = document.getElementById('reportSuggestedSub').value.trim();
+
+            if (!msg) {
+                alert('Please enter a description of the problem.');
+                return;
+            }
+
+            const submitBtn = document.getElementById('reportSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+
+            try {
+                if (!sessionToken) {
+                    alert('Session missing or expired. Please login again.');
+                    logout();
+                    return;
+                }
+
+                // Send session both as header and query param as fallback
+                const url = `/student/paper/${encodeURIComponent(currentReportArtifact)}/report?session=${encodeURIComponent(sessionToken)}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionToken
+                    },
+                    body: JSON.stringify({
+                        message: msg,
+                        suggested_reg_no: suggestedReg || null,
+                        suggested_subject_code: suggestedSub || null
+                    })
+                });
+
+                const data = await res.json();
+                if (res.status === 401) {
+                    alert('Session invalid or expired. Please login again.');
+                    logout();
+                    return;
+                }
+
+                if (res.ok) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+                    if (modal) modal.hide();
+                    showResult(true, 'Report Sent', `<p class="mb-0">Your report was submitted. Staff will review and respond.</p>`);
+                } else {
+                    alert(data.detail || data.message || 'Failed to submit report');
+                }
+            } catch (err) {
+                console.error('Report error', err);
+                alert('Failed to submit report. Please try again later.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Report';
             }
         }
         
@@ -1226,6 +1491,230 @@
         function hideLoading() {
             loadingOverlay.classList.remove('active');
         }
+
+        // Toast helper for non-blocking notifications
+        function showToast(title, htmlContent, variant = 'info') {
+            try {
+                const container = document.getElementById('toastContainer');
+                const toastEl = document.createElement('div');
+                toastEl.className = 'toast align-items-center text-bg-light border-0';
+                toastEl.setAttribute('role', 'alert');
+                toastEl.setAttribute('aria-live', 'polite');
+                toastEl.setAttribute('aria-atomic', 'true');
+
+                const header = document.createElement('div');
+                header.className = 'd-flex justify-content-between align-items-center p-2';
+                header.style.borderBottom = '1px solid rgba(0,0,0,0.05)';
+
+                const titleEl = document.createElement('strong');
+                titleEl.className = 'me-auto';
+                titleEl.innerHTML = title;
+
+                const btnClose = document.createElement('button');
+                btnClose.type = 'button';
+                btnClose.className = 'btn-close btn-close-white me-2';
+                btnClose.setAttribute('data-bs-dismiss', 'toast');
+                btnClose.setAttribute('aria-label', 'Close');
+
+                header.appendChild(titleEl);
+                header.appendChild(btnClose);
+
+                const body = document.createElement('div');
+                body.className = 'toast-body p-3';
+                body.innerHTML = htmlContent;
+
+                toastEl.appendChild(header);
+                toastEl.appendChild(body);
+
+                container.appendChild(toastEl);
+
+                const bsToast = new bootstrap.Toast(toastEl, { delay: 8000 });
+                bsToast.show();
+
+                toastEl.addEventListener('hidden.bs.toast', () => {
+                    try { container.removeChild(toastEl); } catch (e) {}
+                });
+            } catch (e) {
+                console.warn('Could not show toast', e);
+            }
+        }
+
+        // Fetch student's reports and update notification badge
+        async function loadReportNotifications() {
+            if (!sessionToken) return;
+            try {
+                const res = await fetch('/student/reports', {
+                    headers: { 'X-Session-ID': sessionToken }
+                });
+                if (!res.ok) return;
+                const reports = await res.json();
+                const unresolved = (reports || []).filter(r => !r.resolved).length;
+                // detect newly resolved reports
+                try {
+                    const prevMap = {};
+                    (studentReportsCache || []).forEach(r => { prevMap[String(r.id)] = r; });
+                    const newlyResolved = [];
+                    (reports || []).forEach(r => {
+                        const prev = prevMap[String(r.id)];
+                        if (prev && !prev.resolved && r.resolved) {
+                            newlyResolved.push(r);
+                        }
+                    });
+                    if (newlyResolved.length) {
+                        newlyResolved.forEach(nr => {
+                            showToast('Report Resolved', `
+                                <h6 class="mb-1">Your report for paper ${nr.artifact_uuid || nr.artifact_id} was resolved</h6>
+                                <div class="small text-muted">Resolved by: ${nr.resolved_by || '-'} on ${nr.resolved_at ? new Date(nr.resolved_at).toLocaleString() : '-'}</div>
+                                ${nr.resolved_note ? `<div class="mt-2">Note: ${nr.resolved_note}</div>` : ''}
+                            `, 'success');
+                        });
+                    }
+                } catch (e) {
+                    console.warn('report change detection failed', e);
+                }
+                const btn = document.getElementById('reportsBtn');
+                const badge = document.getElementById('reportsBadge');
+                // Always show the reports (bell) button; only show badge when there are unresolved reports
+                btn.style.display = 'inline-block';
+                if (unresolved > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.textContent = String(unresolved);
+                } else {
+                    badge.style.display = 'none';
+                }
+                // update cache
+                studentReportsCache = reports || [];
+            } catch (e) {
+                console.warn('Could not load report notifications', e);
+            }
+        }
+
+        async function openMyReportsModal() {
+            const modalEl = document.getElementById('myReportsModal');
+            const bodyEl = document.getElementById('myReportsModalBody');
+            const modal = new bootstrap.Modal(modalEl);
+            bodyEl.innerHTML = '<div class="text-center py-4 text-muted">Loading...</div>';
+            modal.show();
+
+            try {
+                const res = await fetch('/student/reports', { headers: { 'X-Session-ID': sessionToken } });
+                if (!res.ok) {
+                    bodyEl.innerHTML = '<div class="alert alert-danger">Failed to load reports.</div>';
+                    return;
+                }
+
+                const reports = await res.json();
+                if (!reports || !reports.length) {
+                    bodyEl.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-chat-left-dots fs-1"></i><p class="mt-2">You have not submitted any reports.</p></div>';
+                    return;
+                }
+
+                let html = '<div class="list-group">';
+                reports.forEach(r => {
+                    html += `<div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>${r.artifact_uuid || 'Paper'}</strong>
+                                <div class="small text-muted">Submitted: ${new Date(r.created_at).toLocaleString()}</div>
+                            </div>
+                            <div class="text-end">
+                                ${r.resolved ? `<span class="badge bg-success">Resolved</span>` : `<span class="badge bg-warning text-dark">Pending</span>`}
+                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteStudentReport(${r.id})">Delete</button>
+                            </div>
+                        </div>
+                        <div class="mt-2">${r.description || ''}</div>
+                        ${r.resolved ? `<div class="mt-2 small text-muted">Resolved by: ${r.resolved_by || '-'} on ${r.resolved_at ? new Date(r.resolved_at).toLocaleString() : '-' }${r.resolved_note ? `<div>Note: ${r.resolved_note}</div>` : ''}</div>` : ''}
+                    </div>`;
+                });
+                html += '</div>';
+                bodyEl.innerHTML = html;
+            } catch (err) {
+                console.error('Error loading student reports', err);
+                bodyEl.innerHTML = '<div class="alert alert-danger">Error loading reports</div>';
+            }
+        }
+
+        // Allow student to delete their own report (withdraw)
+        async function deleteStudentReport(reportId) {
+            if (!reportId) return;
+            try {
+                const res = await fetch(`/student/reports/${encodeURIComponent(reportId)}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Session-ID': sessionToken }
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    // Refresh modal and notification badge (no success toast to avoid duplicate messages)
+                    await loadReportNotifications();
+                    await openMyReportsModal();
+                } else {
+                    showToast(data.detail || data.message || 'Failed to delete report', 'danger');
+                }
+            } catch (err) {
+                console.error('Error deleting report', err);
+                showToast('Error deleting report', 'danger');
+            }
+        }
+
+        // Polling scheduler (configurable)
+        let reportPollTimerId = null;
+
+        function getPollIntervalMs() {
+            const v = localStorage.getItem('reportPollIntervalMs');
+            return v ? parseInt(v, 10) : 30000;
+        }
+
+        function scheduleNextReportPoll() {
+            const interval = getPollIntervalMs();
+            if (reportPollTimerId) {
+                clearTimeout(reportPollTimerId);
+                reportPollTimerId = null;
+            }
+            reportPollTimerId = setTimeout(async () => {
+                if (sessionToken) await loadReportNotifications();
+                scheduleNextReportPoll();
+            }, interval);
+        }
+
+        function startReportPolling() {
+            scheduleNextReportPoll();
+        }
+
+        function stopReportPolling() {
+            if (reportPollTimerId) {
+                clearTimeout(reportPollTimerId);
+                reportPollTimerId = null;
+            }
+        }
+
+        // Wire up polling interval controls
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const cur = String(getPollIntervalMs());
+                const radios = document.getElementsByName('pollInterval');
+                radios.forEach(r => { if (r.value === cur) r.checked = true; });
+            } catch (e) {}
+
+            const saveBtn = document.getElementById('savePollIntervalBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    try {
+                        const radios = document.getElementsByName('pollInterval');
+                        let selected = null;
+                        radios.forEach(r => { if (r.checked) selected = r.value; });
+                        if (selected) {
+                            localStorage.setItem('reportPollIntervalMs', String(selected));
+                            // restart polling with new interval
+                            if (sessionToken) {
+                                startReportPolling();
+                            }
+                            const dd = document.querySelector('#reportsSettingsBtn');
+                            if (dd) dd.click();
+                        }
+                    } catch (e) { console.warn(e); }
+                });
+            }
+        });
     </script>
     <!-- Removed artificial loader overlay and delay to prevent double-submit UX issues -->
 </body>

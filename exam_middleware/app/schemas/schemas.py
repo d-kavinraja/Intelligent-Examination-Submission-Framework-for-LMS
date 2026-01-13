@@ -179,6 +179,7 @@ class StudentPendingPaper(BaseModel):
     assignment_name: Optional[str]
     filename: str
     uploaded_at: datetime
+    workflow_status: Optional[str]
     can_submit: bool
     message: Optional[str] = None
 
@@ -280,6 +281,11 @@ class AuditLogResponse(BaseModel):
     description: Optional[str]
     actor_type: str
     actor_username: Optional[str]
+    artifact_id: Optional[int] = None
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
+    request_data: Optional[Dict[str, Any]] = None
+    response_data: Optional[Dict[str, Any]] = None
     created_at: datetime
     
     class Config:

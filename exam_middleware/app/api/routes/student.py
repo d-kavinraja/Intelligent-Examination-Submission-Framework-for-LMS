@@ -6,6 +6,7 @@ Handles student dashboard and submission
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Header
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import Optional
 import logging
 import os
@@ -169,26 +170,27 @@ async def get_dashboard(
     artifact_service = ArtifactService(db)
     mapping_service = SubjectMappingService(db)
     
-    # Use register number from session (provided during login)
-    # Fallback to extracting from fullname or using moodle_username
+    # Derive a strict register number (12-digit) if available; otherwise rely on Moodle identity
     import re
-    register_number = session.register_number  # Primary: use stored register number
-    if not register_number:
-        # Fallback: try to extract from fullname
+    extracted_reg = None
+    if session.register_number:
+        extracted_reg = session.register_number
+    else:
         if session.moodle_fullname:
             match = re.search(r'\b(\d{12})\b', session.moodle_fullname)
             if match:
-                register_number = match.group(1)
-        # Final fallback: use moodle username
-        if not register_number:
-            register_number = session.moodle_username
-    
-    logger.info(f"Dashboard for register_number: {register_number}")
-    
-    # Get pending papers for this student
+                extracted_reg = match.group(1)
+
+    # Only use the register_number when it looks like a 12-digit university register
+    register_number = extracted_reg if extracted_reg and re.fullmatch(r"\d{12}", extracted_reg) else None
+
+    logger.info(f"Dashboard for register_number: {register_number or '(none)'} moodle_username: {session.moodle_username}")
+
+    # Get pending papers for this student. Provide both register (when present) and Moodle identity.
     pending_artifacts = await artifact_service.get_pending_for_student(
         register_number=register_number,
-        moodle_user_id=session.moodle_user_id
+        moodle_user_id=session.moodle_user_id,
+        moodle_username=session.moodle_username
     )
     
     # Get submitted papers
@@ -214,6 +216,7 @@ async def get_dashboard(
             assignment_name=mapping.moodle_assignment_name if mapping else None,
             filename=artifact.original_filename,
             uploaded_at=artifact.uploaded_at,
+            workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
             can_submit=assignment_id is not None,
             message=None if assignment_id else "Assignment mapping not found. Contact admin."
         ))
@@ -368,6 +371,178 @@ async def view_paper_file(
         filename=safe_name,
         headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
     )
+
+
+@router.post("/paper/{artifact_uuid}/report")
+async def report_artifact_issue(
+    artifact_uuid: str,
+    request: Request,
+    session: StudentSession = Depends(get_student_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allow a student to report an issue with an uploaded paper (wrong reg/subject etc.)
+
+    Body: { "message": str, "suggested_reg_no": Optional[str], "suggested_subject_code": Optional[str] }
+    """
+    artifact_service = ArtifactService(db)
+    audit_service = AuditService(db)
+
+    payload = await request.json()
+    message = (payload or {}).get("message")
+    suggested_reg = (payload or {}).get("suggested_reg_no")
+    suggested_subject = (payload or {}).get("suggested_subject_code")
+
+    if not message:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report message is required")
+
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+    if not artifact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    # Security: only the owning student may report this artifact
+    session_reg = _get_session_register_number(session)
+    if artifact.parsed_reg_no != session_reg:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You may only report your own papers")
+
+    # Log the report in audit logs so staff can view
+    await audit_service.log_action(
+        action="report_issue",
+        action_category="report",
+        actor_type="student",
+        actor_id=str(session.moodle_user_id),
+        actor_username=session.moodle_username,
+        artifact_id=artifact.id,
+        description=message,
+        request_data={
+            "suggested_reg_no": suggested_reg,
+            "suggested_subject_code": suggested_subject
+        }
+    )
+
+    # Persist audit log
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return {"success": True, "message": "Report submitted. Staff will review and take action."}
+
+
+@router.get("/reports")
+async def get_my_reports(
+    session: StudentSession = Depends(get_student_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Return reports submitted by the currently logged-in student, with resolved status.
+    """
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session required")
+
+    artifact_service = ArtifactService(db)
+
+    from app.db.models import AuditLog
+
+    result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.actor_type == 'student',
+            AuditLog.actor_id == str(session.moodle_user_id),
+            AuditLog.action == 'report_issue'
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+
+    reports = result.scalars().all()
+    out = []
+
+    for r in reports:
+        artifact = await artifact_service.get_by_id(r.artifact_id) if r.artifact_id else None
+        # Skip reports that have been deleted (student withdrew) - check audit logs
+        deleted_q = await db.execute(
+            select(AuditLog).where(AuditLog.action == 'report_deleted', AuditLog.target_id == str(r.id)).order_by(AuditLog.created_at.desc())
+        )
+        deleted_entry = deleted_q.scalars().first()
+        if deleted_entry:
+            # skip this report (it was deleted/withdrawn)
+            continue
+
+        resolved_q = await db.execute(
+            select(AuditLog).where(AuditLog.action == 'report_resolved', AuditLog.target_id == str(r.id)).order_by(AuditLog.created_at.desc())
+        )
+        # use scalars().first() to tolerate multiple resolution entries and pick latest
+        resolved = resolved_q.scalars().first()
+
+        resolved_note = None
+        if resolved:
+            rd = resolved.request_data or {}
+            resolved_note = rd.get('note') or (resolved.response_data and resolved.response_data.get('note'))
+
+        out.append({
+            "id": r.id,
+            "artifact_id": r.artifact_id,
+            "artifact_uuid": str(artifact.artifact_uuid) if artifact else None,
+            "description": r.description,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "resolved": bool(bool(resolved)),
+            "resolved_by": resolved.actor_username if resolved and resolved.actor_username else (resolved.actor_id if resolved else None),
+            "resolved_at": resolved.created_at.isoformat() if resolved and resolved.created_at else None,
+            "resolved_note": resolved_note
+        })
+
+    return out
+
+
+@router.delete("/reports/{report_id}")
+async def delete_my_report(
+    report_id: int,
+    session: StudentSession = Depends(get_student_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allow a student to delete (withdraw) a previously submitted report.
+    This creates an audit entry `report_deleted` and leaves original report for traceability.
+    """
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session required")
+
+    from app.db.models import AuditLog
+
+    # Verify the report exists and belongs to this student
+    q = await db.execute(
+        select(AuditLog).where(
+            AuditLog.id == int(report_id),
+            AuditLog.actor_type == 'student',
+            AuditLog.actor_id == str(session.moodle_user_id),
+            AuditLog.action == 'report_issue'
+        )
+    )
+    rpt = q.scalar_one_or_none()
+    if not rpt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found or not owned by you")
+
+    # Use AuditService to create a proper audit entry (ensures action_category is set)
+    audit_service = AuditService(db)
+    try:
+        await audit_service.log_action(
+            action='report_deleted',
+            action_category='report',
+            actor_type='student',
+            actor_id=str(session.moodle_user_id),
+            actor_username=session.moodle_username,
+            artifact_id=rpt.artifact_id,
+            target_type='audit_log',
+            target_id=str(report_id),
+            description='Student withdrew their report'
+        )
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete report: {e}")
+
+    return {"success": True, "message": "Report deleted"}
 
 
 @router.post("/submit/{artifact_uuid}", response_model=SubmissionResponse)
@@ -578,12 +753,13 @@ async def get_submission_history(
     """
     artifact_service = ArtifactService(db)
     
-    # Get all artifacts for this student
+    # Get all artifacts for this student (use Moodle identity for history view)
     pending = await artifact_service.get_pending_for_student(
-        register_number=session.moodle_username,
-        moodle_user_id=session.moodle_user_id
+        register_number=None,
+        moodle_user_id=session.moodle_user_id,
+        moodle_username=session.moodle_username
     )
-    
+
     submitted = await artifact_service.get_submitted_for_student(
         register_number=session.moodle_username
     )

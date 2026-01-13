@@ -121,8 +121,9 @@ class TokenEncryption:
         Returns:
             Base64 encoded encrypted string
         """
+        # Fernet.encrypt returns URL-safe base64 bytes. Return decoded string.
         encrypted = self._fernet.encrypt(data.encode())
-        return base64.urlsafe_b64encode(encrypted).decode()
+        return encrypted.decode()
     
     def decrypt(self, encrypted_data: str) -> str:
         """
@@ -134,9 +135,18 @@ class TokenEncryption:
         Returns:
             Decrypted plain text
         """
-        decoded = base64.urlsafe_b64decode(encrypted_data.encode())
-        decrypted = self._fernet.decrypt(decoded)
-        return decrypted.decode()
+        # Support both legacy double-base64 encoded tokens and standard Fernet tokens.
+        try:
+            # Try direct decrypt (standard Fernet token as str)
+            return self._fernet.decrypt(encrypted_data.encode()).decode()
+        except Exception:
+            try:
+                # Legacy: token was base64-encoded twice
+                decoded = base64.urlsafe_b64decode(encrypted_data.encode())
+                return self._fernet.decrypt(decoded).decode()
+            except Exception:
+                # Re-raise for caller to handle
+                raise
 
 
 # Global token encryption instance

@@ -309,3 +309,24 @@ class SystemConfig(Base):
     description = Column(Text, nullable=True)
     
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class StudentUsernameRegister(Base):
+    """
+    Mapping table to bind Moodle username to university register number.
+    This is used to verify that a given Moodle account is allowed to assert
+    a particular register number during login.
+    """
+    __tablename__ = "student_username_register"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    moodle_username = Column(String(100), unique=True, nullable=False, index=True)
+    register_number = Column(String(20), nullable=False, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('moodle_username', 'register_number', name='uq_username_register'),
+    )

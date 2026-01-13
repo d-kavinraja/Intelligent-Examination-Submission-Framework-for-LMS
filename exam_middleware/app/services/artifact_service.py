@@ -5,10 +5,11 @@ Business logic for managing examination artifacts
 
 import logging
 from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_, or_
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
 from app.db.models import (
     ExaminationArtifact,
@@ -79,20 +80,94 @@ class ArtifactService:
             # Check for existing artifact with same transaction ID
             existing = await self.get_by_transaction_id(transaction_id)
             if existing:
+                # If the existing artifact has different parsed metadata, it may be
+                # a stale/deleted row that still holds the transaction id. If so,
+                # clear its transaction id and allow creation to proceed. Otherwise
+                # refuse to overwrite an unrelated artifact.
+                if (existing.parsed_reg_no != parsed_reg_no) or (existing.parsed_subject_code != parsed_subject_code):
+                    if getattr(existing, 'workflow_status', None) == WorkflowStatus.DELETED:
+                        logger.info("Clearing stale transaction_id on DELETED artifact id=%s to allow new upload", existing.id)
+                        try:
+                            existing.add_log_entry("cleared_stale_transaction_on_collision", {"reason": "allow_new_upload", "incoming_parsed": (parsed_reg_no, parsed_subject_code)})
+                        except Exception:
+                            pass
+                        existing.transaction_id = None
+                        # Also clear parsed fields to fully free the unique tuple if present
+                        existing.parsed_reg_no = None
+                        existing.parsed_subject_code = None
+                        await self.db.flush()
+                        # continue to creation flow (do not return)
+                    else:
+                        logger.error(
+                            "Transaction id collision but metadata mismatch: existing(%s,%s) vs incoming(%s,%s)",
+                            existing.parsed_reg_no,
+                            existing.parsed_subject_code,
+                            parsed_reg_no,
+                            parsed_subject_code
+                        )
+                        raise Exception(
+                            f"Transaction ID conflict: an unrelated artifact already uses this transaction id. "
+                            f"Please verify the file metadata or contact an administrator."
+                        )
+
+                # If metadata matches, treat as re-upload for idempotency
                 logger.warning(f"Duplicate artifact detected: {transaction_id}, updating with new file")
-                # Update existing artifact with new file path and reset status
                 existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
                 existing.file_hash = file_hash
                 existing.file_size_bytes = file_size_bytes
                 existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
                 existing.error_message = None  # Clear any previous errors
-                existing.add_log_entry("re-uploaded", {
-                    "new_file_path": file_blob_path,
-                    "new_hash": file_hash
-                })
+                try:
+                    existing.add_log_entry("re-uploaded", {
+                        "new_file_path": file_blob_path,
+                        "new_hash": file_hash
+                    })
+                except Exception:
+                    pass
                 await self.db.flush()
                 await self.db.refresh(existing)
                 return existing
+
+        # Pre-check uniqueness of parsed_reg_no + parsed_subject_code to avoid DB constraint failure
+        if parsed_reg_no and parsed_subject_code:
+            result = await self.db.execute(
+                select(ExaminationArtifact).where(
+                    ExaminationArtifact.parsed_reg_no == parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == parsed_subject_code
+                )
+            )
+            existing_pair = result.scalar_one_or_none()
+            if existing_pair:
+                # If it's the same transaction id, update as a re-upload
+                if existing_pair.transaction_id and transaction_id and existing_pair.transaction_id == transaction_id:
+                    logger.warning(f"Duplicate artifact detected by transaction id: {transaction_id}, updating with new file")
+                    # Use the provided file_blob_path (normalized) for re-uploads
+                    existing_pair.file_blob_path = (file_blob_path or '').replace('\\', '/')
+                    existing_pair.file_hash = file_hash
+                    existing_pair.file_size_bytes = file_size_bytes
+                    existing_pair.workflow_status = WorkflowStatus.PENDING
+                    existing_pair.error_message = None
+                    try:
+                        existing_pair.add_log_entry("re-uploaded", {"new_file_path": file_blob_path, "new_hash": file_hash})
+                    except Exception:
+                        # Don't let logging failures break the re-upload flow
+                        pass
+                    await self.db.flush()
+                    await self.db.refresh(existing_pair)
+                    return existing_pair
+
+                # If the conflicting artifact is deleted, clear its identifiers so we can reuse the pair
+                if getattr(existing_pair, 'workflow_status', None) == WorkflowStatus.DELETED:
+                    existing_pair.add_log_entry("cleared_identifiers_for_reuse", {
+                        "reason": "upload_reuse",
+                    })
+                    existing_pair.parsed_reg_no = None
+                    existing_pair.parsed_subject_code = None
+                    existing_pair.transaction_id = None
+                    await self.db.flush()
+                else:
+                    # Prevent accidental duplicate uploads
+                    raise Exception(f"An artifact for register {parsed_reg_no} and subject {parsed_subject_code} already exists (id={existing_pair.id}).")
         
         artifact = ExaminationArtifact(
             raw_filename=raw_filename,
@@ -116,7 +191,25 @@ class ArtifactService:
         })
         
         self.db.add(artifact)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError as e:
+            # Handle potential race-condition unique constraint violation explicitly
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            logger.exception("IntegrityError flushing new artifact - likely duplicate")
+            raise
+        except Exception as e:
+            # Unexpected error - rollback and re-raise
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            logger.exception("Failed to flush new artifact - unexpected error")
+            raise
+
         await self.db.refresh(artifact)
         
         logger.info(f"Created artifact: {artifact.artifact_uuid}")
@@ -148,34 +241,60 @@ class ArtifactService:
     
     async def get_pending_for_student(
         self,
-        register_number: str,
-        moodle_user_id: int
+        register_number: Optional[str],
+        moodle_user_id: Optional[int],
+        moodle_username: Optional[str] = None
     ) -> List[ExaminationArtifact]:
         """
-        Get pending artifacts for a specific student
-        
-        Security: Only returns artifacts matching the student's register number or Moodle username
-        Note: register_number can be either the 12-digit register or the Moodle username
+        Get pending artifacts for a specific student.
+
+        Security: Strictly return artifacts that either:
+          - match the student's university `parsed_reg_no` (only when a valid 12-digit register is provided), OR
+          - are already linked to the student's Moodle account (both `moodle_username` and `moodle_user_id` must match).
+
+        This avoids the previous ambiguous behaviour where a single `register_number` string
+        could be treated as either a register or a Moodle username.
         """
-        from sqlalchemy import or_
-        result = await self.db.execute(
+        from sqlalchemy import or_, and_
+
+        # Allowed workflow states for pending dashboard
+        allowed_states = [
+            WorkflowStatus.PENDING,
+            WorkflowStatus.PENDING_REVIEW,
+            WorkflowStatus.VALIDATED,
+            WorkflowStatus.READY_FOR_REVIEW,
+        ]
+
+        # Build identity conditions conservatively
+        identity_conditions = []
+
+        if register_number:
+            # Only treat as a register number match; callers should pass a 12-digit register_number when available
+            identity_conditions.append(ExaminationArtifact.parsed_reg_no == register_number)
+
+        if moodle_user_id is not None and moodle_username:
+            # Require both moodle_user_id and moodle_username to match to avoid accidental matches
+            identity_conditions.append(and_(
+                ExaminationArtifact.moodle_user_id == moodle_user_id,
+                ExaminationArtifact.moodle_username == moodle_username
+            ))
+
+        if not identity_conditions:
+            # No valid identity information supplied — return empty list to be safe
+            return []
+
+        stmt = (
             select(ExaminationArtifact)
             .where(
                 and_(
-                    or_(
-                        ExaminationArtifact.parsed_reg_no == register_number,
-                        ExaminationArtifact.moodle_username == register_number
-                    ),
-                    ExaminationArtifact.workflow_status.in_([
-                        WorkflowStatus.PENDING,
-                        WorkflowStatus.PENDING_REVIEW,
-                        WorkflowStatus.VALIDATED,
-                        WorkflowStatus.READY_FOR_REVIEW
-                    ])
+                    or_(*identity_conditions),
+                    ExaminationArtifact.workflow_status.in_(allowed_states)
                 )
             )
             .order_by(ExaminationArtifact.uploaded_at.desc())
         )
+
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
     async def get_submitted_for_student(
@@ -286,6 +405,19 @@ class ArtifactService:
         
         await self.db.flush()
         await self.db.refresh(artifact)
+        # Persist immediately so other requests see the uploading state
+        try:
+            await self.db.commit()
+        except IntegrityError as e:
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            logger.exception("IntegrityError during mark_submitting commit")
+            raise
+        except Exception:
+            await self.db.rollback()
+            raise
         return artifact
     
     async def mark_submitted(
@@ -300,8 +432,10 @@ class ArtifactService:
             return None
         
         artifact.workflow_status = WorkflowStatus.COMPLETED
-        artifact.submit_timestamp = datetime.utcnow()
-        artifact.completed_at = datetime.utcnow()
+        # Use timezone-aware UTC timestamps
+        now = datetime.now(timezone.utc)
+        artifact.submit_timestamp = now
+        artifact.completed_at = now
         # Ensure moodle_submission_id is a string (database column is VARCHAR)
         artifact.moodle_submission_id = str(moodle_submission_id) if moodle_submission_id is not None else None
         artifact.lms_transaction_id = lms_transaction_id
@@ -313,9 +447,23 @@ class ArtifactService:
         
         await self.db.flush()
         await self.db.refresh(artifact)
-        
+        # Persist immediately so submission time is stored
+        try:
+            await self.db.commit()
+        except IntegrityError as e:
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            logger.exception("IntegrityError during mark_submitted commit")
+            raise
+        except Exception:
+            await self.db.rollback()
+            raise
+
         logger.info(f"Artifact {artifact_id} marked as submitted")
         return artifact
+    
     
     async def mark_failed(
         self,
@@ -349,7 +497,20 @@ class ArtifactService:
         
         await self.db.flush()
         await self.db.refresh(artifact)
-        
+        # Persist failure state immediately
+        try:
+            await self.db.commit()
+        except IntegrityError as e:
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            logger.exception("IntegrityError during mark_failed commit")
+            raise
+        except Exception:
+            await self.db.rollback()
+            raise
+
         return artifact
     
     async def get_all_pending(
@@ -525,6 +686,9 @@ class AuditService:
         response_data: Optional[Dict[str, Any]] = None,
         moodle_api_function: Optional[str] = None,
         moodle_response_code: Optional[int] = None
+        ,
+        target_type: Optional[str] = None,
+        target_id: Optional[str] = None
     ) -> AuditLog:
         """Create an audit log entry"""
         log = AuditLog(
@@ -540,6 +704,9 @@ class AuditService:
             response_data=response_data,
             moodle_api_function=moodle_api_function,
             moodle_response_code=moodle_response_code
+            ,
+            target_type=target_type,
+            target_id=target_id
         )
         
         self.db.add(log)
@@ -549,12 +716,38 @@ class AuditService:
     
     async def get_for_artifact(self, artifact_id: int) -> List[AuditLog]:
         """Get all audit logs for an artifact"""
-        result = await self.db.execute(
+        # Primary logs tied to the artifact
+        res_primary = await self.db.execute(
             select(AuditLog)
             .where(AuditLog.artifact_id == artifact_id)
             .order_by(AuditLog.created_at.desc())
         )
-        return list(result.scalars().all())
+        primary_logs = list(res_primary.scalars().all())
+
+        # Also include any 'report_deleted' logs that target report_issue audit ids
+        # belonging to this artifact. Some older deletions may not have artifact_id
+        # set, so we fetch them by matching target_id to the report_issue ids.
+        issue_ids_q = await self.db.execute(
+            select(AuditLog.id).where(AuditLog.action == 'report_issue', AuditLog.artifact_id == artifact_id)
+        )
+        issue_ids = [str(r[0]) for r in issue_ids_q.all()]
+
+        deleted_logs = []
+        if issue_ids:
+            res_deleted = await self.db.execute(
+                select(AuditLog).where(AuditLog.action == 'report_deleted', AuditLog.target_id.in_(issue_ids)).order_by(AuditLog.created_at.desc())
+            )
+            deleted_logs = list(res_deleted.scalars().all())
+
+        # Merge and deduplicate (favor primary logs' ordering)
+        combined = {str(l.id): l for l in primary_logs}
+        for dl in deleted_logs:
+            combined_key = str(dl.id)
+            if combined_key not in combined:
+                combined[combined_key] = dl
+
+        # Return logs sorted by created_at desc
+        return sorted(list(combined.values()), key=lambda x: x.created_at or 0, reverse=True)
     
     async def get_recent(self, limit: int = 100) -> List[AuditLog]:
         """Get recent audit logs"""
