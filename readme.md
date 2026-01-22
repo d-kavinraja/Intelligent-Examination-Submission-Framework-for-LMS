@@ -97,18 +97,28 @@
 
 > *In academic institutions transitioning to digital grading, handling physical answer scripts presents significant logistical challenges.*
 
-| Challenge | Impact |
-|:----------|:-------|
-| **Manual Labor** | Individually scanning, renaming, and uploading hundreds of answer scripts is time-consuming |
-| **Human Error** | Manual processes lead to wrong file uploads or mislabeling |
-| **Security Risks** | Direct database manipulation can compromise chain of custody |
-| **No Verification** | Students cannot verify their paper was scanned correctly before grading |
+The key challenges include:
+
+1. **Manual Labor**: Individually scanning, renaming, and uploading hundreds of answer scripts to specific Moodle assignments is time-consuming and inefficient.
+2. **Human Error**: Manual processes are prone to errors such as uploading the wrong file to a student's profile or mislabeling files.
+3. **Security & Integrity**: Direct database manipulation or unverified bulk uploads can compromise the chain of custody.
+4. **Student Verification**: Students often lack a mechanism to verify that their specific physical paper was scanned and submitted correctly before grading begins.
 
 ---
 
 ## Solution Overview
 
-This middleware implements a **3-Step "Upload-Verify-Push" Workflow** that decouples scanning from submission:
+This middleware solves these issues by decoupling the **scanning/uploading** process from the **submission** process, introducing a secure validation layer.
+
+### Core Concept
+
+The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
+
+1. **Bulk Ingestion**: Administrative staff upload bulk batches of scanned PDF/Images.
+2. **Intelligent Processing**: The system parses filenames (e.g., `123456_MATH101.pdf`) to extract the Student Register Number and Subject Code, automatically mapping them to the correct Moodle Assignment ID.
+3. **Student-Led Submission**: Students log in using their Moodle credentials. They view *only* their specific answer scripts and trigger the final submission to Moodle. This ensures non-repudiation and student verification.
+
+### Visual Workflow
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -281,6 +291,55 @@ retry_count            | integer                  | DEFAULT 0
 
 </details>
 
+### Database Initialization
+
+When you run `python init_db.py`, it executes SQLAlchemy's `Base.metadata.create_all()` which creates the database tables defined in `app/db/models.py`. On PostgreSQL, the necessary sequences for integer primary keys are created automatically.
+
+The `init_db.py` script seeds minimal configuration:
+- Default admin user (username: `admin`, password: `admin123`)
+- Subject mappings (configurable)
+- System config settings
+
+**Optional Sample Data**: If you run with the `--seed-samples` flag, it will also add a sample artifact and `report_issue` audit log useful for local testing.
+
+```bash
+# Basic initialization
+python init_db.py
+
+# With sample data for testing
+python init_db.py --seed-samples
+```
+
+**Tables and Sequences Created**:
+
+Below is the full list of tables and sequences that should be present after running `init_db.py`:
+
+```
+public | audit_logs                       | table    | postgres
+public | audit_logs_id_seq                | sequence | postgres
+public | examination_artifacts            | table    | postgres
+public | examination_artifacts_id_seq     | sequence | postgres
+public | staff_users                      | table    | postgres
+public | staff_users_id_seq               | sequence | postgres
+public | student_sessions                 | table    | postgres
+public | student_sessions_id_seq          | sequence | postgres
+public | student_username_register        | table    | postgres
+public | student_username_register_id_seq | sequence | postgres
+public | subject_mappings                 | table    | postgres
+public | subject_mappings_id_seq          | sequence | postgres
+public | submission_queue                 | table    | postgres
+public | submission_queue_id_seq          | sequence | postgres
+public | system_config                    | table    | postgres
+public | system_config_id_seq             | sequence | postgres
+```
+
+**Troubleshooting**: If any tables are missing after running `init_db.py`:
+- Ensure your `DATABASE_URL` is set and points to the correct database
+- Confirm the DB user has privileges to create tables in the `public` schema
+- Check `init_db.py` output for errors and fix any import or connection issues before re-running
+
+**Production Note**: For production deployments, we strongly recommend using Alembic for schema migrations instead of `create_all()` so you can evolve the schema safely across releases.
+
 ---
 
 ## Prerequisites
@@ -292,6 +351,45 @@ retry_count            | integer                  | DEFAULT 0
 | **Moodle LMS** | 3.9+ | With Web Services enabled |
 | **Redis** | 7+ | Optional - for background tasks |
 | **Docker** | 20.10+ | Optional - for containerized deployment |
+
+---
+
+## Maintenance Scripts
+
+The project includes utility scripts for managing database mappings:
+
+### setup_username_reg.py
+
+Upsert a single Moodle `username -> register_number` mapping. Useful to seed or correct mappings used during student login and pending-list authorization.
+
+**Usage:**
+
+```bash
+# Interactive mode
+python setup_username_reg.py
+
+# Direct mode
+python setup_username_reg.py --username 22007928 --register 212222240047
+```
+
+**Purpose**: This script maintains the `student_username_register` table which validates that a Moodle account is allowed to assert a particular register number during login.
+
+### setup_subject_mapping.py
+
+Interactive workflow to find an assignment by course-module-id (CMID) in Moodle, create or update a `SubjectMapping`, and optionally fix existing artifacts that reference the wrong assignment id.
+
+**Usage:**
+
+```bash
+# Interactive mode with guided prompts
+python setup_subject_mapping.py
+```
+
+**Features**:
+- Search for assignments by CMID in Moodle
+- Create new subject code to assignment mappings
+- Update existing mappings
+- Automatically fix artifacts with incorrect assignment references
 
 ---
 
@@ -538,53 +636,42 @@ curl -X POST http://localhost:8000/auth/staff/login \
 
 ## Moodle Configuration
 
-### Required Setup Steps
+### Required Moodle Setup
 
-<details>
-<summary><b>1. Enable Web Services</b></summary>
+Follow these steps to configure Moodle for integration:
 
-1. Navigate to: `Site administration` → `Advanced features`
-2. Enable **Web services**
-3. Save changes
+**1. Enable Web Services**
 
-</details>
+- Navigate to: `Site administration` → `Advanced features`
+- Check **Enable web services**
+- Save changes
 
-<details>
-<summary><b>2. Create External Service</b></summary>
+**2. Create External Service**
 
-1. Navigate to: `Site administration` → `Server` → `Web services` → `External services`
-2. Click **Add**
-3. Configure:
-   - **Name**: `FileUpload`
-   - **Short name**: `fileupload`
-   - **Enabled**: Yes
-4. Add required functions:
-   - `core_webservice_get_site_info`
-   - `mod_assign_save_submission`
-   - `mod_assign_submit_for_grading`
-   - `core_user_get_users_by_field`
+- Navigate to: `Site administration` → `Server` → `Web services` → `External services`
+- Click **Add**
+- Configure the service:
+  - **Name**: `FileUpload`
+  - **Short name**: `fileupload`
+  - **Enabled**: Yes
+- Add required functions:
+  - `core_webservice_get_site_info`
+  - `mod_assign_save_submission`
+  - `mod_assign_submit_for_grading`
+  - `core_user_get_users_by_field`
 
-</details>
+**3. Create Token**
 
-<details>
-<summary><b>3. Create API Token</b></summary>
+- Navigate to: `Site administration` → `Server` → `Web services` → `Manage tokens`
+- Click **Add**
+- Select admin user and the **FileUpload** service
+- Copy the generated token to your `.env` file as `MOODLE_ADMIN_TOKEN`
 
-1. Navigate to: `Site administration` → `Server` → `Web services` → `Manage tokens`
-2. Click **Add**
-3. Select admin user and **FileUpload** service
-4. Copy the generated token to your `.env` file
+**4. Enable Upload**
 
-</details>
-
-<details>
-<summary><b>4. Configure Upload Settings</b></summary>
-
-1. Ensure `webservice/upload.php` is accessible
-2. Configure max upload size:
-   - `Site administration` → `Security` → `Site security settings`
-   - Set **Maximum uploaded file size** ≥ 50MB
-
-</details>
+- Ensure `webservice/upload.php` is accessible on your Moodle instance
+- Configure maximum upload file size in Moodle settings to match or exceed your middleware setting (default: 50MB)
+- Path: `Site administration` → `Security` → `Site security settings` → **Maximum uploaded file size**
 
 ---
 
