@@ -1610,6 +1610,11 @@
 
                 // Badge count: only active (not withdrawn) reports
                 const activeReports = allReports.filter(r => !deletedMap[String(r.id)]);
+                
+                // Track truly active reports (not withdrawn AND not resolved) for the edit form
+                const trulyActiveReports = allReports.filter(r => !deletedMap[String(r.id)] && !resolvedMap[String(r.id)]);
+                currentViewActiveReportIds = trulyActiveReports.map(r => r.id);
+                console.log('🔵 Truly active (unresolved) reports for edit form:', currentViewActiveReportIds.length, currentViewActiveReportIds);
 
                 if (!allReports.length) {
                     bodyEl.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-chat-left-dots fs-1"></i><p class="mt-2">No reports for this artifact</p></div>';
@@ -1721,9 +1726,24 @@
             }
         }
 
-        async function openEditForm(artifactUuid, artifactId) {
+        // Track if we're editing from reports context (to show "Save Changes and Resolve")
+        let editingFromReportsContext = false;
+        let currentEditReportIds = [];
+        // Store active report IDs globally when viewReports is called
+        let currentViewActiveReportIds = [];
+
+        async function openEditForm(artifactUuid, artifactId, fromReports = true) {
             const modalEl = document.getElementById('reportsModal');
             const bodyEl = document.getElementById('reportsModalBody');
+            
+            // Use globally tracked active reports from viewReports
+            editingFromReportsContext = fromReports;
+            currentEditReportIds = fromReports ? currentViewActiveReportIds : [];
+
+            const hasActiveReports = currentEditReportIds.length > 0;
+            const saveButtonText = hasActiveReports ? 'Save Changes and Resolve' : 'Save Changes';
+            const saveButtonClass = hasActiveReports ? 'btn btn-success' : 'btn btn-primary';
+            
             bodyEl.innerHTML = `
                 <div class="mb-3">
                     <label class="form-label">Parsed Register Number</label>
@@ -1737,9 +1757,10 @@
                     <label class="form-label">Parsed Subject Code</label>
                     <input id="editParsedSub" class="form-control" placeholder="Subject code">
                 </div>
+                ${hasActiveReports ? `<div class="alert alert-info mb-3"><i class="bi bi-info-circle me-2"></i>Saving changes will automatically resolve ${currentEditReportIds.length} active report(s) for this artifact.</div>` : ''}
                 <div class="text-end">
                     <button class="btn btn-secondary me-2" onclick="viewReports('${artifactUuid}','${artifactId}')">Back to reports</button>
-                    <button class="btn btn-primary" onclick="submitArtifactEdit('${artifactUuid}','${artifactId}')">Save Changes</button>
+                    <button class="${saveButtonClass}" onclick="submitArtifactEdit('${artifactUuid}','${artifactId}', ${hasActiveReports})">${saveButtonText}</button>
                 </div>
             `;
 
@@ -1757,7 +1778,7 @@
             }
         }
 
-        async function submitArtifactEdit(artifactUuid, artifactId) {
+        async function submitArtifactEdit(artifactUuid, artifactId, resolveReports = false) {
             const reg = document.getElementById('editParsedReg').value.trim();
             const sub = document.getElementById('editParsedSub').value.trim();
             const orig = document.getElementById('editOriginalFilename').value.trim();
@@ -1768,12 +1789,21 @@
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ parsed_reg_no: reg || null, parsed_subject_code: sub || null, original_filename: orig || null })
+                    body: JSON.stringify({ 
+                        parsed_reg_no: reg || null, 
+                        parsed_subject_code: sub || null, 
+                        original_filename: orig || null,
+                        resolve_reports: resolveReports
+                    })
                 });
                 const data = await res.json();
                 if (res.ok) {
                     showToast(data.message || 'Artifact updated', 'success');
                     loadPendingFiles();
+                    // Close the modal after successful edit
+                    const modalEl = document.getElementById('reportsModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
                 } else {
                     showToast(data.detail || data.message || 'Failed to update artifact', 'danger');
                 }
@@ -1790,14 +1820,15 @@
                 return;
             }
 
-            const confirmMsg = `Apply suggested values?\n${suggestedReg ? 'Reg: ' + suggestedReg + '\n' : ''}${suggestedSub ? 'Subject: ' + suggestedSub : ''}`;
-            if (!(await showConfirm(confirmMsg, 'Apply Suggestion'))) return;
+            const confirmMsg = `Apply suggested values and resolve reports?\n${suggestedReg ? 'Reg: ' + suggestedReg + '\n' : ''}${suggestedSub ? 'Subject: ' + suggestedSub : ''}`;
+            if (!(await showConfirm(confirmMsg, 'Apply Suggestion & Resolve'))) return;
 
             try {
                 const payload = {
                     parsed_reg_no: suggestedReg || null,
                     parsed_subject_code: suggestedSub || null,
-                    original_filename: null
+                    original_filename: null,
+                    resolve_reports: true  // Auto-resolve reports when applying suggestion
                 };
 
                 const res = await fetch(`/admin/artifacts/${encodeURIComponent(artifactUuid)}/edit`, {

@@ -420,7 +420,12 @@ async def edit_artifact_metadata(
 ):
     """
     Allow staff to edit parsed metadata of an artifact (reg no, subject code)
-    Body: { "parsed_reg_no": Optional[str], "parsed_subject_code": Optional[str] }
+    Body: { 
+        "parsed_reg_no": Optional[str], 
+        "parsed_subject_code": Optional[str],
+        "original_filename": Optional[str],
+        "resolve_reports": Optional[bool] - if true, auto-resolve all active reports for this artifact
+    }
     """
     artifact_service = ArtifactService(db)
     audit_service = AuditService(db)
@@ -516,6 +521,73 @@ async def edit_artifact_metadata(
 
         artifact.add_log_entry("admin_replaced", {"replaced_by": new_artifact.id, "replaced_by_uuid": str(new_artifact.artifact_uuid), "edited_by": current_staff.username})
 
+        # Migrate reports (report_issue audit logs) from old artifact to new artifact
+        # so that reports continue to show on the updated artifact
+        report_logs_q = await db.execute(
+            select(AuditLog).where(
+                AuditLog.artifact_id == artifact.id,
+                AuditLog.action == 'report_issue'
+            )
+        )
+        report_logs = report_logs_q.scalars().all()
+        migrated_report_ids = []
+        for rlog in report_logs:
+            # Update the artifact_id to point to the new artifact
+            rlog.artifact_id = new_artifact.id
+            migrated_report_ids.append(rlog.id)
+        
+        # Also migrate any report_resolved and report_deleted entries
+        related_logs_q = await db.execute(
+            select(AuditLog).where(
+                AuditLog.artifact_id == artifact.id,
+                AuditLog.action.in_(['report_resolved', 'report_deleted'])
+            )
+        )
+        related_logs = related_logs_q.scalars().all()
+        for rlog in related_logs:
+            rlog.artifact_id = new_artifact.id
+
+        # Auto-resolve reports if requested
+        resolve_reports = payload.get("resolve_reports", False)
+        resolved_report_ids = []
+        if resolve_reports and migrated_report_ids:
+            for report_id in migrated_report_ids:
+                # Check if already resolved
+                resolved_check = await db.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == 'report_resolved',
+                        AuditLog.target_id == str(report_id)
+                    )
+                )
+                if resolved_check.scalars().first():
+                    continue  # Already resolved
+                
+                # Check if deleted/withdrawn
+                deleted_check = await db.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == 'report_deleted',
+                        AuditLog.target_id == str(report_id)
+                    )
+                )
+                if deleted_check.scalars().first():
+                    continue  # Withdrawn, can't resolve
+                
+                # Auto-resolve this report
+                await audit_service.log_action(
+                    action="report_resolved",
+                    action_category="report",
+                    actor_type="staff",
+                    actor_id=str(current_staff.id),
+                    actor_username=current_staff.username,
+                    artifact_id=new_artifact.id,
+                    description=f"Auto-resolved with metadata edit: {changes}",
+                    request_data={"resolved_report_id": report_id, "auto_resolved": True},
+                    response_data={"note": "Resolved via metadata edit"},
+                    target_type='audit_log',
+                    target_id=str(report_id)
+                )
+                resolved_report_ids.append(report_id)
+
         # Audit the replacement
         await audit_service.log_action(
             action="admin_replace",
@@ -525,20 +597,28 @@ async def edit_artifact_metadata(
             actor_username=current_staff.username,
             artifact_id=new_artifact.id,
             description=f"Created new artifact {new_artifact.id} replacing {artifact.id}",
-            request_data={"original_artifact": artifact.id, "changes": changes},
+            request_data={"original_artifact": artifact.id, "changes": changes, "migrated_reports": migrated_report_ids, "resolved_reports": resolved_report_ids},
             response_data={"new_artifact": new_artifact.id}
         )
 
         await db.commit()
 
+        msg = "Artifact replaced by new artifact with updated metadata"
+        if resolved_report_ids:
+            msg += f" ({len(resolved_report_ids)} report(s) auto-resolved)"
+        if migrated_report_ids:
+            msg += f" ({len(migrated_report_ids)} report(s) migrated)"
+
         return {
-            "message": "Artifact replaced by new artifact with updated metadata",
+            "message": msg,
             "artifact": {
                 "id": new_artifact.id,
                 "artifact_uuid": str(new_artifact.artifact_uuid),
                 "parsed_reg_no": new_artifact.parsed_reg_no,
                 "parsed_subject_code": new_artifact.parsed_subject_code
-            }
+            },
+            "migrated_reports": len(migrated_report_ids),
+            "resolved_reports": len(resolved_report_ids)
         }
     except IntegrityError as e:
         await db.rollback()

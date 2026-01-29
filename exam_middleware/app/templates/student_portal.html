@@ -1220,6 +1220,7 @@
                         id: p.artifact_uuid,
                         artifact_uuid: p.artifact_uuid,
                         subject_code: p.parsed_subject_code,
+                        subject_name: p.subject_name,
                         original_filename: p.original_filename,
                         filename: p.original_filename,
                         upload_timestamp: p.uploaded_at,
@@ -1611,10 +1612,16 @@
 
                 let html = '<div class="list-group">';
                 reports.forEach(r => {
+                    // Display filename or fallback to subject code + reg no, or UUID as last resort
+                    const displayName = r.original_filename || 
+                        (r.parsed_reg_no && r.parsed_subject_code ? `${r.parsed_reg_no}_${r.parsed_subject_code}.pdf` : null) ||
+                        r.artifact_uuid || 
+                        'Paper';
+                    
                     html += `<div class="list-group-item">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <strong>${r.artifact_uuid || 'Paper'}</strong>
+                                <strong>${displayName}</strong>
                                 <div class="small text-muted">Submitted: ${new Date(r.created_at).toLocaleString()}</div>
                             </div>
                             <div class="text-end">
