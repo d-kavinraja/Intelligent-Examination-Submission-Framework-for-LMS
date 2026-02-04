@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Portal - Examination Middleware</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --primary-color: #2563eb;
@@ -19,23 +22,23 @@
             --text-primary: #0f172a;
             --text-secondary: #64748b;
         }
-        
+
         * {
             box-sizing: border-box;
         }
-        
+
         body {
             background: var(--bg-color);
             min-height: 100vh;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: var(--text-primary);
         }
-        
+
         .main-container {
             max-width: 1280px;
             padding: 2rem 1.5rem;
         }
-        
+
         /* Cards */
         .card {
             background: var(--card-bg);
@@ -44,16 +47,16 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             transition: border-color 0.2s ease;
         }
-        
+
         .card:hover {
             border-color: var(--primary-color);
         }
-        
+
         .login-card {
             max-width: 500px;
             margin: 4rem auto;
         }
-        
+
         .card-header {
             background: var(--primary-color);
             color: white;
@@ -61,13 +64,14 @@
             padding: 2rem;
             border: none;
         }
-        
-        .card-header h4, .card-header h5 {
+
+        .card-header h4,
+        .card-header h5 {
             font-family: 'Poppins', sans-serif;
             font-weight: 600;
             margin-bottom: 0;
         }
-        
+
         /* Navbar */
         .navbar {
             background: var(--card-bg) !important;
@@ -75,14 +79,14 @@
             border-bottom: 1px solid var(--border-color);
             padding: 1rem 0;
         }
-        
+
         .navbar-brand {
             font-family: 'Poppins', sans-serif;
             font-weight: 600;
             font-size: 1.3rem;
             color: var(--primary-color) !important;
         }
-        
+
         /* Stats cards */
         .stats-card {
             background: var(--card-bg);
@@ -94,28 +98,31 @@
             margin-bottom: 1.5rem;
             transition: border-color 0.2s ease;
         }
-        
+
         .stats-card:hover {
             border-color: currentColor;
         }
-        
-        .stats-card.total { 
+
+        .stats-card.total {
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
             border-color: #6366f1;
         }
-        .stats-card.valid { 
+
+        .stats-card.valid {
             background: linear-gradient(135deg, #10b981, #059669);
             border-color: #10b981;
         }
-        .stats-card.invalid { 
+
+        .stats-card.invalid {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             border-color: #ef4444;
         }
-        .stats-card.uploaded { 
+
+        .stats-card.uploaded {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             border-color: #3b82f6;
         }
-        
+
         .stats-number {
             font-size: 2.5rem;
             font-weight: 700;
@@ -123,13 +130,13 @@
             line-height: 1;
             margin-bottom: 0.5rem;
         }
-        
+
         .stats-card small {
             font-weight: 500;
             opacity: 0.95;
             font-size: 0.95rem;
         }
-        
+
         /* Upload zone */
         .upload-zone {
             border: 2px dashed var(--border-color);
@@ -140,25 +147,25 @@
             transition: all 0.2s ease;
             background: #f8fafc;
         }
-        
+
         .upload-zone:hover,
         .upload-zone.dragover {
             border-color: var(--primary-color);
             background: #eff6ff;
         }
-        
+
         .upload-zone i {
             font-size: 4rem;
             color: var(--primary-color);
             margin-bottom: 1rem;
         }
-        
+
         .upload-zone h5 {
             font-family: 'Poppins', sans-serif;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         /* File items */
         .file-item {
             display: flex;
@@ -171,36 +178,36 @@
             transition: border-color 0.2s ease;
             background: var(--card-bg);
         }
-        
+
         .file-item:hover {
             border-color: var(--primary-color);
         }
-        
+
         .file-item.valid {
             background: #f0fdf4;
             border-color: #86efac;
         }
-        
+
         .file-item.invalid {
             background: #fef2f2;
             border-color: #fca5a5;
         }
-        
+
         .file-info {
             display: flex;
             align-items: center;
             gap: 1rem;
         }
-        
+
         .file-info i {
             font-size: 1.75rem;
         }
-        
+
         .file-info strong {
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         /* Buttons */
         .btn-primary {
             background: var(--primary-color);
@@ -211,17 +218,17 @@
             font-family: 'Inter', sans-serif;
             transition: all 0.2s ease;
         }
-        
+
         .btn-primary:hover {
             background: var(--secondary-color);
             transform: translateY(-1px);
         }
-        
+
         .btn-primary:disabled {
             background: #cbd5e1;
             transform: none;
         }
-        
+
         .btn-outline-secondary {
             border: 2px solid var(--border-color);
             color: var(--text-secondary);
@@ -230,41 +237,42 @@
             padding: 0.875rem 2rem;
             transition: all 0.2s ease;
         }
-        
+
         .btn-outline-secondary:hover {
-              background: var(--secondary-color);
-              color: #fff;
-              border-color: var(--secondary-color);
+            background: var(--secondary-color);
+            color: #fff;
+            border-color: var(--secondary-color);
         }
-        
+
         .btn-outline-danger {
             border: 2px solid #fca5a5;
             color: #dc2626;
             transition: all 0.2s ease;
         }
-        
+
         .btn-outline-danger:hover {
-                background: #dc2626;
-                color: #fff;
-                border-color: #dc2626;
+            background: #dc2626;
+            color: #fff;
+            border-color: #dc2626;
         }
 
-            /* Add for btn-outline-primary (refresh) */
-            .btn-outline-primary {
-                    border: 2px solid var(--accent-color);
-                    color: var(--accent-color);
-                    background: #fff;
-                    font-weight: 600;
-                    border-radius: 8px;
-                    padding: 0.875rem 2rem;
-                    transition: all 0.2s ease;
-            }
-            .btn-outline-primary:hover {
-                    background: var(--accent-color);
-                    color: #fff !important;
-                    border-color: var(--accent-color);
-            }
-        
+        /* Add for btn-outline-primary (refresh) */
+        .btn-outline-primary {
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            background: #fff;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.875rem 2rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--accent-color);
+            color: #fff !important;
+            border-color: var(--accent-color);
+        }
+
         /* Form styles */
         .form-control {
             border-radius: 8px;
@@ -273,12 +281,12 @@
             font-size: 1rem;
             transition: all 0.2s ease;
         }
-        
+
         .form-control:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
-        
+
         .input-group-text {
             background: #f8fafc;
             border: 1px solid var(--border-color);
@@ -286,76 +294,76 @@
             border-radius: 8px 0 0 8px;
             color: var(--primary-color);
         }
-        
+
         .input-group .form-control {
             border-left: none;
             border-radius: 0 8px 8px 0;
         }
-        
+
         .form-label {
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
-        
+
         /* Progress bar */
         .progress-container {
             display: none;
         }
-        
+
         .progress-container.active {
             display: block;
         }
-        
+
         .progress {
             border-radius: 50px;
             overflow: hidden;
             background: #e5e7eb;
             height: 8px;
         }
-        
+
         .progress-bar {
             background: var(--primary-color);
         }
-        
+
         /* Alerts */
         .alert {
             border-radius: 8px;
             border: none;
             padding: 1rem 1.25rem;
         }
-        
+
         .alert-info {
             background: #eff6ff;
             color: #1e40af;
             border-left: 3px solid var(--primary-color);
         }
-        
+
         .alert-success {
             background: #f0fdf4;
             color: #065f46;
             border-left: 3px solid #10b981;
         }
-        
+
         .alert-danger {
             background: #fef2f2;
             color: #991b1b;
             border-left: 3px solid #ef4444;
         }
-        
+
         .alert-warning {
             background: #fffbeb;
             color: #92400e;
             border-left: 3px solid #f59e0b;
         }
-        
+
         .alert code {
             background: rgba(0, 0, 0, 0.05);
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
             font-weight: 600;
         }
-        
+
         /* List group for results */
         .list-group-item {
             border: 1px solid var(--border-color);
@@ -365,38 +373,40 @@
             background: var(--card-bg);
             transition: border-color 0.2s ease;
         }
-        
+
         .list-group-item:hover {
             border-color: var(--primary-color);
         }
-        
+
         /* Sections visibility */
-        #loginSection, #uploadSection {
+        #loginSection,
+        #uploadSection {
             display: none;
         }
-        
-        #loginSection.active, #uploadSection.active {
+
+        #loginSection.active,
+        #uploadSection.active {
             display: block;
         }
-        
+
         /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 10px;
         }
-        
+
         ::-webkit-scrollbar-track {
             background: #f1f5f9;
         }
-        
+
         ::-webkit-scrollbar-thumb {
             background: var(--primary-color);
             border-radius: 10px;
         }
-        
+
         ::-webkit-scrollbar-thumb:hover {
             background: var(--secondary-color);
         }
-        
+
         /* Footer */
         .footer {
             background: var(--card-bg);
@@ -404,7 +414,7 @@
             padding: 3rem 0 1.5rem;
             margin-top: 4rem;
         }
-        
+
         .footer h5 {
             font-family: 'Poppins', sans-serif;
             font-weight: 600;
@@ -412,22 +422,23 @@
             margin-bottom: 1rem;
             font-size: 1.1rem;
         }
-        
-        .footer p, .footer a {
+
+        .footer p,
+        .footer a {
             color: var(--text-secondary);
             font-size: 0.9rem;
             line-height: 1.8;
         }
-        
+
         .footer a {
             text-decoration: none;
             transition: color 0.2s ease;
         }
-        
+
         .footer a:hover {
             color: var(--primary-color);
         }
-        
+
         .footer-logo {
             font-family: 'Poppins', sans-serif;
             font-weight: 700;
@@ -435,7 +446,7 @@
             color: var(--primary-color);
             margin-bottom: 1rem;
         }
-        
+
         .social-links a {
             display: inline-flex;
             align-items: center;
@@ -449,44 +460,44 @@
             transition: all 0.2s ease;
             border: 1px solid var(--border-color);
         }
-        
+
         .social-links a:hover {
             background: var(--primary-color);
             color: white;
             border-color: var(--primary-color);
             transform: translateY(-2px);
         }
-        
+
         .footer-bottom {
             border-top: 1px solid var(--border-color);
             padding-top: 1.5rem;
             margin-top: 2rem;
             text-align: center;
         }
-        
+
         .footer-bottom p {
             margin-bottom: 0;
             font-size: 0.85rem;
         }
-        
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .main-container {
                 padding: 1rem;
             }
-            
+
             .stats-card {
                 margin-bottom: 1rem;
             }
-            
+
             .stats-number {
                 font-size: 2rem;
             }
-            
+
             .upload-zone {
                 padding: 2.5rem 1.5rem;
             }
-            
+
             .upload-zone i {
                 font-size: 3rem;
             }
@@ -520,7 +531,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Compact action buttons for table rows (enterprise-friendly) */
@@ -528,43 +541,66 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            height: 34px;              /* target 32-36px */
-            padding: 6px 10px;         /* compact padding */
-            font-size: 13px;          /* slightly smaller text */
-            border-radius: 6px;       /* subtle corners */
-            min-width: 0;             /* let content size naturally */
+            height: 34px;
+            /* target 32-36px */
+            padding: 6px 10px;
+            /* compact padding */
+            font-size: 13px;
+            /* slightly smaller text */
+            border-radius: 6px;
+            /* subtle corners */
+            min-width: 0;
+            /* let content size naturally */
             white-space: nowrap;
         }
+
         .action-btn .bi {
             margin-right: 6px;
-            font-size: 14px;          /* compact icon */
+            font-size: 14px;
+            /* compact icon */
         }
+
         /* Slightly reduce visual weight for outline buttons inside tables */
-        table .btn-outline-primary, table .btn-outline-secondary, table .btn-outline-danger {
+        table .btn-outline-primary,
+        table .btn-outline-secondary,
+        table .btn-outline-danger {
             border-width: 1px;
             padding: 6px 10px;
             font-size: 13px;
         }
+
         /* Preserve small tappable area on mobile */
         @media (max-width: 576px) {
-            .action-btn { height: auto; padding: 8px 12px; font-size: 14px; }
-            table .btn-outline-primary, table .btn-outline-secondary, table .btn-outline-danger { padding: 8px 12px; }
+            .action-btn {
+                height: auto;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            table .btn-outline-primary,
+            table .btn-outline-secondary,
+            table .btn-outline-danger {
+                padding: 8px 12px;
+            }
         }
     </style>
     <link href="/static/css/style.css" rel="stylesheet">
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-light mb-4">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png" alt="Saveetha Logo" style="height:80px;" />
+                <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png" alt="Saveetha Logo"
+                    style="height:80px;" />
             </a>
             <div class="navbar-nav ms-auto align-items-center">
                 <span class="navbar-text me-3" id="userInfo" style="display: none;">
                     <i class="bi bi-person-circle me-1 text-primary"></i>
                     <span id="userName" class="fw-semibold"></span>
                 </span>
-                <button class="btn btn-outline-danger btn-sm px-3" id="logoutBtn" style="display: none;" onclick="logout()">
+                <button class="btn btn-outline-danger btn-sm px-3" id="logoutBtn" style="display: none;"
+                    onclick="logout()">
                     <i class="bi bi-box-arrow-right me-1"></i> Logout
                 </button>
             </div>
@@ -587,14 +623,16 @@
                             <label for="username" class="form-label">Username</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
-                                <input type="text" class="form-control" id="username" required placeholder="Enter your username">
+                                <input type="text" class="form-control" id="username" required
+                                    placeholder="Enter your username">
                             </div>
                         </div>
                         <div class="mb-4">
                             <label for="password" class="form-label">Password</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
-                                <input type="password" class="form-control" id="password" required placeholder="Enter your password">
+                                <input type="password" class="form-control" id="password" required
+                                    placeholder="Enter your password">
                             </div>
                         </div>
                         <div id="loginError" class="alert alert-danger" style="display: none;"></div>
@@ -712,7 +750,8 @@
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="search" id="pendingFilesSearch" class="form-control" placeholder="Search files, reg no, subject, status...">
+                            <input type="search" id="pendingFilesSearch" class="form-control"
+                                placeholder="Search files, reg no, subject, status...">
                         </div>
                     </div>
 
@@ -733,9 +772,12 @@
             <div class="row">
                 <div class="col-lg-4 col-md-6 mb-4">
                     <div class="footer-logo d-flex align-items-center">
-                        <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png" alt="Saveetha Logo" style="height:50px; margin-right:10px;" />
+                        <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png"
+                            alt="Saveetha Logo" style="height:50px; margin-right:10px;" />
                         <div>
-                            <div style="font-family: 'Poppins', sans-serif; font-weight:700; color: var(--primary-color);"></div>
+                            <div
+                                style="font-family: 'Poppins', sans-serif; font-weight:700; color: var(--primary-color);">
+                            </div>
                         </div>
                     </div>
                     <p class="mb-3">
@@ -749,7 +791,7 @@
                         <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-3 col-md-6 mb-4">
                     <h5>Quick Links</h5>
                     <div class="d-flex flex-column gap-2">
@@ -760,7 +802,7 @@
                         <a href="#">Placements</a>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Resources</h5>
                     <div class="d-flex flex-column gap-2">
@@ -771,7 +813,7 @@
                         <a href="#">Contact</a>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-3 col-md-6 mb-4">
                     <h5>Contact Info</h5>
                     <p class="mb-2">
@@ -789,11 +831,11 @@
                     </p>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <p>
-                    © 2026 Saveetha Engineering College. All rights reserved. | 
-                    <a href="#" class="ms-1">Privacy Policy</a> | 
+                    © 2026 Saveetha Engineering College. All rights reserved. |
+                    <a href="#" class="ms-1">Privacy Policy</a> |
                     <a href="#" class="ms-1">Terms of Service</a>
                 </p>
                 <p class="mt-2 text-muted" style="font-size: 0.8rem;">
@@ -822,25 +864,33 @@
     <div class="loader-overlay" id="loadingOverlay" role="status" aria-hidden="true">
         <div style="text-align:center;">
             <div class="spinner" aria-hidden="true">
-                <div></div><div></div><div></div><div></div><div></div>
-                <div></div><div></div><div></div><div></div><div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
             </div>
-            
+
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // State
-        let authToken = null; 
+        let authToken = null;
         let selectedFiles = [];
         let validatedFiles = [];
         let pendingArtifacts = []; // cached server-side file list for searching/filtering
         let serverUploadedCount = 0; // Track server uploaded files
-        
+
         // Filename pattern
         const FILENAME_PATTERN = /^(\d{12})_([A-Z0-9]{2,10})\.(pdf|jpg|jpeg|png)$/i;
-        
+
         // DOM Elements
         const loginSection = document.getElementById('loginSection');
         const uploadSection = document.getElementById('uploadSection');
@@ -852,14 +902,14 @@
         const userInfo = document.getElementById('userInfo');
         const userName = document.getElementById('userName');
         const logoutBtn = document.getElementById('logoutBtn');
-        
+
         // Check for existing session
         document.addEventListener('DOMContentLoaded', async () => {
             const token = localStorage.getItem('authToken');
             const user = localStorage.getItem('userName');
             if (token && user) {
                 authToken = token;
-                
+
                 // Verify token is still valid before showing upload section
                 try {
                     const response = await fetch('/upload/all', {
@@ -867,7 +917,7 @@
                             'Authorization': `Bearer ${authToken}`
                         }
                     });
-                    
+
                     if (response.status === 401) {
                         // Token expired, clear and show login
                         localStorage.removeItem('authToken');
@@ -875,7 +925,7 @@
                         authToken = null;
                         return;
                     }
-                    
+
                     // Token valid, show upload section
                     showUploadSection(user);
                 } catch (error) {
@@ -885,26 +935,26 @@
                 }
             }
         });
-        
+
         // Login form handler
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            
+
             try {
                 const params = new URLSearchParams();
                 params.append('username', username);
                 params.append('password', password);
-                
+
                 const response = await fetch('/auth/staff/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: params.toString()
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.access_token) {
                     authToken = data.access_token;
                     localStorage.setItem('authToken', authToken);
@@ -917,14 +967,14 @@
                 showLoginError('Connection error. Please try again.');
             }
         });
-        
+
         function showLoginError(message) {
             const errorDiv = document.getElementById('loginError');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
             errorDiv.style.animation = 'fadeInUp 0.3s ease-out';
         }
-        
+
         function showUploadSection(user) {
             loginSection.classList.remove('active');
             uploadSection.classList.add('active');
@@ -936,10 +986,10 @@
                 loadPendingFiles();
             }
         }
-        
+
         async function loadPendingFiles() {
             const pendingFilesList = document.getElementById('pendingFilesList');
-            
+
             // Check if authToken exists
             if (!authToken) {
                 pendingFilesList.innerHTML = `
@@ -950,7 +1000,7 @@
                 `;
                 return;
             }
-            
+
             // Show loading state
             pendingFilesList.innerHTML = `
                 <div class="text-center text-muted py-4">
@@ -958,7 +1008,7 @@
                     <p class="mt-2">Loading...</p>
                 </div>
             `;
-            
+
             // Try multiple possible endpoints
             const possibleEndpoints = [
                 '/upload/all',
@@ -968,10 +1018,10 @@
                 '/artifacts',
                 '/files'
             ];
-            
+
             let response = null;
             let successEndpoint = null;
-            
+
             for (const endpoint of possibleEndpoints) {
                 try {
                     const res = await fetch(endpoint, {
@@ -979,12 +1029,12 @@
                             'Authorization': `Bearer ${authToken}`
                         }
                     });
-                    
+
                     if (res.status === 401) {
                         logout();
                         return;
                     }
-                    
+
                     if (res.ok) {
                         response = res;
                         successEndpoint = endpoint;
@@ -995,7 +1045,7 @@
                     console.log(`Endpoint ${endpoint} failed:`, e.message);
                 }
             }
-            
+
             if (!response) {
                 // Update stats to show we couldn't load server data
                 serverUploadedCount = 0;
@@ -1009,15 +1059,15 @@
                 `;
                 return;
             }
-            
+
             try {
                 const data = await response.json();
                 console.log('Pending files response from', successEndpoint, ':', data);
-                
+
                 // Handle different possible response structures
                 let artifacts = null;
                 let total = 0;
-                
+
                 if (Array.isArray(data)) {
                     artifacts = data;
                     total = data.length;
@@ -1040,7 +1090,7 @@
                     artifacts = data.results;
                     total = data.total || data.results.length;
                 }
-                
+
                 // Compute visible artifacts (exclude items marked deleted by staff)
                 let visibleArtifacts = [];
                 if (Array.isArray(artifacts)) {
@@ -1091,7 +1141,7 @@
                 `;
             }
         }
-        
+
         function getStatusBadge(status) {
             const statusMap = {
                 'pending': { class: 'bg-warning text-dark', icon: 'hourglass-split', text: 'Pending' },
@@ -1104,7 +1154,7 @@
             const s = statusMap[status?.toLowerCase()] || { class: 'bg-secondary', icon: 'question-circle', text: status || 'Unknown' };
             return `<span class="badge ${s.class}"><i class="bi bi-${s.icon} me-1"></i>${s.text}</span>`;
         }
-        
+
         function logout() {
             authToken = null;
             serverUploadedCount = 0; // Reset server count on logout
@@ -1139,12 +1189,12 @@
 
             const filtered = pendingArtifacts.filter(a => {
                 // Hide artifacts that were explicitly deleted by staff
-                const err = (a.error_message || a.error || a.errorMessage || '') .toString();
+                const err = (a.error_message || a.error || a.errorMessage || '').toString();
                 if (err && err.includes('Deleted by staff')) return false;
-                const filename = (a.filename || a.file_name || a.name || a.original_filename || '') .toString().toLowerCase();
-                const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '') .toString().toLowerCase();
-                const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '') .toString().toLowerCase();
-                const status = (a.status || '') .toString().toLowerCase();
+                const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
+                const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '').toString().toLowerCase();
+                const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '').toString().toLowerCase();
+                const status = (a.status || '').toString().toLowerCase();
 
                 if (!q) return true;
                 return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q);
@@ -1174,9 +1224,9 @@
 
             filtered.forEach(a => {
                 const statusBadge = getStatusBadge(a.status);
-                const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() : 
-                                  (a.created_at ? new Date(a.created_at).toLocaleString() : 
-                                  (a.timestamp ? new Date(a.timestamp).toLocaleString() : '-'));
+                const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() :
+                    (a.created_at ? new Date(a.created_at).toLocaleString() :
+                        (a.timestamp ? new Date(a.timestamp).toLocaleString() : '-'));
                 const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
                 const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
                 const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
@@ -1185,7 +1235,7 @@
                 const artifactIdVal = a.id || a.artifact_id || a._id || '';
                 const artifactUuidVal = a.artifact_uuid || a.uuid || a.file_uuid || '';
 
-                            html += `
+                html += `
                     <tr>
                         <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
                         <td><span class="badge bg-secondary">${regNo}</span></td>
@@ -1221,29 +1271,29 @@
                 });
             }
         });
-        
+
         // File upload zone handlers
         uploadZone.addEventListener('click', () => fileInput.click());
-        
+
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadZone.classList.add('dragover');
         });
-        
+
         uploadZone.addEventListener('dragleave', () => {
             uploadZone.classList.remove('dragover');
         });
-        
+
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
-        
+
         fileInput.addEventListener('change', (e) => {
             handleFiles(e.target.files);
         });
-        
+
         function handleFiles(files) {
             for (const file of files) {
                 const validation = validateFilename(file.name);
@@ -1261,7 +1311,7 @@
             renderFileList();
             updateStats();
         }
-        
+
         function validateFilename(filename) {
             const match = filename.match(FILENAME_PATTERN);
             if (match) {
@@ -1276,7 +1326,7 @@
                 error: 'Invalid filename format. Expected: {12-digit RegNo}_{SubjectCode}.{pdf|jpg|jpeg|png}'
             };
         }
-        
+
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -1284,7 +1334,7 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-        
+
         function renderFileList() {
             fileList.innerHTML = selectedFiles.map((f, index) => `
                 <div class="file-item ${f.valid ? 'valid' : 'invalid'}">
@@ -1303,33 +1353,33 @@
                 </div>
             `).join('');
         }
-        
+
         function updateStats() {
             const total = selectedFiles.length;
             const valid = selectedFiles.filter(f => f.valid).length;
             const invalid = total - valid;
-            
+
             // Animate the number changes
             animateNumber('totalFiles', total);
             animateNumber('validFiles', valid);
             animateNumber('invalidFiles', invalid);
             animateNumber('uploadedFiles', serverUploadedCount);
-            
+
             uploadBtn.disabled = valid === 0;
             validatedFiles = selectedFiles.filter(f => f.valid);
         }
-        
+
         function animateNumber(elementId, targetValue) {
             const element = document.getElementById(elementId);
             const currentValue = parseInt(element.textContent) || 0;
-            
+
             if (currentValue === targetValue) return;
-            
+
             const duration = 300; // ms
             const steps = 10;
             const stepDuration = duration / steps;
             const increment = (targetValue - currentValue) / steps;
-            
+
             let step = 0;
             const timer = setInterval(() => {
                 step++;
@@ -1341,7 +1391,7 @@
                 }
             }, stepDuration);
         }
-        
+
         function clearFiles() {
             selectedFiles = [];
             validatedFiles = [];
@@ -1349,42 +1399,67 @@
             updateStats();
             document.getElementById('resultsCard').style.display = 'none';
         }
-        
+
         async function uploadFiles() {
             if (validatedFiles.length === 0) return;
-            
+
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             const resultsCard = document.getElementById('resultsCard');
             const uploadResults = document.getElementById('uploadResults');
             const loadingOverlay = document.getElementById('loadingOverlay');
-            
-            progressContainer.classList.add('active');
-            uploadBtn.disabled = true;
-            loadingOverlay.classList.add('active');
-            
-            const formData = new FormData();
-            validatedFiles.forEach(f => {
-                formData.append('files', f.file);
-            });
-            formData.append('exam_session', new Date().toISOString().split('T')[0].replace(/-/g, ''));
-            
+
+            // Enter busy state
             try {
-                const response = await fetch('/upload/bulk', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
+                progressContainer.classList.add('active');
+                uploadBtn.disabled = true;
+                loadingOverlay.classList.add('active');
+
+                const formData = new FormData();
+                validatedFiles.forEach(f => formData.append('files', f.file));
+                formData.append('exam_session', new Date().toISOString().split('T')[0].replace(/-/g, ''));
+
+                let response;
+                try {
+                    response = await fetch('/upload/bulk', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: formData
+                    });
+                } catch (networkErr) {
+                    // Network error - show message and rethrow to outer catch
+                    uploadResults.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Connection error: ${networkErr.message}
+                        </div>
+                    `;
+                    resultsCard.style.display = 'block';
+                    throw networkErr;
+                }
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    uploadResults.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Unexpected response from server.
+                        </div>
+                    `;
+                    resultsCard.style.display = 'block';
+                    throw parseErr;
+                }
+
+                // Update progress UI
                 progressBar.style.width = '100%';
                 progressText.textContent = '100%';
-                
-                // Handle token expiration
+
+                // Handle token expiration explicitly
                 if (response.status === 401) {
                     uploadResults.innerHTML = `
                         <div class="alert alert-warning">
@@ -1393,25 +1468,25 @@
                         </div>
                     `;
                     resultsCard.style.display = 'block';
-                    setTimeout(() => logout(), 2000);
+                    // ensure cleanup happens then logout
+                    setTimeout(() => logout(), 1200);
                     return;
                 }
-                
+
                 if (response.ok) {
                     document.getElementById('uploadedFiles').textContent = data.successful || 0;
-                    
+
                     let resultsHtml = `
                         <div class="alert alert-success">
                             <i class="bi bi-check-circle-fill me-2"></i>
                             Successfully uploaded <strong>${data.successful}</strong> of <strong>${data.total_files}</strong> files
                         </div>
                     `;
-                    
+
                     if (data.results && data.results.length > 0) {
                         resultsHtml += '<div class="list-group">';
                         data.results.forEach(r => {
                             const icon = r.success ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
-                            // Prefer a single error string: check r.error, r.errors (array), or r.message
                             const singleError = r.error || (r.errors && r.errors.length ? r.errors[0] : null) || r.message || 'Unknown error';
                             resultsHtml += `
                                 <div class="list-group-item d-flex align-items-center">
@@ -1423,7 +1498,7 @@
                         });
                         resultsHtml += '</div>';
                     }
-                    
+
                     uploadResults.innerHTML = resultsHtml;
                     // Reload pending files after successful upload
                     loadPendingFiles();
@@ -1434,42 +1509,63 @@
                             Upload failed: ${data.detail || 'Unknown error'}
                         </div>
                     `;
+                    resultsCard.style.display = 'block';
                 }
-                
-                resultsCard.style.display = 'block';
             } catch (error) {
-                uploadResults.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        Connection error: ${error.message}
-                    </div>
-                `;
-                resultsCard.style.display = 'block';
+                // Ensure an error message is visible (if not already set)
+                try {
+                    const uploadResults = document.getElementById('uploadResults');
+                    if (!uploadResults.innerHTML || uploadResults.innerHTML.trim() === '') {
+                        uploadResults.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Error: ${error.message || 'An error occurred'}
+                            </div>
+                        `;
+                        resultsCard.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Error rendering upload error UI:', e);
+                }
+                console.error('uploadFiles error:', error);
             } finally {
-                setTimeout(() => {
+                // Always restore UI state immediately to avoid leaving controls disabled
+                try {
+                    progressBar.style.width = '0%';
+                    progressText.textContent = '0%';
+                } catch (e) {
+                    // ignore if elements missing
+                }
+                try {
                     progressContainer.classList.remove('active');
-                    uploadBtn.disabled = false;
                     loadingOverlay.classList.remove('active');
-                }, 1000);
+                } catch (e) { }
+                try {
+                    // Recompute stats and enable button only if there are still valid files
+                    updateStats();
+                } catch (e) {
+                    // fallback: enable button
+                    uploadBtn.disabled = false;
+                }
             }
         }
     </script>
     <!-- Loader Overlay -->
     <div class="loader-overlay" id="loaderOverlay">
         <div class="spinner">
-            <div></div>   
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
-            <div></div>    
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
         </div>
     </div>
-<script>
+    <script>
         // Reports & Edit Modals
         async function viewReports(artifactUuid, artifactId) {
             const modalEl = document.getElementById('reportsModal');
@@ -1502,7 +1598,7 @@
                 }
 
                 const logs = await res.json();
-                
+
                 // DEBUG: Log all audit entries to console
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log('🔍 AUDIT LOGS for artifact ID:', id);
@@ -1516,7 +1612,7 @@
                     artifact_id: l.artifact_id,
                     created: new Date(l.created_at).toLocaleString()
                 })));
-                
+
                 // Build a map of resolved report entries keyed by the original report id
                 const resolvedMap = {};
                 (logs || []).forEach(l => {
@@ -1541,7 +1637,7 @@
                         actor: l.actor_username || l.actor_id
                     })));
                 }
-                
+
                 deletedLogs.forEach(l => {
                     if (l && (l.target_id || (l.request_data && l.request_data.target_id))) {
                         const tid = l.target_id || (l.request_data && l.request_data.target_id);
@@ -1564,6 +1660,11 @@
 
                 // Badge count: only active (not withdrawn) reports
                 const activeReports = allReports.filter(r => !deletedMap[String(r.id)]);
+
+                // Track truly active reports (not withdrawn AND not resolved) for the edit form
+                const trulyActiveReports = allReports.filter(r => !deletedMap[String(r.id)] && !resolvedMap[String(r.id)]);
+                currentViewActiveReportIds = trulyActiveReports.map(r => r.id);
+                console.log('🔵 Truly active (unresolved) reports for edit form:', currentViewActiveReportIds.length, currentViewActiveReportIds);
 
                 if (!allReports.length) {
                     bodyEl.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-chat-left-dots fs-1"></i><p class="mt-2">No reports for this artifact</p></div>';
@@ -1618,7 +1719,7 @@
                         </div>`;
                     } else {
                         // Normal active report entry
-                        const applyBtn = (req.suggested_reg_no || req.suggested_subject_code) ? `<button class="btn btn-sm btn-outline-secondary me-2" onclick="applySuggestion('${artifactUuid}','${id}','${(req.suggested_reg_no||'')}', '${(req.suggested_subject_code||'')}')">Apply Suggestion</button>` : '';
+                        const applyBtn = (req.suggested_reg_no || req.suggested_subject_code) ? `<button class="btn btn-sm btn-outline-secondary me-2" onclick="applySuggestion('${artifactUuid}','${id}','${(req.suggested_reg_no || '')}', '${(req.suggested_subject_code || '')}')">Apply Suggestion</button>` : '';
 
                         html += `<div class="list-group-item">
                             <div class="d-flex justify-content-between align-items-start">
@@ -1675,9 +1776,24 @@
             }
         }
 
-        async function openEditForm(artifactUuid, artifactId) {
+        // Track if we're editing from reports context (to show "Save Changes and Resolve")
+        let editingFromReportsContext = false;
+        let currentEditReportIds = [];
+        // Store active report IDs globally when viewReports is called
+        let currentViewActiveReportIds = [];
+
+        async function openEditForm(artifactUuid, artifactId, fromReports = true) {
             const modalEl = document.getElementById('reportsModal');
             const bodyEl = document.getElementById('reportsModalBody');
+
+            // Use globally tracked active reports from viewReports
+            editingFromReportsContext = fromReports;
+            currentEditReportIds = fromReports ? currentViewActiveReportIds : [];
+
+            const hasActiveReports = currentEditReportIds.length > 0;
+            const saveButtonText = hasActiveReports ? 'Save Changes and Resolve' : 'Save Changes';
+            const saveButtonClass = hasActiveReports ? 'btn btn-success' : 'btn btn-primary';
+
             bodyEl.innerHTML = `
                 <div class="mb-3">
                     <label class="form-label">Parsed Register Number</label>
@@ -1691,9 +1807,10 @@
                     <label class="form-label">Parsed Subject Code</label>
                     <input id="editParsedSub" class="form-control" placeholder="Subject code">
                 </div>
+                ${hasActiveReports ? `<div class="alert alert-info mb-3"><i class="bi bi-info-circle me-2"></i>Saving changes will automatically resolve ${currentEditReportIds.length} active report(s) for this artifact.</div>` : ''}
                 <div class="text-end">
                     <button class="btn btn-secondary me-2" onclick="viewReports('${artifactUuid}','${artifactId}')">Back to reports</button>
-                    <button class="btn btn-primary" onclick="submitArtifactEdit('${artifactUuid}','${artifactId}')">Save Changes</button>
+                    <button class="${saveButtonClass}" onclick="submitArtifactEdit('${artifactUuid}','${artifactId}', ${hasActiveReports})">${saveButtonText}</button>
                 </div>
             `;
 
@@ -1711,7 +1828,7 @@
             }
         }
 
-        async function submitArtifactEdit(artifactUuid, artifactId) {
+        async function submitArtifactEdit(artifactUuid, artifactId, resolveReports = false) {
             const reg = document.getElementById('editParsedReg').value.trim();
             const sub = document.getElementById('editParsedSub').value.trim();
             const orig = document.getElementById('editOriginalFilename').value.trim();
@@ -1722,12 +1839,21 @@
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ parsed_reg_no: reg || null, parsed_subject_code: sub || null, original_filename: orig || null })
+                    body: JSON.stringify({
+                        parsed_reg_no: reg || null,
+                        parsed_subject_code: sub || null,
+                        original_filename: orig || null,
+                        resolve_reports: resolveReports
+                    })
                 });
                 const data = await res.json();
                 if (res.ok) {
                     showToast(data.message || 'Artifact updated', 'success');
                     loadPendingFiles();
+                    // Close the modal after successful edit
+                    const modalEl = document.getElementById('reportsModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
                 } else {
                     showToast(data.detail || data.message || 'Failed to update artifact', 'danger');
                 }
@@ -1744,14 +1870,15 @@
                 return;
             }
 
-            const confirmMsg = `Apply suggested values?\n${suggestedReg ? 'Reg: ' + suggestedReg + '\n' : ''}${suggestedSub ? 'Subject: ' + suggestedSub : ''}`;
-            if (!(await showConfirm(confirmMsg, 'Apply Suggestion'))) return;
+            const confirmMsg = `Apply suggested values and resolve reports?\n${suggestedReg ? 'Reg: ' + suggestedReg + '\n' : ''}${suggestedSub ? 'Subject: ' + suggestedSub : ''}`;
+            if (!(await showConfirm(confirmMsg, 'Apply Suggestion & Resolve'))) return;
 
             try {
                 const payload = {
                     parsed_reg_no: suggestedReg || null,
                     parsed_subject_code: suggestedSub || null,
-                    original_filename: null
+                    original_filename: null,
+                    resolve_reports: true  // Auto-resolve reports when applying suggestion
                 };
 
                 const res = await fetch(`/admin/artifacts/${encodeURIComponent(artifactUuid)}/edit`, {
@@ -1813,7 +1940,7 @@
                     const d = new Date(ts);
                     if (isNaN(d)) return ts;
                     const pad = (n) => String(n).padStart(2, '0');
-                    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
                 }
 
                 // Map workflow status to Bootstrap badge classes for colour
@@ -1896,21 +2023,21 @@
                 }
             }
         });
-    // loader block removed to avoid duplicate declarations and conflicts
-</script>
-<!-- Toast container -->
-<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 10800;"></div>
+        // loader block removed to avoid duplicate declarations and conflicts
+    </script>
+    <!-- Toast container -->
+    <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 10800;"></div>
 
-<script>
-                // Toast helper
-                function showToast(message, type = 'info', title = '') {
-                                const container = document.getElementById('toastContainer');
-                                if (!container) return;
+    <script>
+        // Toast helper
+        function showToast(message, type = 'info', title = '') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
 
-                                const toastId = 'toast-' + Math.random().toString(36).slice(2, 9);
-                                const bgClass = type === 'success' ? 'bg-success text-white' : (type === 'danger' ? 'bg-danger text-white' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-info text-white'));
+            const toastId = 'toast-' + Math.random().toString(36).slice(2, 9);
+            const bgClass = type === 'success' ? 'bg-success text-white' : (type === 'danger' ? 'bg-danger text-white' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-info text-white'));
 
-                                const toastHtml = `
+            const toastHtml = `
                                                 <div id="${toastId}" class="toast align-items-center ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
                                                         <div class="d-flex">
                                                                 <div class="toast-body">${title ? `<strong class="me-2">${title}</strong>` : ''}${message}</div>
@@ -1918,80 +2045,82 @@
                                                         </div>
                                                 </div>`;
 
-                                const wrapper = document.createElement('div');
-                                wrapper.innerHTML = toastHtml;
-                                const toastEl = wrapper.firstElementChild;
-                                container.appendChild(toastEl);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = toastHtml;
+            const toastEl = wrapper.firstElementChild;
+            container.appendChild(toastEl);
 
-                                const bsToast = new bootstrap.Toast(toastEl, { delay: 5000 });
-                                bsToast.show();
+            const bsToast = new bootstrap.Toast(toastEl, { delay: 5000 });
+            bsToast.show();
 
-                                // Remove element after hidden
-                                toastEl.addEventListener('hidden.bs.toast', () => { try { toastEl.remove(); } catch (e) {} });
+            // Remove element after hidden
+            toastEl.addEventListener('hidden.bs.toast', () => { try { toastEl.remove(); } catch (e) { } });
+        }
+
+        // Confirmation modal helper
+        function showConfirm(message, title = 'Confirm') {
+            return new Promise((resolve) => {
+                const el = document.getElementById('confirmModal');
+                const body = document.getElementById('confirmModalBody');
+                const titleEl = document.getElementById('confirmModalTitle');
+                body.textContent = message;
+                titleEl.textContent = title;
+
+                const okBtn = el.querySelector('.confirm-ok');
+                const cancelBtn = el.querySelector('.confirm-cancel');
+
+                const modal = new bootstrap.Modal(el, { backdrop: 'static' });
+
+                function cleanup() {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    el.removeEventListener('hidden.bs.modal', onHidden);
                 }
 
-                // Confirmation modal helper
-                function showConfirm(message, title = 'Confirm') {
-                        return new Promise((resolve) => {
-                                const el = document.getElementById('confirmModal');
-                                const body = document.getElementById('confirmModalBody');
-                                const titleEl = document.getElementById('confirmModalTitle');
-                                body.textContent = message;
-                                titleEl.textContent = title;
-
-                                const okBtn = el.querySelector('.confirm-ok');
-                                const cancelBtn = el.querySelector('.confirm-cancel');
-
-                                const modal = new bootstrap.Modal(el, { backdrop: 'static' });
-
-                                function cleanup() {
-                                        okBtn.removeEventListener('click', onOk);
-                                        cancelBtn.removeEventListener('click', onCancel);
-                                        el.removeEventListener('hidden.bs.modal', onHidden);
-                                }
-
-                                function onOk() {
-                                        cleanup();
-                                        modal.hide();
-                                        resolve(true);
-                                }
-
-                                function onCancel() {
-                                        cleanup();
-                                        modal.hide();
-                                        resolve(false);
-                                }
-
-                                function onHidden() {
-                                        cleanup();
-                                        resolve(false);
-                                }
-
-                                okBtn.addEventListener('click', onOk);
-                                cancelBtn.addEventListener('click', onCancel);
-                                el.addEventListener('hidden.bs.modal', onHidden);
-
-                                modal.show();
-                        });
+                function onOk() {
+                    cleanup();
+                    modal.hide();
+                    resolve(true);
                 }
-</script>
 
-<!-- Confirmation Modal -->
-<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="confirmModalTitle">Confirm</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="confirmModalBody">Are you sure?</div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary confirm-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger confirm-ok">Confirm</button>
+                function onCancel() {
+                    cleanup();
+                    modal.hide();
+                    resolve(false);
+                }
+
+                function onHidden() {
+                    cleanup();
+                    resolve(false);
+                }
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                el.addEventListener('hidden.bs.modal', onHidden);
+
+                modal.show();
+            });
+        }
+    </script>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmModalTitle">Confirm</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">Are you sure?</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary confirm-cancel"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger confirm-ok">Confirm</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
 </body>
+
 </html>

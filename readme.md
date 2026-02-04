@@ -1,553 +1,748 @@
-#  Examination Middleware (LMS-SAE Bridge)
+<div align="center">
 
-![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-009688.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791.svg)
-![Moodle](https://img.shields.io/badge/Integration-Moodle%20LMS-orange)
+# Smart Answer Sheet Processor for LMS
 
-**Examination Middleware** is a robust, secure, and automated bridge designed to streamline the digitization and submission of physical examination answer sheets to the Moodle Learning Management System (LMS). It acts as an intelligent intermediary between the physical examination hall and the digital grading environment.
+### Examination Middleware (LMS-SAE Bridge)
 
----
+<p align="center">
+  <strong>An intelligent bridge between physical examination papers and Moodle LMS</strong>
+</p>
 
-## ⚠️ Recent updates (2026-01-12)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.104.1-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-14%2B-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/Moodle-LMS-F98012?style=for-the-badge&logo=moodle&logoColor=white" alt="Moodle"/>
+</p>
 
-The codebase has received several maintenance and UX updates to improve safety, auditing and staff workflows. Highlights:
-
-- New maintenance scripts:
-   - `setup_username_reg.py` — upsert a single Moodle `username -> register_number` mapping. Useful to seed or correct mappings used during student login and pending-list authorization. Example:
-
-      ```bash
-      # interactive
-      python setup_username_reg.py
-
-      # direct
-      python setup_username_reg.py --username 22007928 --register 212222240047
-      ```
-
-   - `setup_subject_mapping.py` — interactive workflow to find an assignment by course-module-id (CMID) in Moodle, create or update a `SubjectMapping`, and optionally fix existing artifacts that reference the wrong assignment id.
-
-- Staff UI changes:
-   - `app/templates/staff_upload.html` now contains a Reports modal (view/resolve/edit/delete reports) and improved listing behaviour.
-   - The `Total Uploaded` stat is computed from the visible (non-deleted) artifacts returned by the listing endpoint, so the navbar count now matches the visible table ("Showing X of Y files").
-   - Client-side behaviour was hardened: the student/staff login flows no longer call `localStorage.clear()`; only session keys are removed on logout.
-
-- Backend/service changes (important for deploy and troubleshooting):
-   - `app/services/artifact_service.py` was hardened to explicitly catch `IntegrityError` on DB flush/commit and to rollback safely. This reduces silent failures for duplicate transaction IDs.
-   - `get_pending_for_student()` requires either a valid 12-digit `register_number` OR both `moodle_user_id` and `moodle_username`. This prevents ambiguous or leaking results when student identity is unclear.
-   - Admin remediation: if a deterministic `transaction_id` collides with an existing (deleted/archived) artifact, clearing or nulling the `transaction_id` in the DB row will allow a re-upload. Use the `audit_logs` and `ExaminationArtifact` table to locate problematic rows before manual edits.
-
-- API and client notes:
-   - Staff UI attempts multiple common listing endpoints (e.g. `/api/upload/all`, `/upload/all`, `/api/artifacts`) to be resilient against different backend deployments. Prefer endpoints that return an array of `artifacts` for best UI compatibility.
-   - Consider returning HTTP 409 for DB integrity conflicts (duplicate transaction / unique constraint) so the client can surface a clear message instead of a generic 500.
+<p align="center">
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/Redis-Supported-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis"/>
+  <img src="https://img.shields.io/badge/Celery-Background_Tasks-37814A?style=for-the-badge&logo=celery&logoColor=white" alt="Celery"/>
+  <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License"/>
+</p>
 
 ---
 
+**A robust, secure, and automated middleware designed to streamline the digitization and submission of physical examination answer sheets to the Moodle Learning Management System (LMS).**
 
-##  The Problem Statement
+[Quick Start](#quick-start) •
+[Documentation](#api-documentation) •
+[Architecture](#architecture) •
+[Security](#security-features) •
+[Troubleshooting](#troubleshooting)
 
-In academic institutions transitioning to digital grading, handling physical answer scripts presents significant logistical challenges:
+</div>
 
-1.  **Manual Labor**: Individually scanning, renaming, and uploading hundreds of answer scripts to specific Moodle assignments is time-consuming and inefficient.
-2.  **Human Error**: Manual processes are prone to errors such as uploading the wrong file to a student's profile or mislabeling files.
-3.  **Security & Integrity**: Direct database manipulation or unverified bulk uploads can compromise the chain of custody.
-4.  **Student Verification**: Students often lack a mechanism to verify that their specific physical paper was scanned and submitted correctly before grading begins.
+---
 
-##  Proposed Solution & Architecture
+## Table of Contents
+
+- [Features](#features)
+- [Problem Statement](#problem-statement)
+- [Solution Overview](#solution-overview)
+- [Architecture](#architecture)
+- [Database Schema](#database-schema)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Docker Deployment](#docker-deployment)
+- [Access Points](#access-points)
+- [File Naming Convention](#file-naming-convention)
+- [Authentication](#authentication)
+- [API Documentation](#api-documentation)
+- [Moodle Configuration](#moodle-configuration)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [Workflow](#workflow)
+- [Security Features](#security-features)
+- [Background Tasks](#background-tasks)
+- [Monitoring](#monitoring)
+- [Troubleshooting](#troubleshooting)
+- [Recent Updates](#recent-updates)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Features
+
+<table>
+<tr>
+<td width="50%">
+
+### Core Capabilities
+- **Bulk Upload** - Staff can upload hundreds of scanned papers at once
+- **Smart Parsing** - Auto-extracts Register Number & Subject Code from filenames
+- **Student Portal** - Students verify and submit their own papers
+- **Moodle Integration** - Direct submission to assignment modules
+- **Audit Trail** - Complete chain of custody logging
+
+</td>
+<td width="50%">
+
+### Security & Reliability
+- **JWT Authentication** - Secure staff access
+- **AES-256 Encryption** - Protected Moodle token storage
+- **Idempotent Operations** - Safe re-uploads with transaction IDs
+- **Submission Queue** - Handles Moodle downtime gracefully
+- **File Validation** - Hash verification & format checks
+
+</td>
+</tr>
+</table>
+
+---
+
+## Problem Statement
+
+> *In academic institutions transitioning to digital grading, handling physical answer scripts presents significant logistical challenges.*
+
+The key challenges include:
+
+1. **Manual Labor**: Individually scanning, renaming, and uploading hundreds of answer scripts to specific Moodle assignments is time-consuming and inefficient.
+2. **Human Error**: Manual processes are prone to errors such as uploading the wrong file to a student's profile or mislabeling files.
+3. **Security & Integrity**: Direct database manipulation or unverified bulk uploads can compromise the chain of custody.
+4. **Student Verification**: Students often lack a mechanism to verify that their specific physical paper was scanned and submitted correctly before grading begins.
+
+---
+
+## Solution Overview
 
 This middleware solves these issues by decoupling the **scanning/uploading** process from the **submission** process, introducing a secure validation layer.
 
 ### Core Concept
+
 The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
-1.  **Bulk Ingestion**: Administrative staff upload bulk batches of scanned PDF/Images.
-2.  **Intelligent Processing**: The system parses filenames (e.g., `123456_MATH101.pdf`) to extract the Student Register Number and Subject Code, automatically mapping them to the correct Moodle Assignment ID.
-3.  **Student-Led Submission**: Students log in using their Moodle credentials. They view *only* their specific answer scripts and trigger the final submission to Moodle. This ensures non-repudiation and student verification.
 
-### High-Level Architecture
+1. **Bulk Ingestion**: Administrative staff upload bulk batches of scanned PDF/Images.
+2. **Intelligent Processing**: The system parses filenames (e.g., `123456_MATH101.pdf`) to extract the Student Register Number and Subject Code, automatically mapping them to the correct Moodle Assignment ID.
+3. **Student-Led Submission**: Students log in using their Moodle credentials. They view *only* their specific answer scripts and trigger the final submission to Moodle. This ensures non-repudiation and student verification.
 
-```mermaid
-graph LR
-    A[Physical Scans] -->|Bulk Upload| B(Staff Portal / Middleware)
-    B -->|Parse & Store| C{PostgreSQL DB}
-    D[Student] -->|Login via Moodle Creds| E(Student Portal)
-    E -->|Fetch Pending Papers| C
-    E -->|Trigger Submission| F[Moodle LMS]
-    F -->|Token Exchange| E
+### Visual Workflow
+
 ```
-## Database Schema Overview
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│     UPLOAD      │ ──▶ │     VERIFY      │ ──▶ │     SUBMIT      │
+│   Staff Portal  │     │ Student Review  │     │  To Moodle LMS  │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
-The database is designed for data integrity and auditability. Key models include:
+### Workflow Phases
 
-| Model | Description |
-| :--- | :--- |
-| **`ExaminationArtifact`** | The core entity representing a scanned paper. Stores UUID, file path, hash (SHA-256), extracted metadata (Reg No, Subject), and current `WorkflowStatus` (e.g., `PENDING`, `SUBMITTED_TO_LMS`). |
-| **`SubjectMapping`** | Configuration table mapping a Subject Code (e.g., `19AI405`) to a specific Moodle Course ID and Assignment ID. |
-| **`StaffUser`** | Accounts for administrative staff authorized to perform bulk uploads. |
-| **`StudentSession`** | Manages ephemeral student sessions. Stores encrypted Moodle access tokens used to perform submissions on behalf of the student. |
-| **`AuditLog`** | A rigid ledger tracking every action (Upload, View, Submit) with IP addresses and timestamps to ensure a chain of custody. |
-| **`SubmissionQueue`** | A buffer for handling Moodle API failures or maintenance windows, ensuring no submission is lost. |
+<details>
+<summary><b>Phase 1: Administration & Setup</b></summary>
+
+1. **Mapping Configuration** - Admin maps Subject Codes to Moodle Assignment IDs
+2. **Scanning** - Exam cell scans papers using naming convention: `{RegisterNo}_{SubjectCode}.pdf`
+
+</details>
+
+<details>
+<summary><b>Phase 2: Staff Operations</b></summary>
+
+1. **Login** - Staff authenticates via JWT
+2. **Bulk Upload** - Drag and drop folders of scanned files
+3. **Validation** - System validates filenames, hashes files, stores as `PENDING`
+
+</details>
+
+<details>
+<summary><b>Phase 3: Student Operations</b></summary>
+
+1. **Login** - Student uses Moodle credentials
+2. **Dashboard** - View all papers tagged with their Register Number
+3. **Review** - Preview PDF to verify it's their paper
+4. **Submit** - One-click submission to Moodle
+5. **Confirmation** - Status updates to `SUBMITTED_TO_LMS`
+
+</details>
 
 ---
 
-## Database tables created by `init_db.py`
+## Architecture
 
-When you run `python init_db.py` it executes SQLAlchemy's `Base.metadata.create_all()` which creates the database tables defined in `app/db/models.py`. On PostgreSQL, the necessary sequences for integer primary keys are created automatically.
-
-The `init_db.py` script seeds minimal configuration (default admin user, subject mappings, system config). If you run with the `--seed-samples` flag it will also add a sample artifact and `report_issue` audit log useful for local testing.
-
-Below is the full list of tables and sequences that should be present after running `init_db.py` (example `\d` output):
-
-```
- public | audit_logs                       | table    | postgres
- public | audit_logs_id_seq                | sequence | postgres
- public | examination_artifacts            | table    | postgres
- public | examination_artifacts_id_seq     | sequence | postgres
- public | staff_users                      | table    | postgres
- public | staff_users_id_seq               | sequence | postgres
- public | student_sessions                 | table    | postgres
- public | student_sessions_id_seq          | sequence | postgres
- public | student_username_register        | table    | postgres
- public | student_username_register_id_seq | sequence | postgres
- public | subject_mappings                 | table    | postgres
- public | subject_mappings_id_seq          | sequence | postgres
- public | submission_queue                 | table    | postgres
- public | submission_queue_id_seq          | sequence | postgres
- public | system_config                    | table    | postgres
- public | system_config_id_seq             | sequence | postgres
-```
-
-If any of these tables are missing after running `init_db.py`:
-
-- Ensure your `DATABASE_URL` is set and points to the database you initialized.
-- Confirm the DB user has privileges to create tables in the `public` schema.
-- Check `init_db.py` output for errors and fix any import or connection issues before re-running.
-
-For production deployments we strongly recommend using Alembic for schema migrations instead of `create_all()` so you can evolve the schema safely across releases.
-
-## Detailed schema (information_schema.columns)
-
-Below is a dump of `information_schema.columns` for the `public` schema taken from a development database. It lists every table, column, data type, nullability and default value. This is useful for developers who want to inspect the actual physical schema created by `init_db.py`.
-
-```
-audit_logs                | id                     | integer                  | NO          | nextval('audit_logs_id_seq'::regclass)
-audit_logs                | action                 | character varying        | NO          |
-audit_logs                | action_category        | character varying        | NO          |
-audit_logs                | description            | text                     | YES         |
-audit_logs                | actor_type             | character varying        | NO          |
-audit_logs                | actor_id               | character varying        | YES         |
-audit_logs                | actor_username         | character varying        | YES         |
-audit_logs                | actor_ip               | character varying        | YES         |
-audit_logs                | artifact_id            | integer                  | YES         |
-audit_logs                | target_type            | character varying        | YES         |
-audit_logs                | target_id              | character varying        | YES         |
-audit_logs                | request_data           | jsonb                    | YES         |
-audit_logs                | response_data          | jsonb                    | YES         |
-audit_logs                | error_details          | jsonb                    | YES         |
-audit_logs                | moodle_api_function    | character varying        | YES         |
-audit_logs                | moodle_response_code   | integer                  | YES         |
-audit_logs                | created_at             | timestamp with time zone | YES         | now()
-examination_artifacts     | id                     | integer                  | NO          | nextval('examination_artifacts_id_seq'::regclass)
-examination_artifacts     | artifact_uuid          | uuid                     | NO          |
-examination_artifacts     | raw_filename           | character varying        | NO          |
-examination_artifacts     | original_filename      | character varying        | NO          |
-examination_artifacts     | parsed_reg_no          | character varying        | YES         |
-examination_artifacts     | parsed_subject_code    | character varying        | YES         |
-examination_artifacts     | file_blob_path         | character varying        | NO          |
-examination_artifacts     | file_hash              | character varying        | NO          |
-examination_artifacts     | file_size_bytes        | bigint                   | YES         |
-examination_artifacts     | mime_type              | character varying        | YES         |
-examination_artifacts     | moodle_user_id         | bigint                   | YES         |
-examination_artifacts     | moodle_username        | character varying        | YES         |
-examination_artifacts     | moodle_course_id       | integer                  | YES         |
-examination_artifacts     | moodle_assignment_id   | integer                  | YES         |
-examination_artifacts     | workflow_status        | USER-DEFINED             | NO          |
-examination_artifacts     | moodle_draft_item_id   | bigint                   | YES         |
-examination_artifacts     | moodle_submission_id   | character varying        | YES         |
-examination_artifacts     | lms_transaction_id     | character varying        | YES         |
-examination_artifacts     | transaction_id         | character varying        | YES         |
-examination_artifacts     | uploaded_at            | timestamp with time zone | YES         | now()
-examination_artifacts     | validated_at           | timestamp with time zone | YES         |
-examination_artifacts     | submit_timestamp       | timestamp with time zone | YES         |
-examination_artifacts     | completed_at           | timestamp with time zone | YES         |
-examination_artifacts     | uploaded_by_staff_id   | integer                  | YES         |
-examination_artifacts     | submitted_by_user_id   | bigint                   | YES         |
-examination_artifacts     | transaction_log        | jsonb                    | YES         |
-examination_artifacts     | error_message          | text                     | YES         |
-examination_artifacts     | retry_count            | integer                  | YES         |
-staff_users               | id                     | integer                  | NO          | nextval('staff_users_id_seq'::regclass)
-staff_users               | username               | character varying        | NO          |
-staff_users               | email                  | character varying        | NO          |
-staff_users               | hashed_password        | character varying        | NO          |
-staff_users               | full_name              | character varying        | YES         |
-staff_users               | role                   | character varying        | YES         |
-staff_users               | is_active              | boolean                  | YES         |
-staff_users               | created_at             | timestamp with time zone | YES         | now()
-staff_users               | last_login_at          | timestamp with time zone | YES         |
-student_sessions          | id                     | integer                  | NO          | nextval('student_sessions_id_seq'::regclass)
-student_sessions          | session_id             | character varying        | NO          |
-student_sessions          | moodle_user_id         | bigint                   | NO          |
-student_sessions          | moodle_username        | character varying        | NO          |
-student_sessions          | moodle_fullname        | character varying        | YES         |
-student_sessions          | encrypted_token        | text                     | NO          |
-student_sessions          | token_expires_at       | timestamp with time zone | YES         |
-student_sessions          | ip_address             | character varying        | YES         |
-student_sessions          | user_agent             | character varying        | YES         |
-student_sessions          | created_at             | timestamp with time zone | YES         | now()
-student_sessions          | last_activity_at       | timestamp with time zone | YES         | now()
-student_sessions          | expires_at             | timestamp with time zone | NO          |
-student_sessions          | register_number        | character varying        | YES         |
-student_username_register | id                     | integer                  | NO          | nextval('student_username_register_id_seq'::regclass)
-student_username_register | moodle_username        | character varying        | NO          |
-student_username_register | register_number        | character varying        | NO          |
-student_username_register | created_at             | timestamp with time zone | YES         | now()
-student_username_register | updated_at             | timestamp with time zone | YES         |
-subject_mappings          | id                     | integer                  | NO          | nextval('subject_mappings_id_seq'::regclass)
-subject_mappings          | subject_code           | character varying        | NO          |
-subject_mappings          | subject_name           | character varying        | YES         |
-subject_mappings          | moodle_course_id       | integer                  | NO          |
-subject_mappings          | moodle_course_idnumber | character varying        | YES         |
-subject_mappings          | moodle_assignment_id   | integer                  | NO          |
-subject_mappings          | moodle_assignment_name | character varying        | YES         |
-subject_mappings          | exam_session           | character varying        | YES         |
-subject_mappings          | is_active              | boolean                  | YES         |
-subject_mappings          | created_at             | timestamp with time zone | YES         | now()
-subject_mappings          | updated_at             | timestamp with time zone | YES         |
-subject_mappings          | last_verified_at       | timestamp with time zone | YES         |
-submission_queue          | id                     | integer                  | NO          | nextval('submission_queue_id_seq'::regclass)
-submission_queue          | artifact_id            | integer                  | NO          |
-submission_queue          | status                 | character varying        | YES         |
-submission_queue          | priority               | integer                  | YES         |
-submission_queue          | retry_count            | integer                  | YES         |
-submission_queue          | max_retries            | integer                  | YES         |
-submission_queue          | next_retry_at          | timestamp with time zone | YES         |
-submission_queue          | queued_at              | timestamp with time zone | YES         | now()
-submission_queue          | processed_at           | timestamp with time zone | YES         |
-submission_queue          | last_error             | text                     | YES         |
-system_config             | id                     | integer                  | NO          | nextval('system_config_id_seq'::regclass)
-system_config             | key                    | character varying        | NO          |
-system_config             | value                  | text                     | YES         |
-system_config             | value_type             | character varying        | YES         |
-system_config             | description            | text                     | YES         |
-system_config             | updated_at             | timestamp with time zone | YES         |
+```mermaid
+graph TB
+    subgraph "Input Layer"
+        A[Physical Scans] -->|Bulk Upload| B[Staff Portal]
+    end
+    
+    subgraph "Processing Layer"
+        B -->|Parse & Validate| C[PostgreSQL]
+        C -->|Queue Failed| D[Submission Queue]
+        E[Celery Workers] -->|Retry| D
+    end
+    
+    subgraph "Output Layer"
+        F[Student Portal] -->|Fetch Papers| C
+        F -->|Submit| G[Moodle LMS]
+        G -->|Token Exchange| F
+    end
+    
+    subgraph "Security Layer"
+        H[JWT Auth]
+        I[Token Encryption]
+        J[Audit Logs]
+    end
 ```
 
-This listing is provided for convenience—your actual schema may differ slightly depending on the database version and any future schema changes. Always inspect your database with `\d` (psql) or `information_schema.columns` when debugging.
+### Tech Stack
 
+| Component | Technology | Purpose |
+|:----------|:-----------|:--------|
+| **Web Framework** | FastAPI 0.104+ | Async REST API with auto-docs |
+| **Database** | PostgreSQL 14+ | Persistent storage with JSONB |
+| **Async ORM** | SQLAlchemy 2.0 | Async database operations |
+| **Cache/Queue** | Redis 7+ | Session cache & task queue |
+| **Task Queue** | Celery + Flower | Background job processing |
+| **Containerization** | Docker + Compose | Production deployment |
+| **Security** | bcrypt + Fernet | Password hashing & encryption |
 
-## 🔄 Workflow of the Platform
+---
 
-### Phase 1: Administration & Setup
-1.  **Mapping**: Admin configures the `SubjectMapping` table (e.g., Subject `CS101` targets Moodle Assignment `ID: 55`).
-2.  **Scanning**: Examination cell scans answer sheets using the naming convention: `{RegisterNumber}_{SubjectCode}.pdf`.
+## Database Schema
 
-### Phase 2: Staff Operations
-1.  **Login**: Staff logs into the Staff Portal.
-2.  **Bulk Upload**: Staff drags and drops folders of scanned files.
-3.  **Validation**: The system instantly validates filenames. Invalid files are rejected; valid files are hashed and stored as `ExaminationArtifacts` with status `PENDING`.
+### Entity Relationship
 
-### Phase 3: Student Operations
-1.  **Login**: Student logs into the Student Portal using their university Moodle username and password.
-2.  **Dashboard**: The system displays all papers tagged with their Register Number.
-3.  **Review**: Student previews the PDF to ensure it is their paper.
-4.  **Submit**: Student clicks "Submit".
-    * *Backend Action*: The system authenticates with Moodle using the student's token.
-    * *Backend Action*: Uploads the file to Moodle's draft area.
-    * *Backend Action*: Finalizes the submission for grading.
-5.  **Confirmation**: The status updates to `SUBMITTED_TO_LMS`.
-   
-## 📋 Prerequisites
+```mermaid
+erDiagram
+    ExaminationArtifact ||--o{ AuditLog : "has"
+    StaffUser ||--o{ ExaminationArtifact : "uploads"
+    SubjectMapping ||--o{ ExaminationArtifact : "maps"
+    ExaminationArtifact ||--o| SubmissionQueue : "queued"
+    StudentSession ||--o{ ExaminationArtifact : "submits"
+    StudentUsernameRegister ||--o{ StudentSession : "validates"
+    
+    ExaminationArtifact {
+        uuid artifact_uuid PK
+        string parsed_reg_no
+        string parsed_subject_code
+        string file_hash
+        enum workflow_status
+        timestamp uploaded_at
+    }
+    
+    SubjectMapping {
+        int id PK
+        string subject_code UK
+        int moodle_assignment_id
+        boolean is_active
+    }
+    
+    AuditLog {
+        int id PK
+        string action
+        string actor_type
+        jsonb request_data
+        timestamp created_at
+    }
+```
 
-- Python 3.10+
-- PostgreSQL 14+
-- Moodle LMS with Web Services enabled
-- Redis (optional, for background tasks)
+### Database Tables
+
+<details>
+<summary><b>View Complete Table List</b></summary>
+
+| Table | Description | Key Columns |
+|:------|:------------|:------------|
+| `examination_artifacts` | Core scanned paper records | `artifact_uuid`, `parsed_reg_no`, `workflow_status` |
+| `subject_mappings` | Subject to Moodle mapping | `subject_code`, `moodle_assignment_id` |
+| `staff_users` | Staff accounts | `username`, `hashed_password`, `role` |
+| `student_sessions` | Active student sessions | `session_id`, `encrypted_token` |
+| `student_username_register` | Username to Register No mapping | `moodle_username`, `register_number` |
+| `audit_logs` | Complete action history | `action`, `actor_type`, `created_at` |
+| `submission_queue` | Failed submission retry queue | `artifact_id`, `status`, `retry_count` |
+| `system_config` | Runtime configuration | `key`, `value` |
+
+</details>
+
+<details>
+<summary><b>View Detailed Schema (information_schema.columns)</b></summary>
+
+```sql
+-- examination_artifacts
+artifact_uuid          | uuid                     | NOT NULL
+raw_filename           | character varying        | NOT NULL
+original_filename      | character varying        | NOT NULL
+parsed_reg_no          | character varying        | NULL (indexed)
+parsed_subject_code    | character varying        | NULL (indexed)
+file_blob_path         | character varying        | NOT NULL
+file_hash              | character varying(64)    | NOT NULL (SHA-256)
+file_size_bytes        | bigint                   | NULL
+mime_type              | character varying        | NULL
+moodle_user_id         | bigint                   | NULL
+moodle_username        | character varying        | NULL
+moodle_course_id       | integer                  | NULL
+moodle_assignment_id   | integer                  | NULL
+workflow_status        | enum                     | NOT NULL (PENDING, SUBMITTED_TO_LMS, etc.)
+moodle_draft_item_id   | bigint                   | NULL
+moodle_submission_id   | character varying        | NULL
+transaction_id         | character varying(64)    | UNIQUE (idempotency key)
+uploaded_at            | timestamp with time zone | DEFAULT now()
+validated_at           | timestamp with time zone | NULL
+submit_timestamp       | timestamp with time zone | NULL
+completed_at           | timestamp with time zone | NULL
+uploaded_by_staff_id   | integer                  | FK -> staff_users
+submitted_by_user_id   | bigint                   | NULL (Moodle user ID)
+transaction_log        | jsonb                    | NULL
+error_message          | text                     | NULL
+retry_count            | integer                  | DEFAULT 0
+```
+
+</details>
+
+### Database Initialization
+
+When you run `python init_db.py`, it executes SQLAlchemy's `Base.metadata.create_all()` which creates the database tables defined in `app/db/models.py`. On PostgreSQL, the necessary sequences for integer primary keys are created automatically.
+
+The `init_db.py` script seeds minimal configuration:
+- Default admin user (username: `admin`, password: `admin123`)
+- Subject mappings (configurable)
+- System config settings
+
+**Optional Sample Data**: If you run with the `--seed-samples` flag, it will also add a sample artifact and `report_issue` audit log useful for local testing.
+
+```bash
+# Basic initialization
+python init_db.py
+
+# With sample data for testing
+python init_db.py --seed-samples
+```
+
+**Tables and Sequences Created**:
+
+Below is the full list of tables and sequences that should be present after running `init_db.py`:
+
+```
+public | audit_logs                       | table    | postgres
+public | audit_logs_id_seq                | sequence | postgres
+public | examination_artifacts            | table    | postgres
+public | examination_artifacts_id_seq     | sequence | postgres
+public | staff_users                      | table    | postgres
+public | staff_users_id_seq               | sequence | postgres
+public | student_sessions                 | table    | postgres
+public | student_sessions_id_seq          | sequence | postgres
+public | student_username_register        | table    | postgres
+public | student_username_register_id_seq | sequence | postgres
+public | subject_mappings                 | table    | postgres
+public | subject_mappings_id_seq          | sequence | postgres
+public | submission_queue                 | table    | postgres
+public | submission_queue_id_seq          | sequence | postgres
+public | system_config                    | table    | postgres
+public | system_config_id_seq             | sequence | postgres
+```
+
+**Troubleshooting**: If any tables are missing after running `init_db.py`:
+- Ensure your `DATABASE_URL` is set and points to the correct database
+- Confirm the DB user has privileges to create tables in the `public` schema
+- Check `init_db.py` output for errors and fix any import or connection issues before re-running
+
+**Production Note**: For production deployments, we strongly recommend using Alembic for schema migrations instead of `create_all()` so you can evolve the schema safely across releases.
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|:------------|:--------|:------|
+| **Python** | 3.10+ | Required |
+| **PostgreSQL** | 14+ | Primary database |
+| **Moodle LMS** | 3.9+ | With Web Services enabled |
+| **Redis** | 7+ | Optional - for background tasks |
+| **Docker** | 20.10+ | Optional - for containerized deployment |
+
+---
+
+## Maintenance Scripts
+
+The project includes utility scripts for managing database mappings:
+
+### setup_username_reg.py
+
+Upsert a single Moodle `username -> register_number` mapping. Useful to seed or correct mappings used during student login and pending-list authorization.
+
+**Usage:**
+
+```bash
+# Interactive mode
+python setup_username_reg.py
+
+# Direct mode
+python setup_username_reg.py --username 22007928 --register 212222240047
+```
+
+**Purpose**: This script maintains the `student_username_register` table which validates that a Moodle account is allowed to assert a particular register number during login.
+
+### setup_subject_mapping.py
+
+Interactive workflow to find an assignment by course-module-id (CMID) in Moodle, create or update a `SubjectMapping`, and optionally fix existing artifacts that reference the wrong assignment id.
+
+**Usage:**
+
+```bash
+# Interactive mode with guided prompts
+python setup_subject_mapping.py
+```
+
+**Features**:
+- Search for assignments by CMID in Moodle
+- Create new subject code to assignment mappings
+- Update existing mappings
+- Automatically fix artifacts with incorrect assignment references
+
+---
 
 ## Quick Start
 
-### 1. Clone and Setup
+### Step 1: Clone and Navigate
 
 ```bash
+git clone https://github.com/yourusername/Smart-answer-sheet-processor-for-LMS.git
 cd exam_middleware
 ```
 
-### 2. Create Virtual Environment
+### Step 2: Create Virtual Environment
 
 ```bash
+# Create virtual environment
 python -m venv venv
 
-# Windows
+# Activate (Windows)
 .\venv\Scripts\activate
 
-# Linux/Mac
+# Activate (Linux/macOS)
 source venv/bin/activate
 ```
 
-### 3. Install Dependencies
+### Step 3: Install Dependencies
 
 ```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment
-
-Copy `.env.example` to `.env` and update the values:
+### Step 4: Configure Environment
 
 ```bash
-copy .env.example .env
+# Copy example configuration
+copy .env.example .env   # Windows
+cp .env.example .env     # Linux/macOS
 ```
 
 Edit `.env` with your settings:
 
 ```env
-# Database
+# Database Configuration
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/exam_middleware
 
-# Security
+# Security Keys (CHANGE IN PRODUCTION!)
 SECRET_KEY=your-super-secret-key-change-in-production
 ENCRYPTION_KEY=your-32-byte-encryption-key-here
 
 # Moodle Configuration
 MOODLE_BASE_URL=https://your-moodle-site.com
 MOODLE_ADMIN_TOKEN=your-admin-token
+MOODLE_SERVICE=moodle_mobile_app
 
-# Subject Mappings (subject_code:assignment_id)
-SUBJECT_ASSIGNMENT_MAP=19AI405:4,19AI411:6,ML:2
+# File Storage
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE_MB=50
+ALLOWED_EXTENSIONS=.pdf,.jpg,.jpeg,.png
+
+# Redis (Optional)
+REDIS_URL=redis://localhost:6379/0
 ```
 
-### 5. Setup PostgreSQL Database
+### Step 5: Setup Database
 
 ```bash
-# Create database
+# Create PostgreSQL database
 psql -U postgres -c "CREATE DATABASE exam_middleware;"
-```
 
-### Developer setup (recommended)
-
-These additional steps make it easy for a new developer to get a working local environment.
-
-1. Create a dedicated DB role and grant privileges (run in psql as a superuser):
-
-```sql
--- Replace <devuser> and <devpassword>
-CREATE ROLE devuser WITH LOGIN PASSWORD '<devpassword>';
-CREATE DATABASE exam_middleware OWNER devuser;
-GRANT ALL PRIVILEGES ON DATABASE exam_middleware TO devuser;
-\c exam_middleware
-GRANT ALL PRIVILEGES ON SCHEMA public TO devuser;
-```
-
-2. Export a `DATABASE_URL` for local development (example):
-
-```powershell
-$env:DATABASE_URL = 'postgresql+asyncpg://devuser:<devpassword>@localhost:5432/exam_middleware'
-# Linux/macOS
-export DATABASE_URL='postgresql+asyncpg://devuser:<devpassword>@localhost:5432/exam_middleware'
-```
-
-3. Create a virtualenv and install dependencies:
-
-```bash
-python -m venv .venv
-# Windows
-.\.venv\Scripts\activate
-# Linux/macOS
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-4. Initialize the database (creates tables and seeds minimal config):
-
-```bash
+# Initialize tables and seed data
 python init_db.py
-```
 
-5. Seed optional sample data (useful for manual testing):
-
-```bash
+# Optional: Add sample data for testing
 python init_db.py --seed-samples
 ```
 
-6. Run the app with a production-like server during development:
+### Step 6: Run the Application
 
 ```bash
-# Use uvicorn directly (recommended in dev)
+# Development mode with hot-reload
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
 
-Notes:
-- The project uses `Base.metadata.create_all` in `init_db.py` to create tables. For production, use Alembic migrations instead of `create_all`.
-- Replace placeholder passwords and secrets in `.env.example` before use; never commit real secrets to git.
-- Consider running the app behind a reverse-proxy (nginx) and enabling TLS for production.
-
-### 6. Initialize Database
-
-```bash
-python init_db.py
-```
-
-This will:
-- Create all required tables
-- Create default admin user (username: `admin`, password: `admin123`)
-- Seed subject-to-assignment mappings
-- Configure system settings
-
-### 7. Run the Application
-
-```bash
+# Or use the run script
 python run.py
 ```
 
-The server will start at `http://localhost:8000`
+### Step 7: Verify Installation
 
-## 🔗 Access Points
+Open your browser and navigate to:
+- **Health Check**: http://localhost:8000/health
+- **API Docs**: http://localhost:8000/docs
 
-| Portal | URL |
-|--------|-----|
-| Staff Upload Portal | http://localhost:8000/portal/staff |
-| Student Portal | http://localhost:8000/portal/student |
-| API Documentation | http://localhost:8000/docs |
-| ReDoc | http://localhost:8000/redoc |
-| Health Check | http://localhost:8000/health |
+---
 
-## 📁 File Naming Convention
+## Docker Deployment
 
-Uploaded files must follow this naming pattern:
+### Quick Docker Start
+
+```bash
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop all services
+docker-compose down
+```
+
+### Docker Services
+
+| Service | Port | Description |
+|:--------|:-----|:------------|
+| `app` | 8000 | Main FastAPI application |
+| `postgres` | 5432 | PostgreSQL database |
+| `redis` | 6379 | Redis cache/queue |
+| `celery_worker` | - | Background task worker |
+| `flower` | 5555 | Celery task monitoring |
+
+### Docker Environment Variables
+
+```bash
+# Create .env file for Docker
+POSTGRES_USER=exam_user
+POSTGRES_PASSWORD=exam_password
+POSTGRES_DB=exam_middleware
+SECRET_KEY=your-production-secret-key
+ENVIRONMENT=production
+```
+
+---
+
+## Access Points
+
+| Portal | URL | Description |
+|:-------|:----|:------------|
+| **Staff Portal** | http://localhost:8000/portal/staff | Upload scanned papers |
+| **Student Portal** | http://localhost:8000/portal/student | View and submit papers |
+| **Swagger UI** | http://localhost:8000/docs | Interactive API documentation |
+| **ReDoc** | http://localhost:8000/redoc | Alternative API docs |
+| **Health Check** | http://localhost:8000/health | System status endpoint |
+
+---
+
+## File Naming Convention
+
+> **Important**: All uploaded files MUST follow this naming pattern for automatic processing.
+
+### Pattern
 
 ```
 {RegisterNumber}_{SubjectCode}.{extension}
 ```
 
-**Examples:**
-- `611221104088_19AI405.pdf`
-- `611221104089_ML.jpg`
-- `611221104090_19AI411.png`
+### Valid Examples
 
-**Rules:**
-- Register Number: Exactly 12 digits
-- Subject Code: 2-10 alphanumeric characters
-- Extensions: pdf, jpg, jpeg, png
+| Filename | Register No | Subject Code |
+|:---------|:------------|:-------------|
+| `611221104088_19AI405.pdf` | 611221104088 | 19AI405 |
+| `611221104089_ML.jpg` | 611221104089 | ML |
+| `611221104090_19AI411.png` | 611221104090 | 19AI411 |
+| `212223240065_DL.pdf` | 212223240065 | DL |
 
-## 🔐 Authentication
+### Rules
+
+| Field | Requirement |
+|:------|:------------|
+| **Register Number** | Exactly 12 digits |
+| **Subject Code** | 2-10 alphanumeric characters |
+| **Extension** | `.pdf`, `.jpg`, `.jpeg`, `.png` |
+| **Max Size** | 50 MB (configurable) |
+
+---
+
+## Authentication
 
 ### Staff Authentication
-- Username/password-based JWT authentication
-- Default credentials: `admin` / `admin123`
-- Token expires in 8 hours
+
+| Aspect | Details |
+|:-------|:--------|
+| **Method** | JWT Bearer Token |
+| **Default Credentials** | `admin` / `admin123` |
+| **Token Expiry** | 8 hours (480 minutes) |
+| **Refresh** | Re-login required |
+
+```bash
+# Login request
+curl -X POST http://localhost:8000/auth/staff/login \
+  -F "username=admin" \
+  -F "password=admin123"
+```
 
 ### Student Authentication
-- Moodle credential verification
-- Token exchange with Moodle LMS
-- Encrypted token storage for submissions
 
-## 📊 API Endpoints
+| Aspect | Details |
+|:-------|:--------|
+| **Method** | Moodle Token Exchange |
+| **Credentials** | University Moodle login |
+| **Token Storage** | AES-256 encrypted |
+| **Session Expiry** | 24 hours |
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/staff/login` | Staff login |
-| POST | `/auth/student/login` | Student login with Moodle credentials |
-| POST | `/auth/student/logout` | Student logout |
+---
 
-### Upload (Staff Only)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/upload/single` | Upload single file |
-| POST | `/upload/bulk` | Upload multiple files |
-| POST | `/upload/validate` | Validate filename |
+## API Documentation
 
-### Student
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/student/dashboard` | Get assigned papers |
-| GET | `/student/paper/{id}/view` | View paper content |
-| POST | `/student/submit/{id}` | Submit paper to Moodle |
-| GET | `/student/submission/{id}/status` | Check submission status |
+### Authentication Endpoints
 
-### Admin
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/mappings` | List subject mappings |
-| POST | `/admin/mappings` | Create mapping |
-| GET | `/admin/queue` | View submission queue |
-| GET | `/admin/stats` | System statistics |
+| Method | Endpoint | Description | Auth |
+|:-------|:---------|:------------|:-----|
+| `POST` | `/auth/staff/login` | Staff JWT login | No |
+| `POST` | `/auth/student/login` | Student Moodle login | No |
+| `POST` | `/auth/student/logout` | Invalidate session | Student |
 
-## 🔧 Moodle Configuration
+### Upload Endpoints (Staff Only)
+
+| Method | Endpoint | Description | Auth |
+|:-------|:---------|:------------|:-----|
+| `POST` | `/upload/single` | Upload single file | Staff |
+| `POST` | `/upload/bulk` | Upload multiple files | Staff |
+| `POST` | `/upload/validate` | Validate filename | Staff |
+| `GET` | `/upload/all` | List all artifacts | Staff |
+
+### Student Endpoints
+
+| Method | Endpoint | Description | Auth |
+|:-------|:---------|:------------|:-----|
+| `GET` | `/student/dashboard` | Get assigned papers | Student |
+| `GET` | `/student/paper/{id}/view` | Preview paper | Student |
+| `POST` | `/student/submit/{id}` | Submit to Moodle | Student |
+| `GET` | `/student/submission/{id}/status` | Check status | Student |
+
+### Admin Endpoints
+
+| Method | Endpoint | Description | Auth |
+|:-------|:---------|:------------|:-----|
+| `GET` | `/admin/mappings` | List subject mappings | Staff |
+| `POST` | `/admin/mappings` | Create new mapping | Staff |
+| `GET` | `/admin/queue` | View submission queue | Staff |
+| `GET` | `/admin/stats` | System statistics | Staff |
+| `GET` | `/admin/audit-logs` | View audit trail | Staff |
+
+---
+
+## Moodle Configuration
 
 ### Required Moodle Setup
 
-1. **Enable Web Services**
-   - Site administration → Advanced features → Enable web services
+Follow these steps to configure Moodle for integration:
 
-2. **Create External Service**
-   - Site administration → Server → Web services → External services
-   - Create service: "FileUpload"
-   - Add functions:
-     - `core_webservice_get_site_info`
-     - `mod_assign_save_submission`
-     - `mod_assign_submit_for_grading`
+**1. Enable Web Services**
 
-3. **Create Token**
-   - Site administration → Server → Web services → Manage tokens
-   - Create token for admin user with "FileUpload" service
+- Navigate to: `Site administration` → `Advanced features`
+- Check **Enable web services**
+- Save changes
 
-4. **Enable Upload**
-   - Ensure `webservice/upload.php` is accessible
-   - Configure max upload size in Moodle settings
+**2. Create External Service**
 
-## 📦 Project Structure
+- Navigate to: `Site administration` → `Server` → `Web services` → `External services`
+- Click **Add**
+- Configure the service:
+  - **Name**: `FileUpload`
+  - **Short name**: `fileupload`
+  - **Enabled**: Yes
+- Add required functions:
+  - `core_webservice_get_site_info`
+  - `mod_assign_save_submission`
+  - `mod_assign_submit_for_grading`
+  - `core_user_get_users_by_field`
+
+**3. Create Token**
+
+- Navigate to: `Site administration` → `Server` → `Web services` → `Manage tokens`
+- Click **Add**
+- Select admin user and the **FileUpload** service
+- Copy the generated token to your `.env` file as `MOODLE_ADMIN_TOKEN`
+
+**4. Enable Upload**
+
+- Ensure `webservice/upload.php` is accessible on your Moodle instance
+- Configure maximum upload file size in Moodle settings to match or exceed your middleware setting (default: 50MB)
+- Path: `Site administration` → `Security` → `Site security settings` → **Maximum uploaded file size**
+
+---
+
+## Project Structure
 
 ```
 exam_middleware/
 ├── app/
 │   ├── api/
 │   │   └── routes/
-│   │       ├── admin.py      # Admin endpoints
-│   │       ├── auth.py       # Authentication
-│   │       ├── health.py     # Health check
-│   │       ├── student.py    # Student endpoints
-│   │       └── upload.py     # File upload
+│   │       ├── admin.py          # Admin endpoints
+│   │       ├── auth.py           # Authentication
+│   │       ├── health.py         # Health check
+│   │       ├── student.py        # Student endpoints
+│   │       └── upload.py         # File upload
 │   ├── core/
-│   │   ├── config.py         # Configuration
-│   │   └── security.py       # Security utilities
+│   │   ├── config.py             # Pydantic settings
+│   │   └── security.py           # JWT & encryption
 │   ├── db/
-│   │   ├── database.py       # Database connection
-│   │   └── models.py         # SQLAlchemy models
+│   │   ├── database.py           # Async connection
+│   │   └── models.py             # SQLAlchemy models
 │   ├── schemas/
-│   │   └── schemas.py        # Pydantic schemas
+│   │   └── schemas.py            # Pydantic schemas
 │   ├── services/
-│   │   ├── artifact_service.py    # Artifact management
-│   │   ├── file_processor.py      # File processing
-│   │   ├── moodle_client.py       # Moodle API client
-│   │   └── submission_service.py  # Submission workflow
+│   │   ├── artifact_service.py   # Artifact CRUD
+│   │   ├── file_processor.py     # File handling
+│   │   ├── moodle_client.py      # Moodle API
+│   │   └── submission_service.py # Submit logic
 │   ├── templates/
-│   │   ├── staff_upload.html      # Staff portal
-│   │   └── student_portal.html    # Student portal
-│   └── main.py               # FastAPI application
-├── uploads/                  # Temporary upload storage
-├── storage/                  # Permanent file storage
-├── .env                      # Environment configuration
-├── .env.example              # Example configuration
-├── init_db.py               # Database initialization
-├── run.py                    # Application runner
-└── requirements.txt          # Python dependencies
+│   │   ├── staff_upload.html     # Staff UI
+│   │   └── student_portal.html   # Student UI
+│   ├── static/
+│   │   └── css/
+│   │       └── style.css         # Styles
+│   └── main.py                   # FastAPI app
+├── uploads/                      # Upload staging
+│   ├── pending/
+│   ├── processed/
+│   ├── failed/
+│   └── temp/
+├── storage/                      # Permanent storage
+├── migrations/                   # Alembic migrations
+├── scripts/                      # Utility scripts
+├── docker-compose.yml            # Docker config
+├── Dockerfile                    # Container build
+├── init_db.py                    # DB initialization
+├── run.py                        # App runner
+├── requirements.txt              # Dependencies
+├── setup_username_reg.py         # Username mapping
+└── setup_subject_mapping.py      # Subject mapping
 ```
 
-## 🧪 Testing
+---
 
-### Test with Sample Files
+## Testing
 
-1. Create test files with correct naming:
-   ```
-   611221104088_19AI405.pdf
-   611221104089_ML.pdf
-   ```
+### Manual Testing Steps
 
-2. Login to Staff Portal with `admin`/`admin123`
+**1. Create test files** with correct naming:
+```
+611221104088_19AI405.pdf
+611221104089_ML.pdf
+```
 
-3. Upload the test files
+**2. Login to Staff Portal** (`admin`/`admin123`)
 
-4. Login to Student Portal with Moodle student credentials and register number
+**3. Upload test files** via drag-and-drop
 
-5. View and submit papers to Moodle
+**4. Login to Student Portal** with Moodle credentials
+
+**5. View and submit papers** to Moodle
 
 ### API Testing with cURL
 
@@ -560,80 +755,283 @@ curl -X POST http://localhost:8000/auth/staff/login \
 # Upload File (use token from login)
 curl -X POST http://localhost:8000/upload/single \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@611221104088_19AI405.pdf" \
-  -F "exam_session=2024SPRING"
+  -F "file=@611221104088_19AI405.pdf"
 
 # Health Check
 curl http://localhost:8000/health
+
+# Get Statistics
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8000/admin/stats
 ```
 
-## 📝 Workflow
+### Pytest
 
-1. **Staff uploads scanned papers** through the Staff Portal
-2. **System extracts metadata** from filenames (register number, subject code)
-3. **Papers are validated** and stored with unique transaction IDs
-4. **Students login** with Moodle credentials and register number
-5. **Students view** their assigned papers
-6. **Students submit** papers directly to Moodle assignments
-7. **System executes** 3-step Moodle submission:
-   - Upload file to Moodle
-   - Save submission draft
-   - Submit for grading
+```bash
+# Run all tests
+pytest
 
-## 🛡️ Security Considerations
+# Run with coverage
+pytest --cov=app --cov-report=html
 
-- **Password Hashing**: bcrypt with 12 rounds
-- **Token Encryption**: AES-256 (Fernet) for Moodle tokens
-- **JWT Tokens**: Short-lived access tokens
-- **File Validation**: Extension and size checks
-- **Audit Logging**: All operations logged
-- **CORS**: Configurable origin whitelist
+# Run specific test file
+pytest tests/test_upload.py -v
+```
 
-## 🔄 Background Tasks (Optional)
+---
 
-For production deployment with Celery:
+## Workflow
+
+```mermaid
+sequenceDiagram
+    participant Staff
+    participant Middleware
+    participant Database
+    participant Student
+    participant Moodle
+
+    Note over Staff,Moodle: Phase 1: Upload
+    Staff->>Middleware: Upload scanned papers
+    Middleware->>Middleware: Parse filename
+    Middleware->>Middleware: Calculate SHA-256 hash
+    Middleware->>Database: Store artifact (PENDING)
+    Middleware-->>Staff: Upload success
+
+    Note over Staff,Moodle: Phase 2: Student Review
+    Student->>Middleware: Login (Moodle creds)
+    Middleware->>Moodle: Verify credentials
+    Moodle-->>Middleware: Token
+    Middleware->>Database: Fetch pending papers
+    Database-->>Middleware: Papers list
+    Middleware-->>Student: Dashboard
+
+    Note over Staff,Moodle: Phase 3: Submission
+    Student->>Middleware: Submit paper
+    Middleware->>Moodle: Upload to draft area
+    Middleware->>Moodle: Save submission
+    Middleware->>Moodle: Submit for grading
+    Moodle-->>Middleware: Submission ID
+    Middleware->>Database: Update status (SUBMITTED)
+    Middleware-->>Student: Confirmation
+```
+
+---
+
+## Security Features
+
+| Feature | Implementation | Details |
+|:--------|:---------------|:--------|
+| **Password Hashing** | bcrypt | 12 rounds, salt per password |
+| **Token Encryption** | AES-256 (Fernet) | Moodle tokens encrypted at rest |
+| **JWT Tokens** | python-jose | Short-lived, signed tokens |
+| **File Validation** | python-magic | MIME type verification |
+| **File Integrity** | SHA-256 | Hash stored for verification |
+| **Audit Logging** | JSONB | All actions logged with IP |
+| **CORS** | Configurable | Whitelist trusted origins |
+| **Idempotency** | Transaction ID | Prevents duplicate submissions |
+
+---
+
+## Background Tasks
+
+### Celery Setup (Production)
 
 ```bash
 # Start Redis
 redis-server
 
 # Start Celery worker
-celery -A app.tasks worker --loglevel=info
+celery -A app.core.celery_app worker --loglevel=info
+
+# Start Flower monitoring (optional)
+celery -A app.core.celery_app flower --port=5555
 ```
 
-## 📈 Monitoring
+### Background Tasks
 
-- Health endpoint: `/health`
-- Logs: `exam_middleware.log`
-- Database audit table: `audit_logs`
+| Task | Description | Schedule |
+|:-----|:------------|:---------|
+| `retry_failed_submissions` | Retry queued submissions | Every 5 min |
+| `cleanup_expired_sessions` | Remove old sessions | Every hour |
+| `generate_reports` | Create audit reports | Daily |
 
-## 🐛 Troubleshooting
+---
 
-### Database Connection Error
-```
-Ensure PostgreSQL is running and credentials in .env are correct
-```
+## Monitoring
 
-### Moodle Token Error
-```
-Verify MOODLE_ADMIN_TOKEN has required capabilities
-Check Moodle external service configuration
-```
+### Health Endpoint
 
-### File Upload Failed
-```
-Check file size limits in Moodle
-Verify assignment allows file submissions
+```bash
+curl http://localhost:8000/health
 ```
 
-## 📄 License
+Response:
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "redis": "connected",
+  "moodle": "reachable",
+  "version": "1.0.0"
+}
+```
 
-Not Licensed Yet.
+### Monitoring Points
 
-## 🤝 Contributing
+| Resource | Location | Purpose |
+|:---------|:---------|:--------|
+| **App Logs** | `exam_middleware.log` | Application events |
+| **Audit Table** | `audit_logs` | Complete action history |
+| **Flower** | `http://localhost:5555` | Celery task monitoring |
+| **Prometheus** | `/metrics` | Performance metrics |
 
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Create Pull Request
+---
+
+## Troubleshooting
+
+<details>
+<summary><b>Database Connection Error</b></summary>
+
+**Symptoms**: `ConnectionRefusedError` or `OperationalError`
+
+**Solutions**:
+1. Verify PostgreSQL is running:
+   ```bash
+   # Windows
+   pg_isready -h localhost -p 5432
+   
+   # Check service
+   Get-Service postgresql*
+   ```
+2. Check `DATABASE_URL` in `.env`
+3. Verify database exists: `psql -U postgres -l`
+
+</details>
+
+<details>
+<summary><b>Moodle Token Error</b></summary>
+
+**Symptoms**: `MoodleAPIError` or "Invalid token"
+
+**Solutions**:
+1. Regenerate token in Moodle admin
+2. Verify external service is enabled
+3. Check required functions are added to service
+4. Test token: 
+   ```bash
+   curl "https://your-moodle.com/webservice/rest/server.php?wstoken=YOUR_TOKEN&wsfunction=core_webservice_get_site_info&moodlewsrestformat=json"
+   ```
+
+</details>
+
+<details>
+<summary><b>File Upload Failed</b></summary>
+
+**Symptoms**: Upload returns error or hangs
+
+**Solutions**:
+1. Check file size (max 50MB default)
+2. Verify filename format: `{12digits}_{subject}.{ext}`
+3. Check disk space in `uploads/` directory
+4. Review logs: `tail -f exam_middleware.log`
+
+</details>
+
+<details>
+<summary><b>JWT Token Invalid</b></summary>
+
+**Symptoms**: `401 Unauthorized` after login
+
+**Solutions**:
+1. Token may be expired (8 hours default)
+2. Re-login to get fresh token
+3. Verify `SECRET_KEY` hasn't changed
+4. Check clock sync between client/server
+
+</details>
+
+<details>
+<summary><b>Duplicate Transaction ID</b></summary>
+
+**Symptoms**: `IntegrityError` on upload
+
+**Solutions**:
+1. Clear transaction_id on archived artifacts:
+   ```sql
+   UPDATE examination_artifacts 
+   SET transaction_id = NULL 
+   WHERE workflow_status = 'DELETED';
+   ```
+2. Or delete the conflicting artifact via admin panel
+
+</details>
+
+---
+
+## Recent Updates
+
+### Version 1.2.0 (2026-01-12)
+
+#### New Maintenance Scripts
+
+- **`setup_username_reg.py`** - Manage Moodle username → register number mappings
+  ```bash
+  # Interactive mode
+  python setup_username_reg.py
+  
+  # Direct mode
+  python setup_username_reg.py --username 22007928 --register 212222240047
+  ```
+
+- **`setup_subject_mapping.py`** - Configure subject to Moodle assignment mappings
+
+#### Staff UI Improvements
+
+- Reports modal (view/resolve/edit/delete reports)
+- Improved file listing with accurate counts
+- Hardened client-side session management
+
+#### Backend Enhancements
+
+- Explicit `IntegrityError` handling with safe rollback
+- Stricter identity validation in `get_pending_for_student()`
+- Transaction ID collision remediation support
+
+---
+
+## Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Code Style
+
+- Follow PEP 8 for Python code
+- Use type hints for all functions
+- Write docstrings for public APIs
+- Add tests for new features
+
+---
+
+## License
+
+**This project is currently not licensed for public use.**
+
+Contact the maintainers for licensing inquiries.
+
+---
+
+<div align="center">
+
+### Made for Academic Excellence
+
+**Smart Answer Sheet Processor for LMS** © 2024-2026
+
+[Back to Top](#smart-answer-sheet-processor-for-lms)
+
+</div>
