@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 transition-colors;
+  }
+}
+
+@layer components {
+  .btn-base {
+    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply btn-base bg-primary-600 text-white hover:bg-primary-700 dark:hover:bg-primary-500 disabled:bg-gray-400 disabled:cursor-not-allowed hover:disabled:translate-y-0 hover:translate-y-[-1px];
+  }
+
+  .btn-secondary {
+    @apply btn-base border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-primary-700 hover:text-white hover:border-primary-700 dark:hover:bg-primary-600 dark:hover:border-primary-600;
+  }
+
+  .btn-danger {
+    @apply btn-base border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 dark:hover:bg-red-600 dark:hover:border-red-600;
+  }
+
+  .card {
+    @apply bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm transition-all duration-200 hover:border-primary-600 dark:hover:border-primary-500;
+  }
+
+  .stat-card {
+    @apply rounded-2xl p-6 text-white text-center hover:shadow-lg transition-all;
+  }
+
+  .stat-number {
+    @apply text-5xl font-bold font-poppins mb-2;
+  }
+
+  .upload-zone {
+    @apply border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-14 text-center cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-900 hover:border-primary-600 hover:bg-blue-50 dark:hover:bg-gray-800;
+  }
+
+  .upload-zone.dragover {
+    @apply border-primary-600 bg-blue-50 dark:bg-gray-800;
+  }
+
+  .file-item {
+    @apply flex justify-between items-center p-5 rounded-xl mb-3 border border-gray-200 dark:border-gray-800 transition-all duration-200 bg-white dark:bg-gray-900 hover:border-primary-600 dark:hover:border-primary-500;
+  }
+
+  .file-item.valid {
+    @apply bg-green-50 dark:bg-gray-900 border-green-300 dark:border-green-800;
+  }
+
+  .file-item.invalid {
+    @apply bg-red-50 dark:bg-gray-900 border-red-300 dark:border-red-800;
+  }
+
+  .form-input {
+    @apply w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all;
+  }
+
+  .alert {
+    @apply rounded-lg border-l-4 p-4 transition-colors;
+  }
+
+  .alert-info {
+    @apply bg-blue-50 dark:bg-blue-950 border-blue-600 dark:border-blue-700 text-blue-900 dark:text-blue-50;
+  }
+
+  .alert-success {
+    @apply bg-green-50 dark:bg-green-950 border-green-600 dark:border-green-700 text-green-900 dark:text-green-50;
+  }
+
+  .alert-danger {
+    @apply bg-red-50 dark:bg-red-950 border-red-600 dark:border-red-700 text-red-900 dark:text-red-50;
+  }
+
+  .alert-warning {
+    @apply bg-yellow-50 dark:bg-yellow-950 border-yellow-600 dark:border-yellow-700 text-yellow-900 dark:text-yellow-50;
+  }
+}
