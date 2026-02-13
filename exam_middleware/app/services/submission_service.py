@@ -403,8 +403,10 @@ class SubmissionService:
                 "connection",
                 "unavailable"
             ]
+            errorcode = getattr(error.error, "errorcode", None) or ""
+            errormsg = getattr(error.error, "message", None) or ""
             return any(
-                te in error.error.errorcode.lower() or te in error.error.message.lower()
+                te in errorcode.lower() or te in errormsg.lower()
                 for te in transient_errors
             )
         

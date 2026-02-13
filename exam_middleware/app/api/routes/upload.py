@@ -178,7 +178,8 @@ async def upload_bulk_files(
             failed += 1
             continue
         
-        # Save file
+        # Save file and create artifact inside a savepoint so a single
+        # file failure does not poison the DB session for later files.
         try:
             file_path, file_hash = await file_processor.save_file(
                 file_content=content,
@@ -186,19 +187,20 @@ async def upload_bulk_files(
                 subfolder="pending"
             )
             
-            # Create artifact
-            artifact_service = ArtifactService(db)
-            artifact = await artifact_service.create_artifact(
-                raw_filename=file.filename,
-                original_filename=metadata.get("original_filename", file.filename),
-                file_blob_path=file_path,
-                file_hash=file_hash,
-                parsed_reg_no=metadata.get("parsed_register_no"),
-                parsed_subject_code=metadata.get("parsed_subject_code"),
-                file_size_bytes=metadata.get("size_bytes"),
-                mime_type=metadata.get("mime_type"),
-                uploaded_by_staff_id=current_staff.id
-            )
+            # Use a nested transaction (savepoint) per file
+            async with db.begin_nested():
+                artifact_service = ArtifactService(db)
+                artifact = await artifact_service.create_artifact(
+                    raw_filename=file.filename,
+                    original_filename=metadata.get("original_filename", file.filename),
+                    file_blob_path=file_path,
+                    file_hash=file_hash,
+                    parsed_reg_no=metadata.get("parsed_register_no"),
+                    parsed_subject_code=metadata.get("parsed_subject_code"),
+                    file_size_bytes=metadata.get("size_bytes"),
+                    mime_type=metadata.get("mime_type"),
+                    uploaded_by_staff_id=current_staff.id
+                )
             
             results.append(FileUploadResponse(
                 success=True,
@@ -213,6 +215,8 @@ async def upload_bulk_files(
             
         except Exception as e:
             logger.error(f"Failed to process file {file.filename}: {e}")
+            # The savepoint rollback already happened via the context manager,
+            # so the session is clean for the next iteration.
             results.append(FileUploadResponse(
                 success=False,
                 filename=file.filename,

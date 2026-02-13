@@ -117,6 +117,11 @@ class ArtifactService:
                 existing.file_size_bytes = file_size_bytes
                 existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
                 existing.error_message = None  # Clear any previous errors
+                now = datetime.now(timezone.utc)
+                existing.uploaded_at = now  # Refresh upload timestamp on re-upload
+                existing.validated_at = None
+                existing.submit_timestamp = None
+                existing.completed_at = None
                 try:
                     existing.add_log_entry("re-uploaded", {
                         "new_file_path": file_blob_path,
@@ -147,6 +152,11 @@ class ArtifactService:
                     existing_pair.file_size_bytes = file_size_bytes
                     existing_pair.workflow_status = WorkflowStatus.PENDING
                     existing_pair.error_message = None
+                    now = datetime.now(timezone.utc)
+                    existing_pair.uploaded_at = now  # Refresh upload timestamp on re-upload
+                    existing_pair.validated_at = None
+                    existing_pair.submit_timestamp = None
+                    existing_pair.completed_at = None
                     try:
                         existing_pair.add_log_entry("re-uploaded", {"new_file_path": file_blob_path, "new_hash": file_hash})
                     except Exception:
