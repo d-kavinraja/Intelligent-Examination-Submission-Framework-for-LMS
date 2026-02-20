@@ -251,6 +251,43 @@ async def root():
     }
 
 
+# TEMPORARY DEBUG ENDPOINT - Remove after fixing login
+@app.get("/debug/admin-check", tags=["Debug"])
+async def debug_admin_check():
+    """Temporary: Check if admin user exists and password works."""
+    from sqlalchemy import text
+    from app.db.database import async_session_maker
+    from app.core.security import get_password_hash, verify_password
+    
+    try:
+        async with async_session_maker() as session:
+            result = await session.execute(
+                text("SELECT id, username, hashed_password, is_active, role FROM staff_users WHERE username = 'admin'")
+            )
+            row = result.fetchone()
+            
+            if not row:
+                return {"status": "NO_ADMIN_USER", "message": "Admin user does not exist in database"}
+            
+            # Test password verification
+            hash_value = row[2]
+            password_ok = verify_password("admin123", hash_value)
+            
+            return {
+                "status": "FOUND",
+                "user_id": row[0],
+                "username": row[1],
+                "is_active": row[3],
+                "role": row[4],
+                "hash_prefix": hash_value[:20] + "..." if hash_value else "NONE",
+                "hash_length": len(hash_value) if hash_value else 0,
+                "password_verify_ok": password_ok,
+                "bcrypt_starts_with_dollar": hash_value.startswith("$") if hash_value else False,
+            }
+    except Exception as e:
+        return {"status": "ERROR", "message": str(e)}
+
+
 # Templates setup
 templates = Jinja2Templates(directory="app/templates")
 
