@@ -946,27 +946,36 @@
                 <div class="card-body p-4">
                     <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle-fill me-2"></i>
-                        <strong>Auto-discover:</strong> Enter your Subject Code and Moodle Course ID. The assignment
-                        will be automatically fetched from MoodleCloud.
+                        <strong>Auto-discover:</strong> Enter Subject Code + Course ID. Optionally paste the
+                        assignment's module ID from the Moodle URL (<code>id=</code> value) to pick a specific
+                        assignment.
                     </div>
                     <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
                         <div class="row g-3">
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label">Subject Code <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="sm_subject_code" required
                                     placeholder="e.g. 19AI411">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label">Subject Name</label>
                                 <input type="text" class="form-control" id="sm_subject_name"
                                     placeholder="e.g. Machine Learning">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label">Moodle Course ID <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="sm_course_id" required
-                                    placeholder="e.g. 2">
+                                    placeholder="From course URL: id=">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Assignment Module ID <small
+                                        class="text-muted">(optional)</small></label>
+                                <input type="number" class="form-control" id="sm_cmid"
+                                    placeholder="From assignment URL: id=">
+                                <small class="text-muted">The <code>id=</code> value from the assignment page
+                                    URL</small>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">Exam Session</label>
                                 <input type="text" class="form-control" id="sm_exam_session"
                                     placeholder="e.g. 2025-2026" value="2025-2026">
@@ -2566,12 +2575,14 @@
             alertEl.style.display = 'none';
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Discovering assignments...';
+            const cmidVal = document.getElementById('sm_cmid').value.trim();
             const body = {
                 subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
                 subject_name: document.getElementById('sm_subject_name').value.trim() || null,
                 moodle_course_id: parseInt(document.getElementById('sm_course_id').value),
                 exam_session: document.getElementById('sm_exam_session').value.trim() || null,
             };
+            if (cmidVal) body.cmid = parseInt(cmidVal);
             try {
                 const res = await fetch('/admin/mappings/auto', {
                     method: 'POST',

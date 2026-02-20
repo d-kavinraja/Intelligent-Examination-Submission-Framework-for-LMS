@@ -154,20 +154,12 @@ async def auto_create_subject_mapping(
     course_id = payload.get("moodle_course_id")
     subject_name = (payload.get("subject_name") or "").strip() or None
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
+    cmid = payload.get("cmid")  # Optional: course module ID from Moodle URL
 
     if not subject_code or not course_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="subject_code and moodle_course_id are required"
-        )
-
-    # Check if mapping already exists
-    mapping_service = SubjectMappingService(db)
-    existing = await mapping_service.get_mapping(subject_code)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Mapping for {subject_code} already exists (assignment_id={existing.moodle_assignment_id})"
         )
 
     client = MoodleClient(token=settings.moodle_admin_token)
@@ -190,32 +182,64 @@ async def auto_create_subject_mapping(
                 detail=f"No assignments found in course {course_id}"
             )
 
-        # Use the first assignment (most common case: one exam assignment per course)
-        assignment = assignments[0]
+        # Find the right assignment
+        if cmid:
+            # Match by cmid (the id= from the Moodle assignment URL)
+            assignment = next((a for a in assignments if a.get("cmid") == int(cmid)), None)
+            if not assignment:
+                names = ", ".join([f"{a.get('name','')} (cmid={a.get('cmid')})" for a in assignments])
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No assignment with module ID {cmid} found. Available: {names}"
+                )
+        else:
+            # Auto-select: use the first (only works well for single-assignment courses)
+            assignment = assignments[0]
+
         assignment_id = assignment["id"]
         assignment_name = assignment.get("name", "Unknown")
 
-        # Create the mapping
-        new_mapping = await mapping_service.create_mapping(
-            subject_code=subject_code,
-            moodle_course_id=int(course_id),
-            moodle_assignment_id=assignment_id,
-            subject_name=subject_name or assignment_name,
-            moodle_assignment_name=assignment_name,
-            exam_session=exam_session,
+        # Upsert: update existing or create new
+        result = await db.execute(
+            select(SubjectMapping).where(SubjectMapping.subject_code == subject_code)
         )
-        await db.commit()
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.moodle_course_id = int(course_id)
+            existing.moodle_assignment_id = assignment_id
+            existing.moodle_assignment_name = assignment_name
+            existing.subject_name = subject_name or assignment_name
+            existing.exam_session = exam_session
+            existing.is_active = True
+            await db.commit()
+            action = "Updated"
+            mapping = existing
+        else:
+            mapping = SubjectMapping(
+                subject_code=subject_code,
+                subject_name=subject_name or assignment_name,
+                moodle_course_id=int(course_id),
+                moodle_assignment_id=assignment_id,
+                moodle_assignment_name=assignment_name,
+                exam_session=exam_session,
+                is_active=True,
+            )
+            db.add(mapping)
+            await db.commit()
+            await db.refresh(mapping)
+            action = "Created"
 
         return {
-            "message": f"Mapping created: {subject_code} → Course {course_id}, Assignment {assignment_id} ({assignment_name})",
+            "message": f"{action} mapping: {subject_code} → Course {course_id}, Assignment {assignment_id} ({assignment_name})",
             "mapping": {
-                "id": new_mapping.id,
-                "subject_code": new_mapping.subject_code,
-                "subject_name": new_mapping.subject_name,
-                "moodle_course_id": new_mapping.moodle_course_id,
-                "moodle_assignment_id": new_mapping.moodle_assignment_id,
-                "moodle_assignment_name": new_mapping.moodle_assignment_name,
-                "exam_session": new_mapping.exam_session,
+                "id": mapping.id,
+                "subject_code": mapping.subject_code,
+                "subject_name": mapping.subject_name,
+                "moodle_course_id": mapping.moodle_course_id,
+                "moodle_assignment_id": mapping.moodle_assignment_id,
+                "moodle_assignment_name": mapping.moodle_assignment_name,
+                "exam_session": mapping.exam_session,
             },
             "all_assignments": [
                 {"id": a["id"], "name": a.get("name", ""), "cmid": a.get("cmid")}
