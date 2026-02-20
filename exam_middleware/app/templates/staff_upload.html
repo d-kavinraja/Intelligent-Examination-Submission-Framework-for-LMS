@@ -43,6 +43,7 @@
         }
 
         @keyframes softPulse {
+
             0%,
             100% {
                 box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.22);
@@ -787,7 +788,26 @@
             </div>
         </div>
 
-        <!-- Upload Section -->
+        <!-- Admin Tab Navigation (shown after login) -->
+        <ul class="nav nav-tabs mb-4" id="adminTabs" style="display: none;">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" onclick="switchTab('upload', event)">
+                    <i class="bi bi-cloud-upload-fill me-1"></i> Upload
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('subjectMappings', event)">
+                    <i class="bi bi-book-fill me-1"></i> Subject Mappings
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('studentMappings', event)">
+                    <i class="bi bi-people-fill me-1"></i> Student Mappings
+                </a>
+            </li>
+        </ul>
+
+        <!-- Upload Section (Tab 1) -->
         <div id="uploadSection">
             <div class="row mb-4">
                 <div class="col-md-3 col-6">
@@ -905,6 +925,133 @@
                     </div>
 
                     <div id="pendingFilesList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split fs-1"></i>
+                            <p class="mt-2">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Mappings Section (Tab 2) -->
+        <div id="subjectMappingsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle-fill me-2"></i>
+                        Add Subject Mapping
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Subject Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="sm_subject_code" required
+                                    placeholder="e.g. 19AI411">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Subject Name</label>
+                                <input type="text" class="form-control" id="sm_subject_name"
+                                    placeholder="e.g. Machine Learning">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Exam Session</label>
+                                <input type="text" class="form-control" id="sm_exam_session"
+                                    placeholder="e.g. 2025-2026" value="2025-2026">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Moodle Course ID <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="sm_course_id" required
+                                    placeholder="e.g. 2">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Moodle Assignment ID <span
+                                        class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="sm_assignment_id" required
+                                    placeholder="e.g. 1">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Assignment Name</label>
+                                <input type="text" class="form-control" id="sm_assignment_name"
+                                    placeholder="e.g. Final Exam Submission">
+                            </div>
+                        </div>
+                        <div id="smAlert" class="alert mt-3" style="display: none;"></div>
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="bi bi-plus-circle me-1"></i> Add Mapping
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book-fill me-2"></i>
+                        Existing Subject Mappings
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadSubjectMappings()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div id="subjectMappingsList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split fs-1"></i>
+                            <p class="mt-2">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Mappings Section (Tab 3) -->
+        <div id="studentMappingsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle-fill me-2"></i>
+                        Add Student Username → Register Number
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form id="studentMappingForm" onsubmit="return addStudentMapping(event)">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label">Moodle Username <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="um_username" required
+                                    placeholder="e.g. 22007928">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Register Number <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="um_register" required
+                                    placeholder="e.g. 212222240047">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-plus-circle me-1"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                        <div id="umAlert" class="alert mt-3" style="display: none;"></div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people-fill me-2"></i>
+                        Existing Student Mappings
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadStudentMappings()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div id="studentMappingsList">
                         <div class="text-center text-muted py-4">
                             <i class="bi bi-hourglass-split fs-1"></i>
                             <p class="mt-2">Loading...</p>
@@ -1127,6 +1274,7 @@
         function showUploadSection(user) {
             loginSection.classList.remove('active');
             uploadSection.classList.add('active');
+            document.getElementById('adminTabs').style.display = 'flex';
             userInfo.style.display = 'block';
             userName.textContent = user;
             logoutBtn.style.display = 'block';
@@ -1310,6 +1458,9 @@
             localStorage.removeItem('authToken');
             localStorage.removeItem('userName');
             uploadSection.classList.remove('active');
+            document.getElementById('subjectMappingsSection').style.display = 'none';
+            document.getElementById('studentMappingsSection').style.display = 'none';
+            document.getElementById('adminTabs').style.display = 'none';
             loginSection.classList.add('active');
             userInfo.style.display = 'none';
             logoutBtn.style.display = 'none';
@@ -2359,6 +2510,192 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // ============================================
+        // Admin Tab Switching
+        // ============================================
+        function switchTab(tab, event) {
+            if (event) event.preventDefault();
+            const tabs = document.querySelectorAll('#adminTabs .nav-link');
+            tabs.forEach(t => t.classList.remove('active'));
+            event.target.closest('.nav-link').classList.add('active');
+
+            document.getElementById('uploadSection').style.display = tab === 'upload' ? 'block' : 'none';
+            document.getElementById('uploadSection').classList.toggle('active', tab === 'upload');
+            document.getElementById('subjectMappingsSection').style.display = tab === 'subjectMappings' ? 'block' : 'none';
+            document.getElementById('studentMappingsSection').style.display = tab === 'studentMappings' ? 'block' : 'none';
+
+            if (tab === 'subjectMappings') loadSubjectMappings();
+            if (tab === 'studentMappings') loadStudentMappings();
+        }
+
+        // ============================================
+        // Subject Mappings CRUD
+        // ============================================
+        async function loadSubjectMappings() {
+            const container = document.getElementById('subjectMappingsList');
+            container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Loading...</p></div>';
+            try {
+                const res = await fetch('/admin/mappings', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) { logout(); return; }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Course ID</th><th>Assignment ID</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                data.forEach(m => {
+                    html += `<tr>
+                        <td><span class="badge bg-primary">${m.subject_code}</span></td>
+                        <td>${m.subject_name || '-'}</td>
+                        <td>${m.moodle_course_id}</td>
+                        <td>${m.moodle_assignment_id}</td>
+                        <td>${m.exam_session || '-'}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteSubjectMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div>';
+                html += `<div class="text-muted small mt-3">Total: ${data.length} mapping(s)</div>`;
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${e.message}</div>`;
+            }
+        }
+
+        async function addSubjectMapping(event) {
+            event.preventDefault();
+            const alertEl = document.getElementById('smAlert');
+            alertEl.style.display = 'none';
+            const body = {
+                subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
+                subject_name: document.getElementById('sm_subject_name').value.trim() || null,
+                moodle_course_id: parseInt(document.getElementById('sm_course_id').value),
+                moodle_assignment_id: parseInt(document.getElementById('sm_assignment_id').value),
+                moodle_assignment_name: document.getElementById('sm_assignment_name').value.trim() || null,
+                exam_session: document.getElementById('sm_exam_session').value.trim() || null,
+            };
+            try {
+                const res = await fetch('/admin/mappings', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alertEl.className = 'alert mt-3 alert-success';
+                    alertEl.textContent = `Subject mapping for ${body.subject_code} created successfully!`;
+                    alertEl.style.display = 'block';
+                    document.getElementById('subjectMappingForm').reset();
+                    document.getElementById('sm_exam_session').value = '2025-2026';
+                    loadSubjectMappings();
+                } else {
+                    alertEl.className = 'alert mt-3 alert-danger';
+                    alertEl.textContent = data.detail || 'Failed to create mapping';
+                    alertEl.style.display = 'block';
+                }
+            } catch (e) {
+                alertEl.className = 'alert mt-3 alert-danger';
+                alertEl.textContent = `Error: ${e.message}`;
+                alertEl.style.display = 'block';
+            }
+            return false;
+        }
+
+        async function deleteSubjectMapping(id) {
+            if (!confirm('Are you sure you want to delete this subject mapping?')) return;
+            try {
+                const res = await fetch(`/admin/mappings/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) loadSubjectMappings();
+                else alert('Failed to delete mapping');
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // ============================================
+        // Student Username-Register Mappings CRUD
+        // ============================================
+        async function loadStudentMappings() {
+            const container = document.getElementById('studentMappingsList');
+            container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Loading...</p></div>';
+            try {
+                const res = await fetch('/admin/username-mappings', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) { logout(); return; }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No student mappings yet</p></div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Moodle Username</th><th>Register Number</th><th>Created</th><th>Actions</th></tr></thead><tbody>';
+                data.forEach(m => {
+                    const created = m.created_at ? new Date(m.created_at).toLocaleString() : '-';
+                    html += `<tr>
+                        <td><span class="badge bg-info text-dark">${m.moodle_username}</span></td>
+                        <td><span class="badge bg-secondary">${m.register_number}</span></td>
+                        <td><small class="text-muted">${created}</small></td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteStudentMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div>';
+                html += `<div class="text-muted small mt-3">Total: ${data.length} mapping(s)</div>`;
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${e.message}</div>`;
+            }
+        }
+
+        async function addStudentMapping(event) {
+            event.preventDefault();
+            const alertEl = document.getElementById('umAlert');
+            alertEl.style.display = 'none';
+            const body = {
+                moodle_username: document.getElementById('um_username').value.trim(),
+                register_number: document.getElementById('um_register').value.trim(),
+            };
+            try {
+                const res = await fetch('/admin/username-mappings', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alertEl.className = 'alert mt-3 alert-success';
+                    alertEl.textContent = data.message || 'Mapping created!';
+                    alertEl.style.display = 'block';
+                    document.getElementById('studentMappingForm').reset();
+                    loadStudentMappings();
+                } else {
+                    alertEl.className = 'alert mt-3 alert-danger';
+                    alertEl.textContent = data.detail || 'Failed to create mapping';
+                    alertEl.style.display = 'block';
+                }
+            } catch (e) {
+                alertEl.className = 'alert mt-3 alert-danger';
+                alertEl.textContent = `Error: ${e.message}`;
+                alertEl.style.display = 'block';
+            }
+            return false;
+        }
+
+        async function deleteStudentMapping(id) {
+            if (!confirm('Are you sure you want to delete this student mapping?')) return;
+            try {
+                const res = await fetch(`/admin/username-mappings/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) loadStudentMappings();
+                else alert('Failed to delete mapping');
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+    </script>
 
 </body>
 

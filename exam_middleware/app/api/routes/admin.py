@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 import logging
 
 from app.db.database import get_db
-from app.db.models import StaffUser, SubjectMapping, ExaminationArtifact
+from app.db.models import StaffUser, SubjectMapping, ExaminationArtifact, StudentUsernameRegister
 from app.schemas import (
     SubjectMappingCreate,
     SubjectMappingResponse,
@@ -804,3 +804,105 @@ async def clear_artifact_transaction_id(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not clear transaction_id")
 
     return {"message": "transaction_id cleared", "old_transaction_id": old_tid}
+
+
+# ============================================
+# Student Username → Register Number Mappings
+# ============================================
+
+@router.get("/username-mappings")
+async def list_username_mappings(
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """List all Moodle username → register number mappings."""
+    result = await db.execute(
+        select(StudentUsernameRegister).order_by(StudentUsernameRegister.created_at.desc())
+    )
+    mappings = result.scalars().all()
+    return [
+        {
+            "id": m.id,
+            "moodle_username": m.moodle_username,
+            "register_number": m.register_number,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "updated_at": m.updated_at.isoformat() if m.updated_at else None,
+        }
+        for m in mappings
+    ]
+
+
+@router.post("/username-mappings")
+async def create_username_mapping(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Create or update a Moodle username → register number mapping.
+    Body: { "moodle_username": "22007928", "register_number": "212222240047" }
+    """
+    username = (payload.get("moodle_username") or "").strip()
+    register = (payload.get("register_number") or "").strip()
+
+    if not username or not register:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both moodle_username and register_number are required"
+        )
+
+    # Upsert: update if username exists, else create
+    result = await db.execute(
+        select(StudentUsernameRegister).where(
+            StudentUsernameRegister.moodle_username == username
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.register_number = register
+        await db.commit()
+        return {
+            "message": f"Updated mapping: {username} → {register}",
+            "id": existing.id,
+            "moodle_username": existing.moodle_username,
+            "register_number": existing.register_number,
+        }
+    else:
+        new_mapping = StudentUsernameRegister(
+            moodle_username=username,
+            register_number=register
+        )
+        db.add(new_mapping)
+        await db.commit()
+        await db.refresh(new_mapping)
+        return {
+            "message": f"Created mapping: {username} → {register}",
+            "id": new_mapping.id,
+            "moodle_username": new_mapping.moodle_username,
+            "register_number": new_mapping.register_number,
+        }
+
+
+@router.delete("/username-mappings/{mapping_id}")
+async def delete_username_mapping(
+    mapping_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """Delete a username → register number mapping."""
+    result = await db.execute(
+        select(StudentUsernameRegister).where(StudentUsernameRegister.id == mapping_id)
+    )
+    mapping = result.scalar_one_or_none()
+
+    if not mapping:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mapping not found"
+        )
+
+    await db.delete(mapping)
+    await db.commit()
+    return {"message": f"Deleted mapping for {mapping.moodle_username}"}
+
