@@ -944,43 +944,37 @@
                     </h5>
                 </div>
                 <div class="card-body p-4">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <strong>Auto-discover:</strong> Enter your Subject Code and Moodle Course ID. The assignment
+                        will be automatically fetched from MoodleCloud.
+                    </div>
                     <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Subject Code <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="sm_subject_code" required
                                     placeholder="e.g. 19AI411">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Subject Name</label>
                                 <input type="text" class="form-control" id="sm_subject_name"
                                     placeholder="e.g. Machine Learning">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Exam Session</label>
-                                <input type="text" class="form-control" id="sm_exam_session"
-                                    placeholder="e.g. 2025-2026" value="2025-2026">
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Moodle Course ID <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="sm_course_id" required
                                     placeholder="e.g. 2">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Moodle Assignment ID <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="sm_assignment_id" required
-                                    placeholder="e.g. 1">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Assignment Name</label>
-                                <input type="text" class="form-control" id="sm_assignment_name"
-                                    placeholder="e.g. Final Exam Submission">
+                            <div class="col-md-3">
+                                <label class="form-label">Exam Session</label>
+                                <input type="text" class="form-control" id="sm_exam_session"
+                                    placeholder="e.g. 2025-2026" value="2025-2026">
                             </div>
                         </div>
                         <div id="smAlert" class="alert mt-3" style="display: none;"></div>
-                        <button type="submit" class="btn btn-primary mt-3">
-                            <i class="bi bi-plus-circle me-1"></i> Add Mapping
+                        <button type="submit" class="btn btn-primary mt-3" id="smSubmitBtn">
+                            <i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping
                         </button>
                     </form>
                 </div>
@@ -2568,17 +2562,18 @@
         async function addSubjectMapping(event) {
             event.preventDefault();
             const alertEl = document.getElementById('smAlert');
+            const submitBtn = document.getElementById('smSubmitBtn');
             alertEl.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Discovering assignments...';
             const body = {
                 subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
                 subject_name: document.getElementById('sm_subject_name').value.trim() || null,
                 moodle_course_id: parseInt(document.getElementById('sm_course_id').value),
-                moodle_assignment_id: parseInt(document.getElementById('sm_assignment_id').value),
-                moodle_assignment_name: document.getElementById('sm_assignment_name').value.trim() || null,
                 exam_session: document.getElementById('sm_exam_session').value.trim() || null,
             };
             try {
-                const res = await fetch('/admin/mappings', {
+                const res = await fetch('/admin/mappings/auto', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
@@ -2586,7 +2581,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     alertEl.className = 'alert mt-3 alert-success';
-                    alertEl.textContent = `Subject mapping for ${body.subject_code} created successfully!`;
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${data.message}`;
                     alertEl.style.display = 'block';
                     document.getElementById('subjectMappingForm').reset();
                     document.getElementById('sm_exam_session').value = '2025-2026';
@@ -2600,6 +2595,9 @@
                 alertEl.className = 'alert mt-3 alert-danger';
                 alertEl.textContent = `Error: ${e.message}`;
                 alertEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping';
             }
             return false;
         }

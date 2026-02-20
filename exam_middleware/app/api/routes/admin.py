@@ -126,40 +126,103 @@ async def sync_mappings_from_config(
     }
 
 
-@router.post("/mappings/discover")
-async def discover_assignments_from_moodle(
+@router.post("/mappings/auto")
+async def auto_create_subject_mapping(
+    payload: dict,
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Discover assignments from Moodle using admin token
-    
-    This uses the configured admin token to fetch course and assignment information
+    Auto-discover assignments from Moodle and create subject mapping.
+    Body: {
+        "subject_code": "19AI411",
+        "moodle_course_id": 2,
+        "subject_name": "Machine Learning" (optional),
+        "exam_session": "2025-2026" (optional)
+    }
+
+    Uses admin token to call Moodle API, fetches assignments for the course,
+    and creates a mapping for each discovered assignment.
     """
     if not settings.moodle_admin_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Admin token not configured"
+            detail="MOODLE_ADMIN_TOKEN not configured on server"
         )
-    
+
+    subject_code = (payload.get("subject_code") or "").strip().upper()
+    course_id = payload.get("moodle_course_id")
+    subject_name = (payload.get("subject_name") or "").strip() or None
+    exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
+
+    if not subject_code or not course_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="subject_code and moodle_course_id are required"
+        )
+
+    # Check if mapping already exists
+    mapping_service = SubjectMappingService(db)
+    existing = await mapping_service.get_mapping(subject_code)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Mapping for {subject_code} already exists (assignment_id={existing.moodle_assignment_id})"
+        )
+
     client = MoodleClient(token=settings.moodle_admin_token)
-    
+
     try:
-        # Get site info to verify token works
-        site_info = await client.get_site_info()
-        
-        # This is a simplified example - in production you would:
-        # 1. Get all courses the admin can see
-        # 2. For each course, get assignments
-        # 3. Create or update mappings
-        
+        # Fetch assignments for this course from Moodle
+        assignments_data = await client.get_assignments([int(course_id)])
+        courses = assignments_data.get("courses", [])
+
+        if not courses:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No course found with ID {course_id} on Moodle, or admin token lacks access"
+            )
+
+        assignments = courses[0].get("assignments", [])
+        if not assignments:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No assignments found in course {course_id}"
+            )
+
+        # Use the first assignment (most common case: one exam assignment per course)
+        assignment = assignments[0]
+        assignment_id = assignment["id"]
+        assignment_name = assignment.get("name", "Unknown")
+
+        # Create the mapping
+        new_mapping = await mapping_service.create_mapping(
+            subject_code=subject_code,
+            moodle_course_id=int(course_id),
+            moodle_assignment_id=assignment_id,
+            subject_name=subject_name or assignment_name,
+            moodle_assignment_name=assignment_name,
+            exam_session=exam_session,
+        )
+        await db.commit()
+
         return {
-            "message": "Discovery successful",
-            "site": site_info.get("sitename"),
-            "user": site_info.get("fullname"),
-            "note": "Use the Moodle admin panel to find course and assignment IDs"
+            "message": f"Mapping created: {subject_code} → Course {course_id}, Assignment {assignment_id} ({assignment_name})",
+            "mapping": {
+                "id": new_mapping.id,
+                "subject_code": new_mapping.subject_code,
+                "subject_name": new_mapping.subject_name,
+                "moodle_course_id": new_mapping.moodle_course_id,
+                "moodle_assignment_id": new_mapping.moodle_assignment_id,
+                "moodle_assignment_name": new_mapping.moodle_assignment_name,
+                "exam_session": new_mapping.exam_session,
+            },
+            "all_assignments": [
+                {"id": a["id"], "name": a.get("name", ""), "cmid": a.get("cmid")}
+                for a in assignments
+            ],
         }
-        
+
     except MoodleAPIError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
