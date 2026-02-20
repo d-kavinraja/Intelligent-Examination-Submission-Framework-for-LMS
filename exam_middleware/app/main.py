@@ -63,6 +63,35 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created/verified")
     
+    # Seed default admin user if not exists
+    try:
+        from sqlalchemy import text
+        from app.db.database import async_session_maker
+        from app.db.models import StaffUser, SubjectMapping, SystemConfig
+        from app.core.security import get_password_hash
+        
+        async with async_session_maker() as session:
+            # Check if admin exists
+            result = await session.execute(
+                text("SELECT id FROM staff_users WHERE username = 'admin'")
+            )
+            if not result.fetchone():
+                admin = StaffUser(
+                    username="admin",
+                    hashed_password=get_password_hash("admin123"),
+                    full_name="Administrator",
+                    email="admin@example.com",
+                    role="admin",
+                    is_active=True,
+                )
+                session.add(admin)
+                await session.commit()
+                logger.info("Default admin user created (admin/admin123)")
+            else:
+                logger.info("Admin user already exists")
+    except Exception as e:
+        logger.error(f"Error seeding admin user: {e}")
+    
     # Ensure upload and storage directories exist
     upload_path = Path(settings.upload_dir)
     upload_path.mkdir(parents=True, exist_ok=True)
