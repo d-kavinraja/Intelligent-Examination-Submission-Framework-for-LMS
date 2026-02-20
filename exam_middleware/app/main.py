@@ -67,15 +67,18 @@ async def lifespan(app: FastAPI):
     try:
         from sqlalchemy import text
         from app.db.database import async_session_maker
-        from app.db.models import StaffUser, SubjectMapping, SystemConfig
-        from app.core.security import get_password_hash
+        from app.db.models import StaffUser
+        from app.core.security import get_password_hash, verify_password
         
         async with async_session_maker() as session:
             # Check if admin exists
             result = await session.execute(
-                text("SELECT id FROM staff_users WHERE username = 'admin'")
+                text("SELECT id, hashed_password FROM staff_users WHERE username = 'admin'")
             )
-            if not result.fetchone():
+            row = result.fetchone()
+            
+            if not row:
+                # Create admin user
                 admin = StaffUser(
                     username="admin",
                     hashed_password=get_password_hash("admin123"),
@@ -86,11 +89,21 @@ async def lifespan(app: FastAPI):
                 )
                 session.add(admin)
                 await session.commit()
-                logger.info("Default admin user created (admin/admin123)")
+                logger.info("Default admin user CREATED (admin/admin123)")
             else:
-                logger.info("Admin user already exists")
+                # Admin exists - verify password works, update if not
+                if not verify_password("admin123", row[1]):
+                    new_hash = get_password_hash("admin123")
+                    await session.execute(
+                        text("UPDATE staff_users SET hashed_password = :hash WHERE username = 'admin'"),
+                        {"hash": new_hash}
+                    )
+                    await session.commit()
+                    logger.info("Admin password RESET to admin123 (hash was invalid)")
+                else:
+                    logger.info("Admin user exists and password verified OK")
     except Exception as e:
-        logger.error(f"Error seeding admin user: {e}")
+        logger.error(f"Error seeding admin user: {e}", exc_info=True)
     
     # Ensure upload and storage directories exist
     upload_path = Path(settings.upload_dir)
