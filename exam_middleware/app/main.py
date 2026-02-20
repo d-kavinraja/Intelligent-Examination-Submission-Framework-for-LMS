@@ -6,6 +6,7 @@ scanned examination papers with Moodle LMS for student submissions.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,14 +27,20 @@ from app.api.routes import (
     health_router,
 )
 
-# Configure logging
+# Configure logging - use stdout only in production (Render)
+_is_production = os.environ.get("RENDER") or os.environ.get("DEBUG", "true").lower() == "false"
+_handlers = [logging.StreamHandler()]
+if not _is_production:
+    try:
+        Path("logs").mkdir(parents=True, exist_ok=True)
+        _handlers.append(logging.FileHandler("exam_middleware.log"))
+    except Exception:
+        pass  # Skip file logging if not writable
+
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.DEBUG if not _is_production else logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("exam_middleware.log"),
-    ],
+    handlers=_handlers,
 )
 # Set specific loggers to INFO to reduce SQLAlchemy noise
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
@@ -227,10 +234,12 @@ async def student_portal(request: Request):
 if __name__ == "__main__":
     import uvicorn
     
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=True,
         log_level="info",
     )
+

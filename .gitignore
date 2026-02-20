@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Python cache
 __pycache__/
 *.pyc
@@ -12,13 +11,11 @@ exam_middleware/storage/
 
 # Environment
 .env
+
+# Virtual environment
 venv/
-=======
-__pycache__/
-*.pyc
-*.log
-exam_middleware/uploads/
-exam_middleware/storage/
-.env
-venv/
->>>>>>> 0d48ca81a2bd1ed57b9d89efcf307a72b09f3c4b
+
+# Moodle Docker data
+moodle-docker/mariadb_data/
+moodle-docker/moodle_data/
+moodle-docker/moodledata_data/

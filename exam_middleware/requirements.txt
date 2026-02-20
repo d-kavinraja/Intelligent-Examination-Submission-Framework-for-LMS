@@ -52,7 +52,7 @@ email-validator
 # ==============================
 # File Processing
 # ==============================
-python-magic-bin
+python-magic
 pillow
 pypdf
 

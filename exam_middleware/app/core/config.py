@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60)
     
     # Server
-    host: str = Field(default="127.0.0.1")
+    host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     reload: bool = Field(default=True)
     
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     
     # Moodle
-    moodle_base_url: str = Field(default="https://1844fdb23815.ngrok-free.app")
+    moodle_base_url: str = Field(default="https://saveetha-exam-middleware.moodlecloud.com")
     moodle_ws_endpoint: str = Field(default="/webservice/rest/server.php")
     moodle_upload_endpoint: str = Field(default="/webservice/upload.php")
     moodle_token_endpoint: str = Field(default="/login/token.php")
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     log_file: str = Field(default="./logs/app.log")
     
     # CORS
-    cors_origins: str = Field(default='["http://localhost:8000"]')
+    cors_origins: str = Field(default='["*"]')
     
     class Config:
         env_file = ".env"
@@ -79,7 +79,14 @@ class Settings(BaseSettings):
     def database_url_computed(self) -> str:
         """Compute database URL if not provided"""
         if self.database_url:
-            return self.database_url
+            url = self.database_url
+            # Render provides postgres:// but asyncpg needs postgresql+asyncpg://
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            # If already has +asyncpg, leave it
+            return url
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
     
     @property
@@ -122,7 +129,7 @@ class Settings(BaseSettings):
         try:
             return json.loads(self.cors_origins)
         except json.JSONDecodeError:
-            return ["http://localhost:8000"]
+            return ["*"]
     
     @property
     def max_file_size_bytes(self) -> int:
