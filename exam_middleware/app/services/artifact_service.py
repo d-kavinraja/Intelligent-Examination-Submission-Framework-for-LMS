@@ -619,14 +619,12 @@ class SubjectMappingService:
     
     async def get_assignment_id(self, subject_code: str) -> Optional[int]:
         """Get assignment ID for a subject code"""
-        # First check database
+        # Strictly use database mappings
         mapping = await self.get_mapping(subject_code)
         if mapping:
             return mapping.moodle_assignment_id
         
-        # Fall back to config
-        config_mapping = settings.get_subject_assignment_mapping()
-        return config_mapping.get(subject_code.upper())
+        return None
     
     async def create_mapping(
         self,

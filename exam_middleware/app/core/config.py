@@ -58,11 +58,6 @@ class Settings(BaseSettings):
     ml_service_url: str = Field(default="http://localhost:8501")
     ml_service_enabled: bool = Field(default=False)
     
-    # Subject Mapping (Default values from your setup)
-    subject_19ai405_assignment_id: int = Field(default=4)
-    subject_19ai411_assignment_id: int = Field(default=6)
-    subject_ml_assignment_id: int = Field(default=2)
-    
     # Logging
     log_level: str = Field(default="INFO")
     log_file: str = Field(default="./logs/app.log")
@@ -138,12 +133,7 @@ class Settings(BaseSettings):
     
     def get_subject_assignment_mapping(self) -> dict:
         """Return subject code to assignment ID mapping"""
-        return {
-            "19AI405": self.subject_19ai405_assignment_id,
-            "19AI411": self.subject_19ai411_assignment_id,
-            "ML": self.subject_ml_assignment_id,
-            "MACHINELEARNING": self.subject_ml_assignment_id,
-        }
+        return {}
 
 
 @lru_cache()
