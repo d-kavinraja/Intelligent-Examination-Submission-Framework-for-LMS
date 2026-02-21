@@ -235,8 +235,20 @@ class SubmissionService:
                 artifact.workflow_status = WorkflowStatus.UPLOADING
                 await self.db.flush()
                 
+                # Check if file exists on disk
+                file_content = None
+                if not os.path.exists(artifact.file_blob_path):
+                    logger.warning(f"File {artifact.file_blob_path} missing on disk for artifact {artifact.artifact_uuid}")
+                    if artifact.file_content:
+                        logger.info(f"Using database content for artifact {artifact.artifact_uuid}")
+                        file_content = artifact.file_content
+                    else:
+                        logger.error(f"File missing on disk and no database content for artifact {artifact.artifact_uuid}")
+                        raise MoodleAPIError(f"File not found on disk or database for submission.")
+                
                 upload_result = await client.upload_file(
-                    file_path=artifact.file_blob_path,
+                    file_path=artifact.file_blob_path if file_content is None else None,
+                    file_content=file_content,
                     token=moodle_token,
                     filename=artifact.original_filename
                 )

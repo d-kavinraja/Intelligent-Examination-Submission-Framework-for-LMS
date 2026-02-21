@@ -49,7 +49,8 @@ class ArtifactService:
         parsed_subject_code: Optional[str] = None,
         file_size_bytes: Optional[int] = None,
         mime_type: Optional[str] = None,
-        uploaded_by_staff_id: Optional[int] = None
+        uploaded_by_staff_id: Optional[int] = None,
+        file_content: Optional[bytes] = None
     ) -> ExaminationArtifact:
         """
         Create a new examination artifact
@@ -64,6 +65,7 @@ class ArtifactService:
             file_size_bytes: File size
             mime_type: MIME type
             uploaded_by_staff_id: Staff user who uploaded
+            file_content: Raw bytes of the file for persistent storage
             
         Returns:
             Created ExaminationArtifact
@@ -115,6 +117,7 @@ class ArtifactService:
                 existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
                 existing.file_hash = file_hash
                 existing.file_size_bytes = file_size_bytes
+                existing.file_content = file_content  # Update DB-backed content
                 existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
                 existing.error_message = None  # Clear any previous errors
                 now = datetime.now(timezone.utc)
@@ -150,6 +153,7 @@ class ArtifactService:
                     existing_pair.file_blob_path = (file_blob_path or '').replace('\\', '/')
                     existing_pair.file_hash = file_hash
                     existing_pair.file_size_bytes = file_size_bytes
+                    existing_pair.file_content = file_content  # Update DB-backed content
                     existing_pair.workflow_status = WorkflowStatus.PENDING
                     existing_pair.error_message = None
                     now = datetime.now(timezone.utc)
@@ -188,6 +192,7 @@ class ArtifactService:
             parsed_subject_code=parsed_subject_code,
             file_size_bytes=file_size_bytes,
             mime_type=mime_type,
+            file_content=file_content,
             uploaded_by_staff_id=uploaded_by_staff_id,
             transaction_id=transaction_id,
             workflow_status=WorkflowStatus.PENDING if parsed_reg_no else WorkflowStatus.FAILED

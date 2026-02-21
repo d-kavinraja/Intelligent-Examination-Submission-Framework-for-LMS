@@ -348,9 +348,24 @@ async def view_paper_file(
         parsed_subject_code=artifact.parsed_subject_code,
     )
     if not resolved_path:
+        # Fallback: Serve from database if disk file is missing
+        if artifact.file_content:
+            from io import BytesIO
+            logger.info(f"File missing on disk, serving from DB for artifact {artifact_uuid}")
+            safe_name = (artifact.original_filename or "paper").replace('"', "")
+            media_type = artifact.mime_type or "application/pdf"
+            return StreamingResponse(
+                BytesIO(artifact.file_content),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f'inline; filename="{safe_name}"',
+                    "X-Source": "database"
+                }
+            )
+            
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found on server"
+            detail="File not found on server or database"
         )
 
     # Self-heal: update stored blob path if it was stale

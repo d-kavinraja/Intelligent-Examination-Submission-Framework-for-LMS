@@ -346,7 +346,8 @@ class MoodleClient:
     
     async def upload_file(
         self,
-        file_path: str,
+        file_path: Optional[str] = None,
+        file_content: Optional[bytes] = None,
         token: Optional[str] = None,
         filename: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -393,19 +394,26 @@ class MoodleClient:
         url = f"{self.base_url}/webservice/upload.php"
         
         try:
-            # Read file content
-            async with aiofiles.open(normalized_path, 'rb') as f:
-                file_content = await f.read()
+            # Use provided content or read from disk
+            if file_content is None:
+                if not file_path:
+                    raise MoodleAPIError("Either file_path or file_content must be provided")
+                if not os.path.exists(normalized_path):
+                    raise MoodleAPIError(f"File not found: {file_path}")
+                async with aiofiles.open(normalized_path, 'rb') as f:
+                    content_to_upload = await f.read()
+            else:
+                content_to_upload = file_content
             
             # Prepare multipart form data
             files = {
-                'file_1': (upload_filename, file_content, mime_type)
+                'file_1': (upload_filename, content_to_upload, mime_type)
             }
             data = {
                 'token': ws_token
             }
             
-            logger.info(f"Uploading file: {upload_filename} ({len(file_content)} bytes)")
+            logger.info(f"Uploading file: {upload_filename} ({len(content_to_upload)} bytes)")
             
             response = await client.post(url, files=files, data=data)
             response.raise_for_status()

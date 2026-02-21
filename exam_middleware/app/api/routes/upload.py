@@ -94,7 +94,8 @@ async def upload_single_file(
             parsed_subject_code=metadata.get("parsed_subject_code"),
             file_size_bytes=metadata.get("size_bytes"),
             mime_type=metadata.get("mime_type"),
-            uploaded_by_staff_id=current_staff.id
+            uploaded_by_staff_id=current_staff.id,
+            file_content=content
         )
         
         # Log the upload
@@ -199,7 +200,8 @@ async def upload_bulk_files(
                     parsed_subject_code=metadata.get("parsed_subject_code"),
                     file_size_bytes=metadata.get("size_bytes"),
                     mime_type=metadata.get("mime_type"),
-                    uploaded_by_staff_id=current_staff.id
+                    uploaded_by_staff_id=current_staff.id,
+                    file_content=content
                 )
             
             results.append(FileUploadResponse(

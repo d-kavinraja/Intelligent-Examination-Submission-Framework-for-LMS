@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 
 from sqlalchemy import (
     Column, String, Integer, BigInteger, DateTime, Text, 
-    Boolean, Enum, ForeignKey, Index, UniqueConstraint, JSON
+    Boolean, Enum, ForeignKey, Index, UniqueConstraint, JSON, LargeBinary
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -59,6 +59,7 @@ class ExaminationArtifact(Base):
     file_hash = Column(String(64), nullable=False)  # SHA-256
     file_size_bytes = Column(BigInteger, nullable=True)
     mime_type = Column(String(100), nullable=True)
+    file_content = Column(LargeBinary, nullable=True)
     
     # Moodle Resolution (populated during validation)
     moodle_user_id = Column(BigInteger, nullable=True)
