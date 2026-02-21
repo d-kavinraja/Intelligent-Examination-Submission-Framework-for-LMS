@@ -196,13 +196,16 @@ class SubmissionService:
     
     async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Optional[int]:
         """Resolve the Moodle assignment ID for an artifact"""
-        if artifact.moodle_assignment_id:
-            return artifact.moodle_assignment_id
+        # Always try to get the latest mapping first to handle re-mappings/retries correctly
+        if artifact.parsed_subject_code:
+            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code)
+            if mapping_id:
+                # Update the artifact's field to keep it in sync with the latest mapping
+                artifact.moodle_assignment_id = mapping_id
+                return mapping_id
         
-        if not artifact.parsed_subject_code:
-            return None
-        
-        return await self.mapping_service.get_assignment_id(artifact.parsed_subject_code)
+        # Fallback to what was previously stored (or None)
+        return artifact.moodle_assignment_id
     
     async def _execute_submission(
         self,
