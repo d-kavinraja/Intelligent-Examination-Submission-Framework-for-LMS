@@ -169,12 +169,16 @@ graph TB
     
     subgraph "Processing Layer"
         B -->|Parse & Validate| C[PostgreSQL]
+        C -->|DB Fallback| K((File Persistence))
         C -->|Queue Failed| D[Submission Queue]
         E[Celery Workers] -->|Retry| D
     end
     
     subgraph "Output Layer"
-        F[Student Portal] -->|Fetch Papers| C
+        F[Student Portal] -->|Path check| L{File on Disk?}
+        L -->|Yes| M[Serve from Disk]
+        L -->|No| N[Serve from DB]
+        F -->|Fetch Papers| C
         F -->|Submit| G[Moodle LMS]
         G -->|Token Exchange| F
     end
@@ -218,6 +222,7 @@ erDiagram
         string parsed_reg_no
         string parsed_subject_code
         string file_hash
+        binary file_content
         enum workflow_status
         timestamp uploaded_at
     }
@@ -270,6 +275,7 @@ file_blob_path         | character varying        | NOT NULL
 file_hash              | character varying(64)    | NOT NULL (SHA-256)
 file_size_bytes        | bigint                   | NULL
 mime_type              | character varying        | NULL
+file_content           | bytea                    | NULL (DB Fallback)
 moodle_user_id         | bigint                   | NULL
 moodle_username        | character varying        | NULL
 moodle_course_id       | integer                  | NULL
@@ -487,6 +493,11 @@ Open your browser and navigate to:
 
 ## Docker Deployment
 
+### Multi-Stage Build
+The application uses a optimized multi-stage `Dockerfile` to produce small, secure production images.
+- **Stage 1 (Builder)**: Installs build dependencies and creates a Python virtual environment.
+- **Stage 2 (Final)**: Copies only the necessary artifacts and dependencies, running as a non-root user for enhanced security.
+
 ### Quick Docker Start
 
 ```bash
@@ -510,28 +521,48 @@ docker-compose down
 | `celery_worker` | - | Background task worker |
 | `flower` | 5555 | Celery task monitoring |
 
-### Docker Environment Variables
+---
 
-```bash
-# Create .env file for Docker
-POSTGRES_USER=exam_user
-POSTGRES_PASSWORD=exam_password
-POSTGRES_DB=exam_middleware
-SECRET_KEY=your-production-secret-key
-ENVIRONMENT=production
-```
+## Render Deployment
+
+The middleware is optimized for deployment on **Render.com**.
+
+### Deployment Strategy
+Due to Render's ephemeral filesystem, this project implements a **Database-Backed Persistent Storage Fallback**.
+- Files are saved to local disk for fast performance.
+- Simultaneously, raw file bytes are stored in the PostgreSQL database.
+- If the local disk is wiped (e.g., during a service restart), the system automatically restores and serves files from the database.
+
+### Key Deployment Files
+- **`Dockerfile.render`**: Optimized for Render's environment.
+- **`render.yaml`**: Blueprint for one-click deployment including PostgreSQL and Redis.
+
+### One-Click Deploy (Render Blueprint)
+1. In Render, select **New -> Blueprint**.
+2. Connect your repository.
+3. Render will automatically detect `render.yaml` and provision the Web Service, Managed PostgreSQL, and Redis instance.
+
+### Auto-Migrations
+The application handles schema updates automatically on startup. If the `file_content` column is missing, the lifespan event in `main.py` will add it without manual intervention.
 
 ---
 
 ## Access Points
 
+### Production (Render)
+| Portal | URL |
+|:-------|:----|
+| **Staff Portal** | [https://exam-middleware.onrender.com/portal/staff](https://exam-middleware.onrender.com/portal/staff) |
+| **Student Portal** | [https://exam-middleware.onrender.com/portal/student](https://exam-middleware.onrender.com/portal/student) |
+| **API Health** | [https://exam-middleware.onrender.com/health](https://exam-middleware.onrender.com/health) |
+
+### Local Development
 | Portal | URL | Description |
 |:-------|:----|:------------|
-| **Staff Portal** | http://localhost:8000/portal/staff | Upload scanned papers |
-| **Student Portal** | http://localhost:8000/portal/student | View and submit papers |
-| **Swagger UI** | http://localhost:8000/docs | Interactive API documentation |
-| **ReDoc** | http://localhost:8000/redoc | Alternative API docs |
-| **Health Check** | http://localhost:8000/health | System status endpoint |
+| **Staff Portal** | `http://localhost:8000/portal/staff` | Upload scanned papers |
+| **Student Portal** | `http://localhost:8000/portal/student` | View and submit papers |
+| **Swagger UI** | `http://localhost:8000/docs` | Interactive API documentation |
+| **Health Check** | `http://localhost:8000/health` | System status endpoint |
 
 ---
 
@@ -969,6 +1000,17 @@ Response:
 ---
 
 ## Recent Updates
+
+### Version 1.3.0 (2026-02-21)
+
+#### Persistent Storage & Cloud Readiness
+- **Database-Backed File Persistence**: Implemented a "Self-Healing" storage layer. All uploads are now mirrored to PostgreSQL (LargeBinary/BYTEA). If the local ephemeral disk is cleared (standard on Render/Heroku), the system automatically serves files from the database.
+- **Render.com Optimization**: Added `render.yaml` and `Dockerfile.render` for seamless, one-click cloud deployment.
+- **Auto-Migrations**: The application now automatically detects missing database columns (like `file_content`) on startup and applies schema fixes without requiring manual DDL execution.
+
+#### Security & Reliability
+- **Metadata Edit Content Preservation**: Fixed a critical bug in `admin.py` where manual metadata edits (register number/subject code corrections) would cause the new artifact to lose its associated file content.
+- **Moodle Upload Robustness**: Updated `MoodleClient` to support direct binary uploads, allowing the submission service to bypass local file requirements.
 
 ### Version 1.2.0 (2026-01-12)
 
