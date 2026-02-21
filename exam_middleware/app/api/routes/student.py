@@ -181,8 +181,8 @@ async def get_dashboard(
             if match:
                 extracted_reg = match.group(1)
 
-    # Only use the register_number when it looks like a 12-digit university register
-    register_number = extracted_reg if extracted_reg and re.fullmatch(r"\d{12}", extracted_reg) else None
+    # Only use the register_number when it looks like a 10-12 digit university register
+    register_number = extracted_reg if extracted_reg and re.fullmatch(r"\d{10,12}", extracted_reg) else None
 
     logger.info(f"Dashboard for register_number: {register_number or '(none)'} moodle_username: {session.moodle_username}")
 

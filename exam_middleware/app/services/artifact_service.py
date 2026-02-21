@@ -278,6 +278,10 @@ class ArtifactService:
             WorkflowStatus.PENDING_REVIEW,
             WorkflowStatus.VALIDATED,
             WorkflowStatus.READY_FOR_REVIEW,
+            WorkflowStatus.FAILED,
+            WorkflowStatus.QUEUED,
+            WorkflowStatus.UPLOADING,
+            WorkflowStatus.SUBMITTING,
         ]
 
         # Build identity conditions conservatively

@@ -384,6 +384,21 @@
             color: var(--success);
         }
 
+        .status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .status-queued {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--purple);
+        }
+
+        .status-processing {
+            background: rgba(59, 130, 246, 0.15);
+            color: #2563eb;
+        }
+
         /* Buttons */
         .btn {
             font-weight: 600;
@@ -1543,10 +1558,30 @@
             emptyState.style.display = 'none';
 
             grid.innerHTML = papers.map(paper => {
-                const isSubmitted = paper.workflow_status === 'submitted_to_moodle';
-                const canSubmit = paper.can_submit !== false;
-                const statusClass = isSubmitted ? 'submitted' : 'pending';
-                const statusText = isSubmitted ? 'Submitted' : 'Pending';
+                const status = paper.workflow_status;
+                const isSubmitted = status === 'submitted_to_moodle' || status === 'completed' || status === 'submitted_to_lms';
+                const isFailed = status === 'failed';
+                const isQueued = status === 'queued';
+                const isProcessing = status === 'uploading' || status === 'submitting';
+
+                const canSubmit = paper.can_submit !== false && !isProcessing && !isSubmitted;
+
+                let statusClass = 'pending';
+                let statusText = 'Pending';
+
+                if (isSubmitted) {
+                    statusClass = 'submitted';
+                    statusText = 'Submitted';
+                } else if (isFailed) {
+                    statusClass = 'failed';
+                    statusText = 'Failed';
+                } else if (isQueued) {
+                    statusClass = 'queued';
+                    statusText = 'Queued';
+                } else if (isProcessing) {
+                    statusClass = 'processing';
+                    statusText = 'Processing...';
+                }
 
                 // include session token in preview URL when available (server requires X-Session-ID or session param)
                 const previewUrl = `/student/paper/${paper.artifact_uuid}/view${sessionToken ? '?session=' + encodeURIComponent(sessionToken) : ''}`;
@@ -1577,6 +1612,7 @@
                                     <i class="bi bi-calendar me-1"></i>
                                     Uploaded: ${new Date(paper.upload_timestamp).toLocaleDateString()}
                                 </p>
+                                ${isFailed && paper.error_message ? `<div class="alert alert-danger p-2 small mb-3"><i class="bi bi-exclamation-circle me-1"></i>${paper.error_message}</div>` : ''}
                                 ${paper.message ? `<div class="unmapped-alert mb-3"><i class="bi bi-exclamation-triangle-fill"></i> ${paper.message}</div>` : ''}
                                 <div class="d-flex gap-2 mt-auto">
                                     <button class="btn btn-outline-primary btn-sm flex-grow-1" onclick="viewPaper('${paper.artifact_uuid}', '${paper.subject_code}', ${isSubmitted})">
@@ -1587,7 +1623,7 @@
                                     </button>
                                     ${!isSubmitted ? `
                                         <button class="btn btn-submit btn-sm flex-grow-1" ${!canSubmit ? 'disabled' : ''} onclick="initSubmission('${paper.artifact_uuid}', '${paper.subject_code}', '${paper.filename || paper.original_filename}')">
-                                            <i class="bi bi-cloud-upload me-1"></i> Submit
+                                            <i class="bi bi-cloud-upload me-1"></i> ${isFailed ? 'Retry' : 'Submit'}
                                         </button>
                                     ` : `
                                         <button class="btn btn-success btn-sm flex-grow-1" disabled>

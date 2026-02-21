@@ -4,6 +4,7 @@ Orchestrates the complete submission workflow to Moodle
 """
 
 import logging
+import os
 from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
