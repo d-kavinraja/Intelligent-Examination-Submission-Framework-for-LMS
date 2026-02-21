@@ -592,7 +592,8 @@ async def edit_artifact_metadata(
             parsed_subject_code=target_sub,
             file_size_bytes=artifact.file_size_bytes,
             mime_type=artifact.mime_type,
-            uploaded_by_staff_id=current_staff.id
+            uploaded_by_staff_id=current_staff.id,
+            file_content=artifact.file_content # Preserve the database-backed file content
         )
 
         # Mark the old artifact as deleted/superseded
