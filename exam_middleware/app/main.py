@@ -61,6 +61,22 @@ async def lifespan(app: FastAPI):
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+        # Auto-migration: Add file_content column if missing
+        try:
+            from sqlalchemy import text
+            # Check if column exists
+            result = await conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='examination_artifacts' AND column_name='file_content'"
+            ))
+            if not result.fetchone():
+                logger.info("Adding missing file_content column to examination_artifacts table...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN file_content BYTEA"))
+                logger.info("Column file_content added successfully")
+        except Exception as e:
+            logger.error(f"Migration error: {e}")
+            
     logger.info("Database tables created/verified")
     
     # Seed default admin user if not exists
