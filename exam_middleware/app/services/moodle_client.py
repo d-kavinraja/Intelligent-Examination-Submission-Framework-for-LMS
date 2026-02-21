@@ -373,37 +373,54 @@ class MoodleClient:
         if not ws_token:
             raise MoodleAPIError("No token provided for file upload")
         
-        # Normalize file path for the current OS
-        normalized_path = os.path.normpath(file_path)
+        # Determine filename and MIME type
+        upload_filename = filename
+        mime_type = 'application/octet-stream'
         
-        if not os.path.exists(normalized_path):
-            raise MoodleAPIError(f"File not found: {file_path}")
+        if file_path:
+            normalized_path = os.path.normpath(file_path)
+            if upload_filename is None:
+                upload_filename = os.path.basename(normalized_path)
+            
+            ext = os.path.splitext(normalized_path)[1].lower()
+            mime_types = {
+                '.pdf': 'application/pdf',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+            }
+            if ext in mime_types:
+                mime_type = mime_types[ext]
+        elif filename:
+            # Try to get extension from filename if path is missing
+            ext = os.path.splitext(filename)[1].lower()
+            mime_types = {
+                '.pdf': 'application/pdf',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+            }
+            if ext in mime_types:
+                mime_type = mime_types[ext]
         
-        upload_filename = filename or os.path.basename(normalized_path)
-        
-        # Determine MIME type
-        ext = os.path.splitext(normalized_path)[1].lower()
-        mime_types = {
-            '.pdf': 'application/pdf',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-        }
-        mime_type = mime_types.get(ext, 'application/octet-stream')
-        
+        if upload_filename is None:
+            upload_filename = "upload.pdf" # Default
+            
         url = f"{self.base_url}/webservice/upload.php"
         
         try:
             # Use provided content or read from disk
-            if file_content is None:
-                if not file_path:
-                    raise MoodleAPIError("Either file_path or file_content must be provided")
+            content_to_upload = None
+            if file_content is not None:
+                content_to_upload = file_content
+            elif file_path:
+                normalized_path = os.path.normpath(file_path)
                 if not os.path.exists(normalized_path):
-                    raise MoodleAPIError(f"File not found: {file_path}")
+                    raise MoodleAPIError(f"File not found on disk: {file_path}")
                 async with aiofiles.open(normalized_path, 'rb') as f:
                     content_to_upload = await f.read()
             else:
-                content_to_upload = file_content
+                raise MoodleAPIError("Either file_path or file_content must be provided")
             
             # Prepare multipart form data
             files = {
