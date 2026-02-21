@@ -218,7 +218,7 @@ async def get_dashboard(
             uploaded_at=artifact.uploaded_at,
             workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
             can_submit=assignment_id is not None,
-            message=None if assignment_id else "Assignment mapping not found. Contact admin."
+            message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
         ))
     
     # Build submitted papers list (include subject_name from mapping if available)
