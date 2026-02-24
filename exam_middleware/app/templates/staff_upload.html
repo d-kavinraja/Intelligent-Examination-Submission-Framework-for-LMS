@@ -252,6 +252,14 @@
             color: var(--text-primary);
         }
 
+        /* Browse Folder button inside upload zone - compact styling */
+        .upload-zone .btn-outline-primary {
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            border-width: 1.5px;
+        }
+
         /* File items */
         .file-item {
             display: flex;
@@ -1784,6 +1792,8 @@
                 // Determine file item class
                 let itemClass = f.valid ? 'valid' : 'invalid';
                 if (f.duplicate) itemClass = 'invalid';
+                // Files with unmapped subject or student are also invalid
+                if (f.valid && !f.duplicate && (f.subjectMapped === false || f.studentMapped === false)) itemClass = 'invalid';
 
                 // Build status line
                 let statusHtml = '';
@@ -1836,8 +1846,9 @@
 
         function updateStats() {
             const total = selectedFiles.length;
-            // Valid = filename-valid AND not a duplicate
-            const valid = selectedFiles.filter(f => f.valid && !f.duplicate).length;
+            // Valid = filename-valid AND not duplicate AND both mappings confirmed
+            const isUploadReady = f => f.valid && !f.duplicate && f.subjectMapped !== false && f.studentMapped !== false;
+            const valid = selectedFiles.filter(isUploadReady).length;
             const invalid = total - valid;
 
             // Animate the number changes
@@ -1847,8 +1858,8 @@
             animateNumber('uploadedFiles', serverUploadedCount);
 
             uploadBtn.disabled = valid === 0;
-            // Exclude duplicates from validated files sent to upload
-            validatedFiles = selectedFiles.filter(f => f.valid && !f.duplicate);
+            // Exclude duplicates and unmapped files from validated files sent to upload
+            validatedFiles = selectedFiles.filter(isUploadReady);
         }
 
         function animateNumber(elementId, targetValue) {
