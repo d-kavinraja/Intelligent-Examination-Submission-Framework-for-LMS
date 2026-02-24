@@ -297,7 +297,7 @@ async def delete_subject_mapping(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Delete (deactivate) a subject mapping
+    Delete a subject mapping (hard delete - removes from database)
     """
     result = await db.execute(
         select(SubjectMapping).where(SubjectMapping.id == mapping_id)
@@ -310,10 +310,11 @@ async def delete_subject_mapping(
             detail="Mapping not found"
         )
     
-    mapping.is_active = False
+    subject_code = mapping.subject_code
+    await db.delete(mapping)
     await db.commit()
     
-    return {"message": f"Mapping {mapping.subject_code} deactivated"}
+    return {"message": f"Mapping {subject_code} deleted"}
 
 
 # ============================================

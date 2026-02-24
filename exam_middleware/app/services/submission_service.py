@@ -364,19 +364,46 @@ class SubmissionService:
                 logger.info(f"Verified files: {[f.get('filename') for f in submission_files]}")
                 result["verified_files"] = [f.get("filename") for f in submission_files]
             else:
-                # Treat this as a hard failure instead of silently continuing –
-                # if Moodle doesn't report any files in the submission, the
-                # teacher UI will also show “No submission”, so we should not
-                # mark the artifact as successfully submitted.
-                logger.error(
-                    "No files found in submission after save. "
-                    "Aborting submission and returning error to caller."
+                # Moodle can sometimes be slow to report files after save.
+                # Retry the status check once after a short delay before failing.
+                import asyncio
+                logger.warning(
+                    "No files found in submission immediately after save. "
+                    "Retrying status check after 2 seconds..."
                 )
-                raise MoodleAPIError(
-                    "Moodle did not attach any files to the submission. "
-                    "Please retry or contact the administrator.",
-                    response_data=status_result
+                await asyncio.sleep(2)
+                retry_status = await client.get_submission_status(
+                    assignment_id=assignment_id,
+                    token=moodle_token
                 )
+                # Re-parse the retry response
+                retry_files = []
+                if "lastattempt" in retry_status:
+                    retry_sub = retry_status["lastattempt"].get("submission", {})
+                    for plugin in retry_sub.get("plugins", []):
+                        if plugin.get("type") == "file":
+                            for area in plugin.get("fileareas", []):
+                                if area.get("area") == "submission_files":
+                                    retry_files = area.get("files", [])
+                                    break
+
+                if retry_files:
+                    logger.info(f"Retry succeeded - files found: {[f.get('filename') for f in retry_files]}")
+                    result["verified_files"] = [f.get("filename") for f in retry_files]
+                    submission_files = retry_files
+                else:
+                    # Treat this as a hard failure
+                    logger.error(
+                        f"No files found in submission after save AND retry for "
+                        f"assignment_id={assignment_id}. "
+                        f"This may indicate the Moodle assignment does not accept file submissions, "
+                        f"or the assignment configuration needs to be checked."
+                    )
+                    raise MoodleAPIError(
+                        f"Moodle did not attach any files to the submission (assignment_id={assignment_id}). "
+                        f"Please verify the assignment accepts file submissions in Moodle, then retry.",
+                        response_data=retry_status
+                    )
             
             # Step 3: Submit for grading (lock), but ONLY if Moodle reports that
             # this user can actually perform an explicit submit action.
