@@ -860,9 +860,14 @@
 
                     <div class="upload-zone" id="uploadZone">
                         <i class="bi bi-cloud-arrow-up-fill"></i>
-                        <h5 class="mt-2">Drag & Drop Files Here</h5>
-                        <p class="text-muted mb-0">or click to browse your files</p>
+                        <h5 class="mt-2">Drag & Drop Files or Folders Here</h5>
+                        <p class="text-muted mb-2">or click to browse your files</p>
                         <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+                        <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="browseFolderBtn"
+                            onclick="document.getElementById('folderInput').click()">
+                            <i class="bi bi-folder2-open me-1"></i> Browse Folder
+                        </button>
                     </div>
 
                     <div class="progress-container mt-4" id="progressContainer">
@@ -1576,7 +1581,14 @@
         });
 
         // File upload zone handlers
-        uploadZone.addEventListener('click', () => fileInput.click());
+        const folderInput = document.getElementById('folderInput');
+        const browseFolderBtn = document.getElementById('browseFolderBtn');
+
+        uploadZone.addEventListener('click', (e) => {
+            // Don't trigger file browse if click was on the Browse Folder button
+            if (e.target === browseFolderBtn || browseFolderBtn.contains(e.target)) return;
+            fileInput.click();
+        });
 
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -1587,9 +1599,76 @@
             uploadZone.classList.remove('dragover');
         });
 
-        uploadZone.addEventListener('drop', (e) => {
+        // Helper: recursively read entries from a dropped folder
+        function readEntryAsFile(entry) {
+            return new Promise((resolve) => {
+                entry.file(f => resolve(f), () => resolve(null));
+            });
+        }
+
+        function readEntriesFromReader(reader) {
+            return new Promise((resolve) => {
+                reader.readEntries(entries => resolve(entries), () => resolve([]));
+            });
+        }
+
+        async function getAllFilesFromEntry(entry) {
+            const files = [];
+            if (entry.isFile) {
+                const file = await readEntryAsFile(entry);
+                if (file) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+                        files.push(file);
+                    }
+                }
+            } else if (entry.isDirectory) {
+                const reader = entry.createReader();
+                let batch;
+                do {
+                    batch = await readEntriesFromReader(reader);
+                    for (const child of batch) {
+                        const childFiles = await getAllFilesFromEntry(child);
+                        files.push(...childFiles);
+                    }
+                } while (batch.length > 0);
+            }
+            return files;
+        }
+
+        uploadZone.addEventListener('drop', async (e) => {
             e.preventDefault();
             uploadZone.classList.remove('dragover');
+
+            // Check if any dropped items are directories
+            const items = e.dataTransfer.items;
+            let hasDirectories = false;
+            const collectedFiles = [];
+
+            if (items && items.length > 0) {
+                const entries = [];
+                for (let i = 0; i < items.length; i++) {
+                    const entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+                    if (entry) {
+                        entries.push(entry);
+                        if (entry.isDirectory) hasDirectories = true;
+                    }
+                }
+
+                if (hasDirectories) {
+                    // Recursively collect files from directories
+                    for (const entry of entries) {
+                        const files = await getAllFilesFromEntry(entry);
+                        collectedFiles.push(...files);
+                    }
+                    if (collectedFiles.length > 0) {
+                        handleFiles(collectedFiles);
+                    }
+                    return;
+                }
+            }
+
+            // Normal file drop
             handleFiles(e.dataTransfer.files);
         });
 
@@ -1597,7 +1676,18 @@
             handleFiles(e.target.files);
         });
 
-        function handleFiles(files) {
+        folderInput.addEventListener('change', (e) => {
+            // Filter to only allowed extensions from folder selection
+            const allowedExt = ['pdf', 'jpg', 'jpeg', 'png'];
+            const filtered = Array.from(e.target.files).filter(f => {
+                const ext = f.name.split('.').pop().toLowerCase();
+                return allowedExt.includes(ext);
+            });
+            if (filtered.length > 0) handleFiles(filtered);
+        });
+
+        async function handleFiles(files) {
+            const newFiles = [];
             for (const file of files) {
                 const validation = validateFilename(file.name);
                 const fileObj = {
@@ -1607,12 +1697,63 @@
                     valid: validation.valid,
                     registerNumber: validation.registerNumber,
                     subjectCode: validation.subjectCode,
-                    error: validation.error
+                    error: validation.error,
+                    duplicate: false,
+                    duplicateStatus: null,
+                    duplicateUploadedAt: null,
+                    subjectMapped: null,
+                    studentMapped: null
                 };
                 selectedFiles.push(fileObj);
+                if (validation.valid) newFiles.push(fileObj);
             }
             renderFileList();
             updateStats();
+
+            // Run duplicate check and mapping validation for valid files
+            if (newFiles.length > 0 && authToken) {
+                const items = newFiles.map(f => ({ reg_no: f.registerNumber, subject_code: f.subjectCode }));
+
+                // Check duplicates
+                try {
+                    const dupRes = await fetch('/upload/check-duplicates', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items })
+                    });
+                    if (dupRes.ok) {
+                        const dupData = await dupRes.json();
+                        (dupData.results || []).forEach((r, i) => {
+                            if (r.exists && newFiles[i]) {
+                                newFiles[i].duplicate = true;
+                                newFiles[i].duplicateStatus = r.status;
+                                newFiles[i].duplicateUploadedAt = r.uploaded_at;
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Duplicate check failed:', e); }
+
+                // Validate mappings
+                try {
+                    const mapRes = await fetch('/upload/validate-mappings', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items })
+                    });
+                    if (mapRes.ok) {
+                        const mapData = await mapRes.json();
+                        (mapData.results || []).forEach((r, i) => {
+                            if (newFiles[i]) {
+                                newFiles[i].subjectMapped = r.subject_mapped;
+                                newFiles[i].studentMapped = r.student_mapped;
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Mapping validation failed:', e); }
+
+                renderFileList();
+                updateStats();
+            }
         }
 
         function validateFilename(filename) {
@@ -1639,27 +1780,64 @@
         }
 
         function renderFileList() {
-            fileList.innerHTML = selectedFiles.map((f, index) => `
-                <div class="file-item ${f.valid ? 'valid' : 'invalid'}">
-                    <div class="file-info">
-                        <i class="bi ${f.valid ? 'bi-file-earmark-check-fill text-success' : 'bi-file-earmark-x-fill text-danger'}"></i>
-                        <div>
-                            <strong>${f.name}</strong>
-                            <br>
-                            <small class="text-muted">${f.size}</small>
-                            ${f.valid ? `<br><small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Reg: ${f.registerNumber} | Subject: ${f.subjectCode}</small>` : `<br><small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>${f.error}</small>`}
+            fileList.innerHTML = selectedFiles.map((f, index) => {
+                // Determine file item class
+                let itemClass = f.valid ? 'valid' : 'invalid';
+                if (f.duplicate) itemClass = 'invalid';
+
+                // Build status line
+                let statusHtml = '';
+                if (!f.valid) {
+                    statusHtml = `<br><small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>${f.error}</small>`;
+                } else {
+                    statusHtml = `<br><small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Reg: ${f.registerNumber} | Subject: ${f.subjectCode}</small>`;
+
+                    // Duplicate warning
+                    if (f.duplicate) {
+                        const dupDate = f.duplicateUploadedAt ? new Date(f.duplicateUploadedAt).toLocaleDateString() : '';
+                        statusHtml += `<br><small class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Already uploaded (Status: ${f.duplicateStatus || 'unknown'}${dupDate ? ', on ' + dupDate : ''})</small>`;
+                    }
+
+                    // Mapping status
+                    if (f.subjectMapped !== null || f.studentMapped !== null) {
+                        let mappingParts = [];
+                        if (f.subjectMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Subject mapped</span>');
+                        else if (f.subjectMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Subject NOT mapped</span>');
+                        if (f.studentMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Student mapped</span>');
+                        else if (f.studentMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Student NOT mapped</span>');
+                        if (mappingParts.length > 0) {
+                            statusHtml += `<br><small>${mappingParts.join(' &nbsp;|&nbsp; ')}</small>`;
+                        }
+                    }
+                }
+
+                // Icon
+                let iconClass = f.valid ? 'bi-file-earmark-check-fill text-success' : 'bi-file-earmark-x-fill text-danger';
+                if (f.duplicate) iconClass = 'bi-file-earmark-excel-fill text-warning';
+
+                return `
+                    <div class="file-item ${itemClass}">
+                        <div class="file-info">
+                            <i class="bi ${iconClass}"></i>
+                            <div>
+                                <strong>${f.name}</strong>
+                                <br>
+                                <small class="text-muted">${f.size}</small>
+                                ${statusHtml}
+                            </div>
                         </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
-                    <button class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function updateStats() {
             const total = selectedFiles.length;
-            const valid = selectedFiles.filter(f => f.valid).length;
+            // Valid = filename-valid AND not a duplicate
+            const valid = selectedFiles.filter(f => f.valid && !f.duplicate).length;
             const invalid = total - valid;
 
             // Animate the number changes
@@ -1669,7 +1847,8 @@
             animateNumber('uploadedFiles', serverUploadedCount);
 
             uploadBtn.disabled = valid === 0;
-            validatedFiles = selectedFiles.filter(f => f.valid);
+            // Exclude duplicates from validated files sent to upload
+            validatedFiles = selectedFiles.filter(f => f.valid && !f.duplicate);
         }
 
         function animateNumber(elementId, targetValue) {

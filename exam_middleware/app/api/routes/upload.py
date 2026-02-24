@@ -6,7 +6,8 @@ Handles file uploads from staff
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from sqlalchemy import select, and_
+from typing import List, Optional, Dict
 import logging
 
 from app.db.database import get_db
@@ -17,9 +18,9 @@ from app.schemas import (
     ErrorResponse,
 )
 from app.services.file_processor import file_processor
-from app.services.artifact_service import ArtifactService, AuditService
+from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
 from app.api.routes.auth import get_current_staff
-from app.db.models import WorkflowStatus
+from app.db.models import WorkflowStatus, ExaminationArtifact, SubjectMapping, StudentUsernameRegister
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,121 @@ async def upload_bulk_files(
         failed=failed,
         results=results
     )
+
+
+@router.post("/check-duplicates")
+async def check_duplicates(
+    payload: Dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Check if artifacts with the same register number + subject code already exist.
+    Body: { "items": [{"reg_no": "...", "subject_code": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exists": bool, "status": "...", "uploaded_at": "..."}] }
+    """
+    items = payload.get("items", [])
+    if not items:
+        return {"results": []}
+
+    results = []
+    for item in items:
+        reg_no = (item.get("reg_no") or "").strip()
+        subject_code = (item.get("subject_code") or "").strip().upper()
+
+        if not reg_no or not subject_code:
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exists": False,
+                "status": None,
+                "uploaded_at": None
+            })
+            continue
+
+        result = await db.execute(
+            select(ExaminationArtifact).where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == reg_no,
+                    ExaminationArtifact.parsed_subject_code == subject_code,
+                    ExaminationArtifact.workflow_status != WorkflowStatus.DELETED
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exists": True,
+                "status": existing.workflow_status.value,
+                "uploaded_at": existing.uploaded_at.isoformat() if existing.uploaded_at else None
+            })
+        else:
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exists": False,
+                "status": None,
+                "uploaded_at": None
+            })
+
+    return {"results": results}
+
+
+@router.post("/validate-mappings")
+async def validate_mappings(
+    payload: Dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Validate that subject codes are mapped and register numbers have student mappings.
+    Body: { "items": [{"reg_no": "...", "subject_code": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "subject_mapped": bool, "student_mapped": bool}] }
+    """
+    items = payload.get("items", [])
+    if not items:
+        return {"results": []}
+
+    # Batch-load all active subject mappings for efficiency
+    subject_codes = list(set((item.get("subject_code") or "").strip().upper() for item in items if item.get("subject_code")))
+    mapped_subjects = set()
+    if subject_codes:
+        sm_result = await db.execute(
+            select(SubjectMapping.subject_code).where(
+                and_(
+                    SubjectMapping.subject_code.in_(subject_codes),
+                    SubjectMapping.is_active == True
+                )
+            )
+        )
+        mapped_subjects = set(row[0] for row in sm_result.all())
+
+    # Batch-load all student username/register mappings
+    reg_nos = list(set((item.get("reg_no") or "").strip() for item in items if item.get("reg_no")))
+    mapped_registers = set()
+    if reg_nos:
+        sr_result = await db.execute(
+            select(StudentUsernameRegister.register_number).where(
+                StudentUsernameRegister.register_number.in_(reg_nos)
+            )
+        )
+        mapped_registers = set(row[0] for row in sr_result.all())
+
+    results = []
+    for item in items:
+        reg_no = (item.get("reg_no") or "").strip()
+        subject_code = (item.get("subject_code") or "").strip().upper()
+        results.append({
+            "reg_no": reg_no,
+            "subject_code": subject_code,
+            "subject_mapped": subject_code in mapped_subjects,
+            "student_mapped": reg_no in mapped_registers
+        })
+
+    return {"results": results}
 
 
 @router.get("/all")
