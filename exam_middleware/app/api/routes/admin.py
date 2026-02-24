@@ -134,15 +134,18 @@ async def auto_create_subject_mapping(
 ):
     """
     Auto-discover assignments from Moodle and create subject mapping.
+    
+    Accepts either:
+      - "cmid": the id= value from the Moodle assignment page URL (preferred, resolves everything automatically)
+      - "moodle_course_id": legacy course ID (backwards compatible)
+    
     Body: {
         "subject_code": "19AI411",
-        "moodle_course_id": 2,
-        "subject_name": "Machine Learning" (optional),
-        "exam_session": "2025-2026" (optional)
+        "cmid": 123,                           # id= from assignment URL (preferred)
+        "moodle_course_id": 2,                  # optional if cmid is provided
+        "subject_name": "Machine Learning"      # optional
+        "exam_session": "2025-2026"             # optional
     }
-
-    Uses admin token to call Moodle API, fetches assignments for the course,
-    and creates a mapping for each discovered assignment.
     """
     if not settings.moodle_admin_token:
         raise HTTPException(
@@ -151,20 +154,46 @@ async def auto_create_subject_mapping(
         )
 
     subject_code = (payload.get("subject_code") or "").strip().upper()
+    cmid = payload.get("cmid")  # The id= from the Moodle assignment URL
     course_id = payload.get("moodle_course_id")
     subject_name = (payload.get("subject_name") or "").strip() or None
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
-    cmid = payload.get("cmid")  # Optional: course module ID from Moodle URL
 
-    if not subject_code or not course_id:
+    if not subject_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="subject_code and moodle_course_id are required"
+            detail="subject_code is required"
+        )
+
+    if not cmid and not course_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="cmid (assignment URL id=) is required"
         )
 
     client = MoodleClient(token=settings.moodle_admin_token)
 
     try:
+        # If cmid is provided, resolve the course ID and assignment info from it
+        if cmid:
+            cm_data = await client.get_course_module(int(cmid))
+            cm = cm_data.get("cm", {})
+            if not cm:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No course module found for id={cmid} on Moodle"
+                )
+            course_id = cm.get("course")
+            # The instance field is the assignment ID in the mod_assign table
+            resolved_assignment_id = cm.get("instance")
+            resolved_assignment_name = cm.get("name", "Unknown")
+
+            if not course_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Could not resolve course for module id={cmid}"
+                )
+
         # Fetch assignments for this course from Moodle
         assignments_data = await client.get_assignments([int(course_id)])
         courses = assignments_data.get("courses", [])
@@ -186,6 +215,9 @@ async def auto_create_subject_mapping(
         if cmid:
             # Match by cmid (the id= from the Moodle assignment URL)
             assignment = next((a for a in assignments if a.get("cmid") == int(cmid)), None)
+            if not assignment:
+                # Fallback: match by the resolved instance ID
+                assignment = next((a for a in assignments if a.get("id") == resolved_assignment_id), None)
             if not assignment:
                 names = ", ".join([f"{a.get('name','')} (cmid={a.get('cmid')})" for a in assignments])
                 raise HTTPException(
@@ -231,7 +263,7 @@ async def auto_create_subject_mapping(
             action = "Created"
 
         return {
-            "message": f"{action} mapping: {subject_code} → Course {course_id}, Assignment {assignment_id} ({assignment_name})",
+            "message": f"{action} mapping: {subject_code} → Assignment '{assignment_name}' (ID: {cmid or assignment.get('cmid', 'N/A')})",
             "mapping": {
                 "id": mapping.id,
                 "subject_code": mapping.subject_code,
@@ -240,6 +272,7 @@ async def auto_create_subject_mapping(
                 "moodle_assignment_id": mapping.moodle_assignment_id,
                 "moodle_assignment_name": mapping.moodle_assignment_name,
                 "exam_session": mapping.exam_session,
+                "cmid": int(cmid) if cmid else assignment.get("cmid"),
             },
             "all_assignments": [
                 {"id": a["id"], "name": a.get("name", ""), "cmid": a.get("cmid")}
@@ -254,6 +287,7 @@ async def auto_create_subject_mapping(
         )
     finally:
         await client.close()
+
 
 
 @router.delete("/mappings/{mapping_id}")

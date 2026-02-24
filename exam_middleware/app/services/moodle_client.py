@@ -340,6 +340,50 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
+    async def get_course_module(
+        self,
+        cmid: int,
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get course module information by its ID
+        
+        Function: core_course_get_course_module
+        
+        This resolves the id= value from a Moodle assignment URL
+        to the underlying course ID, assignment instance ID, and name.
+        
+        Args:
+            cmid: Course module ID (the id= from the Moodle URL)
+            token: Web service token
+            
+        Returns:
+            Dict with 'cm' key containing: id, course, module, name, instance, etc.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+        
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_course_get_course_module",
+            "moodlewsrestformat": "json",
+            "cmid": str(cmid),
+        }
+        
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            self._check_error_response(result, "core_course_get_course_module")
+            
+            logger.info(f"Got course module info for cmid={cmid}: course={result.get('cm', {}).get('course')}")
+            return result
+            
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+    
     # =========================================
     # File Upload (Step 1 of Submission)
     # =========================================
