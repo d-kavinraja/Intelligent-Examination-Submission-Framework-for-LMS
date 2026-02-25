@@ -202,12 +202,13 @@ async def get_dashboard(
     pending_papers = []
     for artifact in pending_artifacts:
         # Get subject mapping for additional info
+        exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
         mapping = None
         if artifact.parsed_subject_code:
-            mapping = await mapping_service.get_mapping(artifact.parsed_subject_code)
+            mapping = await mapping_service.get_mapping(artifact.parsed_subject_code, exam_type)
         
         # Check if we have a valid assignment mapping
-        assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code) if artifact.parsed_subject_code else None
+        assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type) if artifact.parsed_subject_code else None
         
         pending_papers.append(StudentPendingPaper(
             artifact_uuid=str(artifact.artifact_uuid),
@@ -217,6 +218,8 @@ async def get_dashboard(
             filename=artifact.original_filename,
             uploaded_at=artifact.uploaded_at,
             workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
+            exam_type=exam_type,
+            attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
             can_submit=assignment_id is not None,
             message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
         ))
@@ -224,9 +227,10 @@ async def get_dashboard(
     # Build submitted papers list (include subject_name from mapping if available)
     submitted_papers = []
     for a in submitted_artifacts:
+        a_exam_type = getattr(a, 'exam_type', 'CIA1') or 'CIA1'
         mapping = None
         if a.parsed_subject_code:
-            mapping = await mapping_service.get_mapping(a.parsed_subject_code)
+            mapping = await mapping_service.get_mapping(a.parsed_subject_code, a_exam_type)
 
         submitted_papers.append(
             ArtifactResponse(
@@ -237,6 +241,8 @@ async def get_dashboard(
                 subject_name=mapping.subject_name if mapping else None,
                 parsed_reg_no=a.parsed_reg_no,
                 parsed_subject_code=a.parsed_subject_code,
+                exam_type=a_exam_type,
+                attempt_number=getattr(a, 'attempt_number', 1) or 1,
                 workflow_status=WorkflowStatusEnum(a.workflow_status.value),
                 moodle_assignment_id=a.moodle_assignment_id,
                 uploaded_at=a.uploaded_at,

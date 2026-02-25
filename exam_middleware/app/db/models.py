@@ -33,6 +33,7 @@ class WorkflowStatus(str, PyEnum):
     FAILED = "FAILED"
     DELETED = "DELETED"
     QUEUED = "QUEUED"  # For Moodle maintenance mode
+    SUPERSEDED = "SUPERSEDED"  # Replaced by a newer attempt
 
 
 class ExaminationArtifact(Base):
@@ -53,6 +54,10 @@ class ExaminationArtifact(Base):
     # Extracted Metadata (parsed from filename or ML extraction)
     parsed_reg_no = Column(String(20), index=True, nullable=True)
     parsed_subject_code = Column(String(20), index=True, nullable=True)
+    
+    # Exam type and attempt tracking
+    exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
+    attempt_number = Column(Integer, nullable=False, default=1, server_default="1")  # Max 2 attempts
     
     # File Storage
     file_blob_path = Column(String(512), nullable=False)
@@ -104,7 +109,8 @@ class ExaminationArtifact(Base):
     __table_args__ = (
         Index('ix_artifacts_reg_subject', 'parsed_reg_no', 'parsed_subject_code'),
         Index('ix_artifacts_status', 'workflow_status'),
-        UniqueConstraint('parsed_reg_no', 'parsed_subject_code', name='uq_paper_submission'),
+        Index('ix_artifacts_exam_type', 'exam_type'),
+        UniqueConstraint('parsed_reg_no', 'parsed_subject_code', 'exam_type', 'attempt_number', name='uq_paper_submission'),
     )
     
     def add_log_entry(self, action: str, details: Dict[str, Any]) -> None:
@@ -130,8 +136,11 @@ class SubjectMapping(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Subject Information
-    subject_code = Column(String(20), unique=True, nullable=False, index=True)
+    subject_code = Column(String(20), nullable=False, index=True)  # Not unique alone — unique with exam_type
     subject_name = Column(String(255), nullable=True)
+    
+    # Exam type
+    exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
     
     # Moodle Mapping
     moodle_course_id = Column(Integer, nullable=False)
@@ -151,6 +160,10 @@ class SubjectMapping(Base):
     
     # Cache invalidation
     last_verified_at = Column(DateTime(timezone=True), nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint('subject_code', 'exam_type', name='uq_subject_exam_type'),
+    )
 
 
 class StaffUser(Base):

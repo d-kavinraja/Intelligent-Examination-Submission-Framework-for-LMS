@@ -95,8 +95,8 @@ async def seed_subject_mappings():
         for mapping in mappings:
             # Check if mapping exists
             result = await session.execute(
-                text("SELECT id FROM subject_mappings WHERE subject_code = :code"),
-                {"code": mapping["subject_code"]}
+                text("SELECT id FROM subject_mappings WHERE subject_code = :code AND exam_type = :type"),
+                {"code": mapping["subject_code"], "type": mapping.get("exam_type", "CIA1")}
             )
             existing = result.fetchone()
             
@@ -191,7 +191,9 @@ async def seed_sample_data():
             parsed_subject_code='DEMO',
             file_size_bytes=1024,
             mime_type='application/pdf',
-            workflow_status='PENDING'
+            workflow_status='PENDING',
+            exam_type='CIA1',
+            attempt_number=1
         )
         session.add(sample)
         await session.flush()

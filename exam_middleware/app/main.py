@@ -62,20 +62,70 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-        # Auto-migration: Add file_content column if missing
+        # Auto-migration: Update for CIA types and attempts
         try:
             from sqlalchemy import text
-            # Check if column exists
-            result = await conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name='examination_artifacts' AND column_name='file_content'"
-            ))
-            if not result.fetchone():
-                logger.info("Adding missing file_content column to examination_artifacts table...")
+            
+            # 1. Handle examination_artifacts table
+            # Check for file_content
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='file_content'"))
+            if not res.fetchone():
+                logger.info("Adding file_content to examination_artifacts...")
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN file_content BYTEA"))
-                logger.info("Column file_content added successfully")
+
+            # Check for exam_type
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='exam_type'"))
+            if not res.fetchone():
+                logger.info("Adding exam_type to examination_artifacts...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN exam_type VARCHAR(10) NOT NULL DEFAULT 'CIA1'"))
+
+            # Check for attempt_number
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='attempt_number'"))
+            if not res.fetchone():
+                logger.info("Adding attempt_number to examination_artifacts...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN attempt_number INTEGER NOT NULL DEFAULT 1"))
+
+            # 2. Handle subject_mappings table
+            # Check for exam_type
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='subject_mappings' AND column_name='exam_type'"))
+            if not res.fetchone():
+                logger.info("Adding exam_type to subject_mappings...")
+                await conn.execute(text("ALTER TABLE subject_mappings ADD COLUMN exam_type VARCHAR(10) NOT NULL DEFAULT 'CIA1'"))
+
+            # 3. Update Constraints
+            # Drop old subject_mappings unique constraint if it exists (subject_code only)
+            try:
+                await conn.execute(text("ALTER TABLE subject_mappings DROP CONSTRAINT IF EXISTS subject_mappings_subject_code_key"))
+                await conn.execute(text("ALTER TABLE subject_mappings DROP CONSTRAINT IF EXISTS uq_subject_code"))
+                # Add new one if not exists
+                await conn.execute(text("ALTER TABLE subject_mappings ADD CONSTRAINT uq_subject_exam_type UNIQUE (subject_code, exam_type)"))
+            except Exception as ce:
+                logger.debug(f"Constraint update (subject_mappings) skipped or already done: {ce}")
+
+            # Drop old examination_artifacts unique constraint if it exists
+            try:
+                await conn.execute(text("ALTER TABLE examination_artifacts DROP CONSTRAINT IF EXISTS examination_artifacts_parsed_reg_no_parsed_subject_code_key"))
+                await conn.execute(text("ALTER TABLE examination_artifacts DROP CONSTRAINT IF EXISTS uq_paper_submission"))
+                # Add new one if not exists
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD CONSTRAINT uq_paper_submission UNIQUE (parsed_reg_no, parsed_subject_code, exam_type, attempt_number)"))
+            except Exception as ce:
+                logger.debug(f"Constraint update (artifacts) skipped or already done: {ce}")
+
+            # 4. Update Enum
+            try:
+                # PostgreSQL specific: check if value exists in enum
+                res = await conn.execute(text("SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'workflowstatus' AND e.enumlabel = 'SUPERSEDED'"))
+                if not res.fetchone():
+                    logger.info("Adding SUPERSEDED to workflowstatus enum...")
+                    # Note: ALTER TYPE ... ADD VALUE cannot run in a transaction block in some PG versions
+                    # But engine.begin() is a transaction. We try it anyway as async pg handles this usually
+                    await conn.execute(text("COMMIT")) # End current transaction if needed
+                    await conn.execute(text("ALTER TYPE workflowstatus ADD VALUE 'SUPERSEDED'"))
+            except Exception as ee:
+                logger.debug(f"Enum update skipped or failed: {ee}")
+
         except Exception as e:
-            logger.error(f"Migration error: {e}")
+            logger.error(f"Migration error during startup: {e}")
             
     logger.info("Database tables created/verified")
     

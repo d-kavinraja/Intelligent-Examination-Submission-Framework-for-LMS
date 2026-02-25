@@ -54,6 +54,7 @@ async def list_subject_mappings(
             id=m.id,
             subject_code=m.subject_code,
             subject_name=m.subject_name,
+            exam_type=getattr(m, 'exam_type', 'CIA1') or 'CIA1',
             moodle_course_id=m.moodle_course_id,
             moodle_assignment_id=m.moodle_assignment_id,
             moodle_assignment_name=m.moodle_assignment_name,
@@ -160,6 +161,7 @@ async def auto_create_subject_mapping(
     course_id = payload.get("moodle_course_id")
     subject_name = (payload.get("subject_name") or "").strip() or None
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
+    exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
 
     if not subject_code:
         raise HTTPException(
@@ -233,9 +235,12 @@ async def auto_create_subject_mapping(
         assignment_id = assignment["id"]
         assignment_name = assignment.get("name", "Unknown")
 
-        # Upsert: update existing or create new
+        # Upsert: update existing or create new (unique by subject_code + exam_type)
         result = await db.execute(
-            select(SubjectMapping).where(SubjectMapping.subject_code == subject_code)
+            select(SubjectMapping).where(
+                SubjectMapping.subject_code == subject_code,
+                SubjectMapping.exam_type == exam_type
+            )
         )
         existing = result.scalar_one_or_none()
 
@@ -253,6 +258,7 @@ async def auto_create_subject_mapping(
             mapping = SubjectMapping(
                 subject_code=subject_code,
                 subject_name=subject_name or assignment_name,
+                exam_type=exam_type,
                 moodle_course_id=int(course_id),
                 moodle_assignment_id=assignment_id,
                 moodle_assignment_name=assignment_name,
@@ -265,11 +271,12 @@ async def auto_create_subject_mapping(
             action = "Created"
 
         return {
-            "message": f"{action} mapping: {subject_code} → Assignment '{assignment_name}' (ID: {cmid or assignment.get('cmid', 'N/A')})",
+            "message": f"{action} mapping: {subject_code} ({exam_type}) → Assignment '{assignment_name}' (ID: {cmid or assignment.get('cmid', 'N/A')})",
             "mapping": {
                 "id": mapping.id,
                 "subject_code": mapping.subject_code,
                 "subject_name": mapping.subject_name,
+                "exam_type": mapping.exam_type,
                 "moodle_course_id": mapping.moodle_course_id,
                 "moodle_assignment_id": mapping.moodle_assignment_id,
                 "moodle_assignment_name": mapping.moodle_assignment_name,

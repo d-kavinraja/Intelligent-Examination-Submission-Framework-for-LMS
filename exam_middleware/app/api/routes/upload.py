@@ -30,6 +30,7 @@ router = APIRouter()
 @router.post("/single", response_model=FileUploadResponse)
 async def upload_single_file(
     file: UploadFile = File(...),
+    exam_type: str = Form("CIA1"),
     request: Request = None,
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
@@ -93,6 +94,7 @@ async def upload_single_file(
             file_hash=file_hash,
             parsed_reg_no=metadata.get("parsed_register_no"),
             parsed_subject_code=metadata.get("parsed_subject_code"),
+            exam_type=exam_type,
             file_size_bytes=metadata.get("size_bytes"),
             mime_type=metadata.get("mime_type"),
             uploaded_by_staff_id=current_staff.id,
@@ -120,6 +122,8 @@ async def upload_single_file(
             artifact_uuid=str(artifact.artifact_uuid),
             parsed_register_number=artifact.parsed_reg_no,
             parsed_subject_code=artifact.parsed_subject_code,
+            exam_type=artifact.exam_type,
+            attempt_number=artifact.attempt_number,
             workflow_status=artifact.workflow_status.value
         )
         
@@ -140,6 +144,7 @@ async def upload_single_file(
 @router.post("/bulk", response_model=BulkUploadResponse)
 async def upload_bulk_files(
     files: List[UploadFile] = File(...),
+    exam_type: str = Form("CIA1"),
     request: Request = None,
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
@@ -199,6 +204,7 @@ async def upload_bulk_files(
                     file_hash=file_hash,
                     parsed_reg_no=metadata.get("parsed_register_no"),
                     parsed_subject_code=metadata.get("parsed_subject_code"),
+                    exam_type=exam_type,
                     file_size_bytes=metadata.get("size_bytes"),
                     mime_type=metadata.get("mime_type"),
                     uploaded_by_staff_id=current_staff.id,
@@ -212,6 +218,8 @@ async def upload_bulk_files(
                 artifact_uuid=str(artifact.artifact_uuid),
                 parsed_register_number=artifact.parsed_reg_no,
                 parsed_subject_code=artifact.parsed_subject_code,
+                exam_type=artifact.exam_type,
+                attempt_number=artifact.attempt_number,
                 workflow_status=artifact.workflow_status.value
             ))
             successful += 1
@@ -396,6 +404,8 @@ async def get_all_uploads(
             "filename": a.original_filename,
             "register_number": a.parsed_reg_no,
             "subject_code": a.parsed_subject_code,
+            "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
+            "attempt_number": getattr(a, 'attempt_number', 1) or 1,
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count
@@ -435,6 +445,8 @@ async def get_pending_uploads(
             "filename": a.original_filename,
             "register_number": a.parsed_reg_no,
             "subject_code": a.parsed_subject_code,
+            "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
+            "attempt_number": getattr(a, 'attempt_number', 1) or 1,
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count

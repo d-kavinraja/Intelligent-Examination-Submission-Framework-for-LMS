@@ -890,7 +890,17 @@
 
                     <div class="file-list mt-4" id="fileList"></div>
 
-                    <div class="d-flex gap-3 mt-4">
+                    <div class="row mt-4 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Exam Type</label>
+                            <select class="form-select" id="uploadExamType">
+                                <option value="CIA1" selected>CIA-1</option>
+                                <option value="CIA2">CIA-2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 mt-3">
                         <button class="btn btn-primary flex-grow-1" id="uploadBtn" disabled onclick="uploadFiles()">
                             <i class="bi bi-cloud-upload-fill me-2"></i>
                             Upload Valid Files
@@ -964,15 +974,22 @@
                     </div>
                     <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
                         <div class="row g-3">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Subject Code <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="sm_subject_code" required
                                     placeholder="e.g. 19AI411">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Subject Name</label>
                                 <input type="text" class="form-control" id="sm_subject_name"
                                     placeholder="e.g. Machine Learning">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Exam Type</label>
+                                <select class="form-select" id="sm_exam_type">
+                                    <option value="CIA1" selected>CIA-1</option>
+                                    <option value="CIA2">CIA-2</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Assignment URL ID <span class="text-danger">*</span></label>
@@ -1463,7 +1480,8 @@
                 'submitted': { class: 'bg-success', icon: 'check-circle', text: 'Submitted' },
                 'failed': { class: 'bg-danger', icon: 'x-circle', text: 'Failed' },
                 'deleted': { class: 'bg-secondary text-white', icon: 'trash', text: 'Deleted' },
-                'completed': { class: 'bg-success', icon: 'check2-all', text: 'Completed' }
+                'completed': { class: 'bg-success', icon: 'check2-all', text: 'Completed' },
+                'superseded': { class: 'bg-secondary text-white', icon: 'arrow-counterclockwise', text: 'Replaced by Attempt 2' }
             };
             const s = statusMap[status?.toLowerCase()] || { class: 'bg-secondary', icon: 'question-circle', text: status || 'Unknown' };
             return `<span class="badge ${s.class}"><i class="bi bi-${s.icon} me-1"></i>${s.text}</span>`;
@@ -1533,6 +1551,8 @@
                             <th>Filename</th>
                             <th>Register No.</th>
                             <th>Subject</th>
+                            <th>Exam Type</th>
+                            <th>Attempt</th>
                             <th>Status</th>
                             <th>Uploaded</th>
                             <th>Actions</th>
@@ -1547,6 +1567,8 @@
                 const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
                 const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
                 const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
+                const examType = a.exam_type || '-';
+                const attemptNum = a.attempt_number || 1;
 
                 // Try to resolve artifact identifier (prefer id, then artifact_uuid)
                 const artifactIdVal = a.id || a.artifact_id || a._id || '';
@@ -1557,6 +1579,8 @@
                         <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
                         <td><span class="badge bg-secondary">${regNo}</span></td>
                         <td><span class="badge bg-primary">${subCode}</span></td>
+                        <td><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
+                        <td><span class="badge bg-outline-dark border">${attemptNum}</span></td>
                         <td>${statusBadge}</td>
                         <td><small class="text-muted">${uploadDate}</small></td>
                         <td>
@@ -1950,6 +1974,7 @@
                 const formData = new FormData();
                 validatedFiles.forEach(f => formData.append('files', f.file));
                 formData.append('exam_session', new Date().toISOString().split('T')[0].replace(/-/g, ''));
+                formData.append('exam_type', document.getElementById('uploadExamType').value);
 
                 let response;
                 try {
@@ -2019,11 +2044,12 @@
                         data.results.forEach(r => {
                             const icon = r.success ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
                             const singleError = r.error || (r.errors && r.errors.length ? r.errors[0] : null) || r.message || 'Unknown error';
+                            const attemptBadge = (r.attempt_number && r.attempt_number > 1) ? `<span class="badge bg-warning text-dark ms-2">Attempt ${r.attempt_number} (previous superseded)</span>` : '';
                             resultsHtml += `
                                 <div class="list-group-item d-flex align-items-center">
                                     <i class="${icon} me-3" style="font-size: 1.25rem;"></i>
-                                    <strong class="flex-grow-1">${r.filename}</strong>
-                                    ${r.success ? '<span class="badge bg-success px-3 py-2">Uploaded</span>' : `<span class="badge bg-danger px-3 py-2">Failed: ${singleError}</span>`}
+                                    <strong class="flex-grow-1">${r.filename}${attemptBadge}</strong>
+                                    ${r.success ? `<span class="badge bg-success px-3 py-2">Uploaded${r.exam_type ? ' (' + r.exam_type + ')' : ''}</span>` : `<span class="badge bg-danger px-3 py-2">Failed: ${singleError}</span>`}
                                 </div>
                             `;
                         });
@@ -2752,11 +2778,12 @@
                     container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
                     return;
                 }
-                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>URL ID</th><th>Assignment</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>URL ID</th><th>Assignment</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
                 data.forEach(m => {
                     html += `<tr>
                         <td><span class="badge bg-primary">${m.subject_code}</span></td>
                         <td>${m.subject_name || '-'}</td>
+                        <td><span class="badge ${m.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${m.exam_type || 'CIA1'}</span></td>
                         <td><span class="badge bg-secondary">${m.cmid || m.moodle_assignment_id || '-'}</span></td>
                         <td>${m.moodle_assignment_name || '-'}</td>
                         <td>${m.exam_session || '-'}</td>
@@ -2782,6 +2809,7 @@
             const body = {
                 subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
                 subject_name: document.getElementById('sm_subject_name').value.trim() || null,
+                exam_type: document.getElementById('sm_exam_type').value,
                 cmid: parseInt(cmidVal),
                 exam_session: document.getElementById('sm_exam_session').value.trim() || null,
             };

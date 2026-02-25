@@ -198,7 +198,8 @@ class SubmissionService:
         """Resolve the Moodle assignment ID for an artifact"""
         # Always try to get the latest mapping first to handle re-mappings/retries correctly
         if artifact.parsed_subject_code:
-            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code)
+            exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
+            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type)
             if mapping_id:
                 # Update the artifact's field to keep it in sync with the latest mapping
                 artifact.moodle_assignment_id = mapping_id
