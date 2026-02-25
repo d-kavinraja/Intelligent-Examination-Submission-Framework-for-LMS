@@ -734,128 +734,6 @@
                 padding: 8px 12px;
             }
         }
-
-        /* Premium Table Styling */
-        .table-premium {
-            border-collapse: separate;
-            border-spacing: 0 8px;
-            width: 100%;
-        }
-
-        .table-premium thead th {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
-            padding: 1rem 1.25rem;
-        }
-
-        .table-premium tbody tr {
-            background: rgba(255, 255, 255, 0.6);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-            transition: all 0.2s ease;
-            cursor: default;
-        }
-
-        .table-premium tbody tr:hover {
-            transform: translateY(-2px) scale(1.005);
-            background: white;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
-            z-index: 10;
-        }
-
-        .table-premium td {
-            padding: 1.25rem;
-            border: none;
-            vertical-align: middle;
-        }
-
-        .table-premium tr td:first-child {
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
-        }
-
-        .table-premium tr td:last-child {
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
-        }
-
-        .filename-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            max-width: 300px;
-        }
-
-        .filename-text {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .badge-premium {
-            padding: 0.5rem 0.8rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .badge-attempt {
-            width: 28px;
-            height: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-weight: 700;
-            background: #fff;
-            border: 2px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        .action-group {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            min-width: 280px;
-        }
-
-        .action-btn-p {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0.4rem 0.75rem;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
-        }
-
-        .action-btn-p:hover {
-            transform: scale(1.05);
-        }
-
-        .btn-reports-p {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            border: none;
-            color: white;
-            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
-        }
-
-        .report-count-p {
-            background: rgba(255, 255, 255, 0.25);
-            padding: 1px 6px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            margin-left: 4px;
-        }
     </style>
     <link href="/static/css/style.css" rel="stylesheet">
 </head>
@@ -1710,79 +1588,61 @@
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table-premium mb-0">';
+            let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
             html += `<thead>
                         <tr>
                             <th>Filename</th>
-                            <th>Reg No.</th>
+                            <th>Register No.</th>
                             <th>Subject</th>
-                            <th>Exam Info</th>
+                            <th>Exam Type</th>
+                            <th>Attempt</th>
                             <th>Status</th>
-                            <th>Uploaded At</th>
-                            <th class="text-end">Actions</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
                         </tr>
                     </thead><tbody>`;
 
             filtered.forEach(a => {
                 const statusBadge = getStatusBadge(a.status);
-                const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString('en-IN', {
-                    day: '2-digit', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                }) : '-';
-
+                const uploadDate = a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() :
+                    (a.created_at ? new Date(a.created_at).toLocaleString() :
+                        (a.timestamp ? new Date(a.timestamp).toLocaleString() : '-'));
                 const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
                 const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
                 const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
-                const examType = a.exam_type || 'CIA1';
+                const examType = a.exam_type || '-';
                 const attemptNum = a.attempt_number || 1;
 
+                // Try to resolve artifact identifier (prefer id, then artifact_uuid)
                 const artifactIdVal = a.id || a.artifact_id || a._id || '';
                 const artifactUuidVal = a.artifact_uuid || a.uuid || a.file_uuid || '';
 
                 html += `
                     <tr>
-                        <td>
-                            <div class="filename-container">
-                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
-                                <span class="filename-text" title="${filename}">${filename}</span>
-                            </div>
-                        </td>
-                        <td><span class="badge bg-light text-dark border px-2 py-1">${regNo}</span></td>
-                        <td><span class="badge-premium bg-primary text-white">${subCode}</span></td>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge-premium ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span>
-                                <div class="badge-attempt" title="Attempt ${attemptNum}">${attemptNum}</div>
-                            </div>
-                        </td>
+                        <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
+                        <td><span class="badge bg-secondary">${regNo}</span></td>
+                        <td><span class="badge bg-primary">${subCode}</span></td>
+                        <td><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
+                        <td><span class="badge bg-outline-dark border">${attemptNum}</span></td>
                         <td>${statusBadge}</td>
-                        <td><small class="text-muted fw-medium">${uploadDate}</small></td>
-                        <td class="text-end">
-                            <div class="action-group">
-                                <button class="btn btn-sm btn-outline-primary action-btn-p btn-details" 
-                                    data-artifact-uuid="${artifactUuidVal}" data-artifact-id="${artifactIdVal}">
-                                    <i class="bi bi-eye-fill"></i> Details
-                                </button>
-                                <button class="btn btn-sm btn-reports-p action-btn-p" 
-                                    data-artifact-uuid="${artifactUuidVal}" data-artifact-id="${artifactIdVal}">
-                                    <i class="bi bi-flag-fill"></i> Reports
-                                    <span class="report-count-p">${a.report_count || 0}</span>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger action-btn-p btn-delete" 
-                                    data-artifact-uuid="${artifactUuidVal}" data-artifact-id="${artifactIdVal}">
-                                    <i class="bi bi-trash-fill"></i>
-                                </button>
-                            </div>
+                        <td><small class="text-muted">${uploadDate}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-2 btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                <i class="bi bi-eye"></i> Details
+                            </button>
+                            <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-2">${a.report_count || 0}</span>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-delete ms-2 action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
                         </td>
                     </tr>
                 `;
             });
 
             html += '</tbody></table></div>';
-            html += `<div class="d-flex justify-content-between align-items-center mt-4 px-2">
-                        <div class="text-secondary small">Showing ${filtered.length} of ${pendingArtifacts.length} records</div>
-                        <div class="text-secondary small">Exam Type: <span class="fw-bold">${pendingFilter.toUpperCase()}</span></div>
-                     </div>`;
+            html += `<div class="text-muted small mt-3">Showing ${filtered.length} of ${pendingArtifacts.length} files</div>`;
             pendingFilesList.innerHTML = html;
         }
 
