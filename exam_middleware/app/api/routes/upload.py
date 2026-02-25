@@ -266,9 +266,9 @@ async def check_duplicates(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Check if artifacts with the same register number + subject code already exist.
-    Body: { "items": [{"reg_no": "...", "subject_code": "..."}] }
-    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exists": bool, "status": "...", "uploaded_at": "..."}] }
+    Check if artifacts with the same register number + subject code already exist for the given exam type.
+    Body: { "items": [{"reg_no": "...", "subject_code": "...", "exam_type": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exam_type": "...", "exists": bool, "status": "...", "uploaded_at": "..."}] }
     """
     items = payload.get("items", [])
     if not items:
@@ -278,6 +278,7 @@ async def check_duplicates(
     for item in items:
         reg_no = (item.get("reg_no") or "").strip()
         subject_code = (item.get("subject_code") or "").strip().upper()
+        exam_type = (item.get("exam_type") or "CIA1").strip().upper()
 
         if not reg_no or not subject_code:
             results.append({
@@ -294,6 +295,7 @@ async def check_duplicates(
                 and_(
                     ExaminationArtifact.parsed_reg_no == reg_no,
                     ExaminationArtifact.parsed_subject_code == subject_code,
+                    ExaminationArtifact.exam_type == exam_type,
                     ExaminationArtifact.workflow_status != WorkflowStatus.DELETED
                 )
             )
@@ -304,6 +306,7 @@ async def check_duplicates(
             results.append({
                 "reg_no": reg_no,
                 "subject_code": subject_code,
+                "exam_type": exam_type,
                 "exists": True,
                 "status": existing.workflow_status.value,
                 "uploaded_at": existing.uploaded_at.isoformat() if existing.uploaded_at else None
@@ -312,6 +315,7 @@ async def check_duplicates(
             results.append({
                 "reg_no": reg_no,
                 "subject_code": subject_code,
+                "exam_type": exam_type,
                 "exists": False,
                 "status": None,
                 "uploaded_at": None
@@ -327,27 +331,34 @@ async def validate_mappings(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Validate that subject codes are mapped and register numbers have student mappings.
-    Body: { "items": [{"reg_no": "...", "subject_code": "..."}] }
-    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "subject_mapped": bool, "student_mapped": bool}] }
+    Validate that subject codes are mapped and register numbers have student mappings for the given exam type.
+    Body: { "items": [{"reg_no": "...", "subject_code": "...", "exam_type": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exam_type": "...", "subject_mapped": bool, "student_mapped": bool}] }
     """
     items = payload.get("items", [])
     if not items:
         return {"results": []}
 
-    # Batch-load all active subject mappings for efficiency
-    subject_codes = list(set((item.get("subject_code") or "").strip().upper() for item in items if item.get("subject_code")))
-    mapped_subjects = set()
-    if subject_codes:
+    # Batch-load all active subject mappings for these codes and types
+    criteria = []
+    for item in items:
+        sc = (item.get("subject_code") or "").strip().upper()
+        et = (item.get("exam_type") or "CIA1").strip().upper()
+        if sc:
+            criteria.append(and_(SubjectMapping.subject_code == sc, SubjectMapping.exam_type == et))
+    
+    mapped_keys = set()
+    if criteria:
+        from sqlalchemy import or_
         sm_result = await db.execute(
-            select(SubjectMapping.subject_code).where(
+            select(SubjectMapping.subject_code, SubjectMapping.exam_type).where(
                 and_(
-                    SubjectMapping.subject_code.in_(subject_codes),
+                    or_(*criteria),
                     SubjectMapping.is_active == True
                 )
             )
         )
-        mapped_subjects = set(row[0] for row in sm_result.all())
+        mapped_keys = set((row[0], row[1]) for row in sm_result.all())
 
     # Batch-load all student username/register mappings
     reg_nos = list(set((item.get("reg_no") or "").strip() for item in items if item.get("reg_no")))
@@ -364,10 +375,16 @@ async def validate_mappings(
     for item in items:
         reg_no = (item.get("reg_no") or "").strip()
         subject_code = (item.get("subject_code") or "").strip().upper()
+        exam_type = (item.get("exam_type") or "CIA1").strip().upper()
+        
+        # Check if subject is mapped for this exam type
+        subject_mapped = (subject_code, exam_type) in mapped_keys
+        
         results.append({
             "reg_no": reg_no,
             "subject_code": subject_code,
-            "subject_mapped": subject_code in mapped_subjects,
+            "exam_type": exam_type,
+            "subject_mapped": subject_mapped,
             "student_mapped": reg_no in mapped_registers
         })
 

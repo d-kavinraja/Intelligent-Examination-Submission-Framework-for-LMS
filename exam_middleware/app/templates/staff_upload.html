@@ -933,10 +933,20 @@
                         <i class="bi bi-file-earmark-pdf-fill me-2"></i>
                         Previously Uploaded Files
                     </h5>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
-                        <i class="bi bi-arrow-clockwise me-1"></i>
-                        Refresh
-                    </button>
+                    <div class="d-flex gap-2">
+                        <div class="btn-group btn-group-sm" id="pendingFilterGroup">
+                            <button type="button" class="btn btn-outline-primary active"
+                                onclick="setPendingFilter('all')">All</button>
+                            <button type="button" class="btn btn-outline-primary"
+                                onclick="setPendingFilter('CIA1')">CIA-1</button>
+                            <button type="button" class="btn btn-outline-primary"
+                                onclick="setPendingFilter('CIA2')">CIA-2</button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-4">
                     <div class="mb-3">
@@ -1318,6 +1328,27 @@
             }
         }
 
+        // Filtering state
+        let pendingFilter = 'all';
+
+        function setPendingFilter(filter) {
+            pendingFilter = filter;
+            document.querySelectorAll('#pendingFilterGroup .btn').forEach(b => b.classList.remove('active'));
+            // Set active class on clicked button
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // Find button by filter text if called programmatically
+                const buttons = document.querySelectorAll('#pendingFilterGroup .btn');
+                buttons.forEach(b => {
+                    if (b.textContent === (filter === 'all' ? 'All' : filter.replace('CIA', 'CIA-'))) {
+                        b.classList.add('active');
+                    }
+                });
+            }
+            renderPendingFiles(document.getElementById('pendingFilesSearch').value);
+        }
+
         async function loadPendingFiles() {
             const pendingFilesList = document.getElementById('pendingFilesList');
 
@@ -1522,18 +1553,30 @@
                 return;
             }
 
-            const filtered = pendingArtifacts.filter(a => {
+            let filtered = pendingArtifacts.filter(a => {
                 // Hide artifacts that were explicitly deleted by staff
                 const err = (a.error_message || a.error || a.errorMessage || '').toString();
                 if (err && err.includes('Deleted by staff')) return false;
-                const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
-                const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '').toString().toLowerCase();
-                const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '').toString().toLowerCase();
-                const status = (a.status || '').toString().toLowerCase();
-
-                if (!q) return true;
-                return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q);
+                const ws = (a.workflow_status || a.status || '').toString().toLowerCase();
+                if (ws === 'deleted') return false;
+                return true;
             });
+
+            // Apply CIA Filter
+            if (pendingFilter !== 'all') {
+                filtered = filtered.filter(a => (a.exam_type || 'CIA1').toUpperCase() === pendingFilter.toUpperCase());
+            }
+
+            if (q) {
+                filtered = filtered.filter(a => {
+                    const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
+                    const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '').toString().toLowerCase();
+                    const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '').toString().toLowerCase();
+                    const status = (a.status || '').toString().toLowerCase();
+                    const et = (a.exam_type || '').toString().toLowerCase();
+                    return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q) || et.includes(q);
+                });
+            }
 
             if (filtered.length === 0) {
                 pendingFilesList.innerHTML = `
@@ -1743,50 +1786,59 @@
             renderFileList();
             updateStats();
 
-            // Run duplicate check and mapping validation for valid files
-            if (newFiles.length > 0 && authToken) {
-                const items = newFiles.map(f => ({ reg_no: f.registerNumber, subject_code: f.subjectCode }));
+            // Check duplicates
+            try {
+                const currentType = document.getElementById('examType').value;
+                const items = newFiles.map(f => ({
+                    reg_no: f.registerNumber,
+                    subject_code: f.subjectCode,
+                    exam_type: currentType
+                }));
 
-                // Check duplicates
-                try {
-                    const dupRes = await fetch('/upload/check-duplicates', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ items })
+                const dupRes = await fetch('/upload/check-duplicates', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+                if (dupRes.ok) {
+                    const dupData = await dupRes.json();
+                    (dupData.results || []).forEach((r, i) => {
+                        if (r.exists && newFiles[i]) {
+                            newFiles[i].duplicate = true;
+                            newFiles[i].duplicateStatus = r.status;
+                            newFiles[i].duplicateUploadedAt = r.uploaded_at;
+                        }
                     });
-                    if (dupRes.ok) {
-                        const dupData = await dupRes.json();
-                        (dupData.results || []).forEach((r, i) => {
-                            if (r.exists && newFiles[i]) {
-                                newFiles[i].duplicate = true;
-                                newFiles[i].duplicateStatus = r.status;
-                                newFiles[i].duplicateUploadedAt = r.uploaded_at;
-                            }
-                        });
-                    }
-                } catch (e) { console.warn('Duplicate check failed:', e); }
+                }
+            } catch (e) { console.warn('Duplicate check failed:', e); }
 
-                // Validate mappings
-                try {
-                    const mapRes = await fetch('/upload/validate-mappings', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ items })
+            // Validate mappings
+            try {
+                const currentType = document.getElementById('examType').value;
+                const items = newFiles.map(f => ({
+                    reg_no: f.registerNumber,
+                    subject_code: f.subjectCode,
+                    exam_type: currentType
+                }));
+
+                const mapRes = await fetch('/upload/validate-mappings', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+                if (mapRes.ok) {
+                    const mapData = await mapRes.json();
+                    (mapData.results || []).forEach((r, i) => {
+                        if (newFiles[i]) {
+                            newFiles[i].subjectMapped = r.subject_mapped;
+                            newFiles[i].studentMapped = r.student_mapped;
+                        }
                     });
-                    if (mapRes.ok) {
-                        const mapData = await mapRes.json();
-                        (mapData.results || []).forEach((r, i) => {
-                            if (newFiles[i]) {
-                                newFiles[i].subjectMapped = r.subject_mapped;
-                                newFiles[i].studentMapped = r.student_mapped;
-                            }
-                        });
-                    }
-                } catch (e) { console.warn('Mapping validation failed:', e); }
+                }
+            } catch (e) { console.warn('Mapping validation failed:', e); }
 
-                renderFileList();
-                updateStats();
-            }
+            renderFileList();
+            updateStats();
         }
 
         function validateFilename(filename) {
