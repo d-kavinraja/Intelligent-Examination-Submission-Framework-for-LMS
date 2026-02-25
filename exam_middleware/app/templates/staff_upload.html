@@ -1803,7 +1803,7 @@
             });
             renderFileList();
 
-            const currentType = document.getElementById('examType').value;
+            const currentType = document.getElementById('uploadExamType').value;
             const items = validFiles.map(f => ({
                 reg_no: f.registerNumber,
                 subject_code: f.subjectCode,
@@ -1852,7 +1852,7 @@
         }
 
         // Add listener for exam type change to re-validate
-        document.getElementById('examType').addEventListener('change', () => {
+        document.getElementById('uploadExamType').addEventListener('change', () => {
             if (selectedFiles.length > 0) {
                 revalidateFiles();
             }
@@ -2126,6 +2126,13 @@
                     }
 
                     uploadResults.innerHTML = resultsHtml;
+                    resultsCard.style.display = 'block';
+
+                    // Clear file list after successful upload
+                    selectedFiles = [];
+                    validatedFiles = [];
+                    fileList.innerHTML = '';
+
                     // Reload pending files after successful upload
                     loadPendingFiles();
                 } else {
@@ -2176,21 +2183,6 @@
             }
         }
     </script>
-    <!-- Loader Overlay -->
-    <div class="loader-overlay" id="loaderOverlay">
-        <div class="spinner">
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-        </div>
-    </div>
     <script>
         // Reports & Edit Modals
         async function viewReports(artifactUuid, artifactId) {
