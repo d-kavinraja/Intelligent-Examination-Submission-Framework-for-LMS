@@ -1646,7 +1646,7 @@
                         filename: p.original_filename,
                         upload_timestamp: p.uploaded_at,
                         submit_timestamp: p.submit_timestamp,
-                        workflow_status: p.workflow_status || 'submitted_to_moodle',
+                        workflow_status: (p.workflow_status || 'submitted_to_moodle').toLowerCase(),
                         exam_type: p.exam_type || null,
                         attempt_number: p.attempt_number || 1,
                         file_extension: p.original_filename ? p.original_filename.split('.').pop() : ''
@@ -1680,11 +1680,11 @@
             emptyState.style.display = 'none';
 
             grid.innerHTML = papers.map(paper => {
-                const status = paper.workflow_status;
+                const status = (paper.workflow_status || 'pending').toLowerCase();
                 const isSubmitted = status === 'submitted_to_moodle' || status === 'completed' || status === 'submitted_to_lms';
                 const isFailed = status === 'failed';
                 const isQueued = status === 'queued';
-                const isProcessing = status === 'uploading' || status === 'submitting';
+                const isProcessing = status === 'uploading' || status === 'submitting' || status === 'processing';
                 const isSuperseded = status === 'superseded';
 
                 const canSubmit = paper.can_submit !== false && !isProcessing && !isSubmitted && !isSuperseded;
@@ -1810,7 +1810,8 @@
 
         function updateStats() {
             const total = papers.length;
-            const submitted = papers.filter(p => p.workflow_status === 'submitted_to_moodle').length;
+            const successStates = ['submitted_to_moodle', 'completed', 'submitted_to_lms'];
+            const submitted = papers.filter(p => successStates.includes((p.workflow_status || '').toLowerCase())).length;
             const pending = total - submitted;
 
             document.getElementById('totalPapers').textContent = total;
