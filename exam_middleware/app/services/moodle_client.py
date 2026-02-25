@@ -210,6 +210,62 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
+    async def get_user_by_field(
+        self,
+        field: str,
+        value: str,
+        token: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Look up a Moodle user by a specific field.
+
+        Function: core_user_get_users_by_field
+
+        Primarily used to retrieve the student's email address
+        from their username (register number).
+
+        Args:
+            field: Field to search by (e.g. "username", "id", "email")
+            value: Value to search for
+            token: Web service token (falls back to self.token)
+
+        Returns:
+            First matching user dict (contains 'email', 'fullname', etc.)
+            or None if no user found.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_user_get_users_by_field",
+            "moodlewsrestformat": "json",
+            "field": field,
+            "values[0]": value,
+        }
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "core_user_get_users_by_field")
+
+            if isinstance(result, list) and len(result) > 0:
+                user = result[0]
+                logger.info(f"Found Moodle user for {field}={value}: {user.get('username')}")
+                return user
+
+            logger.warning(f"No Moodle user found for {field}={value}")
+            return None
+
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+    
     # =========================================
     # Course and Assignment Discovery
     # =========================================
