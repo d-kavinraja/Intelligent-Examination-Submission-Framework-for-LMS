@@ -4,12 +4,14 @@ Administrative functions for system management
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy import text
 from typing import Optional
 from sqlalchemy.exc import IntegrityError
 import logging
+import os
 
 from app.db.database import get_db
 from app.db.models import StaffUser, SubjectMapping, ExaminationArtifact, StudentUsernameRegister
@@ -1028,4 +1030,87 @@ async def delete_username_mapping(
     await db.delete(mapping)
     await db.commit()
     return {"message": f"Deleted mapping for {mapping.moodle_username}"}
+
+
+# ============================================
+# Artifact File Preview (for staff)
+# ============================================
+
+@router.get("/artifact-file/{artifact_uuid}")
+async def serve_artifact_file(
+    artifact_uuid: str,
+    token: Optional[str] = Query(None, description="JWT token for iframe auth"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Serve the artifact file for staff preview (e.g. inside the reports modal).
+    Accepts JWT via query param (for iframes) or Authorization header.
+    """
+    from app.core.security import decode_access_token
+
+    # Try query-param token first, then fall back to header-based auth
+    staff = None
+    if token:
+        payload = decode_access_token(token)
+        if payload and payload.get("type") == "staff":
+            staff_id = payload.get("sub")
+            if staff_id:
+                result = await db.execute(
+                    select(StaffUser).where(StaffUser.id == int(staff_id))
+                )
+                staff = result.scalar_one_or_none()
+
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Staff authentication required"
+        )
+
+    artifact_service = ArtifactService(db)
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found"
+        )
+
+    # Try to resolve the file on disk
+    resolved_path = None
+    if artifact.file_blob_path:
+        # Handle relative paths
+        candidate = artifact.file_blob_path
+        if not os.path.isabs(candidate):
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            candidate = os.path.join(base_dir, candidate.lstrip('./'))
+        if os.path.exists(candidate):
+            resolved_path = candidate
+
+    if resolved_path:
+        media_type = artifact.mime_type or "application/pdf"
+        safe_name = (artifact.original_filename or "paper").replace('"', '')
+        return FileResponse(
+            path=resolved_path,
+            media_type=media_type,
+            filename=safe_name,
+            headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+        )
+
+    # Fallback: serve from database blob
+    if artifact.file_content:
+        from io import BytesIO
+        safe_name = (artifact.original_filename or "paper").replace('"', '')
+        media_type = artifact.mime_type or "application/pdf"
+        return StreamingResponse(
+            BytesIO(artifact.file_content),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{safe_name}"',
+            }
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="File not found on server or database"
+    )
 

@@ -976,9 +976,9 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Assignment URL ID <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="sm_cmid" required
-                                    placeholder="e.g. 123">
-                                <small class="text-muted">The <code>id=</code> value from the assignment page URL</small>
+                                <input type="number" class="form-control" id="sm_cmid" required placeholder="e.g. 123">
+                                <small class="text-muted">The <code>id=</code> value from the assignment page
+                                    URL</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Exam Session</label>
@@ -1151,14 +1151,23 @@
 
     <!-- Reports Modal -->
     <div class="modal fade" id="reportsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="reportsModalTitle">Reports</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="reportsModalBody">
-                    <!-- Reports will be loaded here -->
+                <div class="modal-body">
+                    <!-- PDF Preview -->
+                    <div id="reportsPreviewSection" style="display:none; margin-bottom: 1rem;">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-pdf me-1"></i> Paper Preview</h6>
+                        <iframe id="reportsPdfFrame" src=""
+                            style="width:100%; height:50vh; border:1px solid #dee2e6; border-radius:8px; background:#f8f9fa;"></iframe>
+                    </div>
+                    <!-- Report entries -->
+                    <div id="reportsModalBody">
+                        <!-- Reports will be loaded here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -2093,8 +2102,20 @@
             const modalEl = document.getElementById('reportsModal');
             const bodyEl = document.getElementById('reportsModalBody');
             const titleEl = document.getElementById('reportsModalTitle');
+            const previewSection = document.getElementById('reportsPreviewSection');
+            const pdfFrame = document.getElementById('reportsPdfFrame');
             bodyEl.innerHTML = '<div class="text-center py-4">Loading...</div>';
             titleEl.textContent = 'Reports';
+
+            // Load PDF preview for staff
+            if (artifactUuid) {
+                pdfFrame.src = `/admin/artifact-file/${encodeURIComponent(artifactUuid)}?token=${encodeURIComponent(authToken)}#toolbar=0&navpanes=0&scrollbar=1`;
+                previewSection.style.display = 'block';
+            } else {
+                pdfFrame.src = '';
+                previewSection.style.display = 'none';
+            }
+
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
 
