@@ -1763,7 +1763,6 @@
         });
 
         async function handleFiles(files) {
-            const newFiles = [];
             for (const file of files) {
                 const validation = validateFilename(file.name);
                 const fileObj = {
@@ -1781,20 +1780,38 @@
                     studentMapped: null
                 };
                 selectedFiles.push(fileObj);
-                if (validation.valid) newFiles.push(fileObj);
+                if (validation.valid) {
+                    // newFiles logic removed as we now use revalidateFiles which checks selectedFiles
+                }
             }
             renderFileList();
             updateStats();
+            revalidateFiles();
+        }
+
+        async function revalidateFiles() {
+            const validFiles = selectedFiles.filter(f => f.valid);
+            if (validFiles.length === 0 || !authToken) return;
+
+            // Reset flags before re-checking
+            validFiles.forEach(f => {
+                f.duplicate = false;
+                f.duplicateStatus = null;
+                f.duplicateUploadedAt = null;
+                f.subjectMapped = null;
+                f.studentMapped = null;
+            });
+            renderFileList();
+
+            const currentType = document.getElementById('examType').value;
+            const items = validFiles.map(f => ({
+                reg_no: f.registerNumber,
+                subject_code: f.subjectCode,
+                exam_type: currentType
+            }));
 
             // Check duplicates
             try {
-                const currentType = document.getElementById('examType').value;
-                const items = newFiles.map(f => ({
-                    reg_no: f.registerNumber,
-                    subject_code: f.subjectCode,
-                    exam_type: currentType
-                }));
-
                 const dupRes = await fetch('/upload/check-duplicates', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -1803,10 +1820,10 @@
                 if (dupRes.ok) {
                     const dupData = await dupRes.json();
                     (dupData.results || []).forEach((r, i) => {
-                        if (r.exists && newFiles[i]) {
-                            newFiles[i].duplicate = true;
-                            newFiles[i].duplicateStatus = r.status;
-                            newFiles[i].duplicateUploadedAt = r.uploaded_at;
+                        if (r.exists && validFiles[i]) {
+                            validFiles[i].duplicate = true;
+                            validFiles[i].duplicateStatus = r.status;
+                            validFiles[i].duplicateUploadedAt = r.uploaded_at;
                         }
                     });
                 }
@@ -1814,13 +1831,6 @@
 
             // Validate mappings
             try {
-                const currentType = document.getElementById('examType').value;
-                const items = newFiles.map(f => ({
-                    reg_no: f.registerNumber,
-                    subject_code: f.subjectCode,
-                    exam_type: currentType
-                }));
-
                 const mapRes = await fetch('/upload/validate-mappings', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -1829,9 +1839,9 @@
                 if (mapRes.ok) {
                     const mapData = await mapRes.json();
                     (mapData.results || []).forEach((r, i) => {
-                        if (newFiles[i]) {
-                            newFiles[i].subjectMapped = r.subject_mapped;
-                            newFiles[i].studentMapped = r.student_mapped;
+                        if (validFiles[i]) {
+                            validFiles[i].subjectMapped = r.subject_mapped;
+                            validFiles[i].studentMapped = r.student_mapped;
                         }
                     });
                 }
@@ -1840,6 +1850,13 @@
             renderFileList();
             updateStats();
         }
+
+        // Add listener for exam type change to re-validate
+        document.getElementById('examType').addEventListener('change', () => {
+            if (selectedFiles.length > 0) {
+                revalidateFiles();
+            }
+        });
 
         function validateFilename(filename) {
             const match = filename.match(FILENAME_PATTERN);
