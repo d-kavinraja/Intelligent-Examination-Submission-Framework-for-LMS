@@ -18,8 +18,11 @@ from app.schemas import (
 )
 from app.services.file_processor import file_processor
 from app.services.artifact_service import ArtifactService, AuditService
+from app.services.email_service import email_service
+from app.services.moodle_client import moodle_client
 from app.api.routes.auth import get_current_staff
 from app.db.models import WorkflowStatus
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +114,23 @@ async def upload_single_file(
         )
         
         await db.commit()
+        
+        # --- Email notification (fire-and-forget) ---
+        try:
+            if artifact.parsed_reg_no and settings.email_notifications_enabled:
+                moodle_user = await moodle_client.get_user_by_field(
+                    field="username",
+                    value=artifact.parsed_reg_no,
+                    token=settings.moodle_admin_token,
+                )
+                if moodle_user and moodle_user.get("email"):
+                    email_service.notify_student_upload(
+                        student_email=moodle_user["email"],
+                        register_number=artifact.parsed_reg_no,
+                        subject_code=artifact.parsed_subject_code or "N/A",
+                    )
+        except Exception as email_err:
+            logger.warning(f"Email notification failed (non-blocking): {email_err}")
         
         return FileUploadResponse(
             success=True,
@@ -235,6 +255,31 @@ async def upload_bulk_files(
     )
     
     await db.commit()
+    
+    # --- Batch email notifications (fire-and-forget) ---
+    try:
+        if settings.email_notifications_enabled:
+            # Collect unique register numbers from successful uploads
+            notified: set = set()
+            for r in results:
+                if r.success and r.parsed_register_number and r.parsed_register_number not in notified:
+                    try:
+                        moodle_user = await moodle_client.get_user_by_field(
+                            field="username",
+                            value=r.parsed_register_number,
+                            token=settings.moodle_admin_token,
+                        )
+                        if moodle_user and moodle_user.get("email"):
+                            email_service.notify_student_upload(
+                                student_email=moodle_user["email"],
+                                register_number=r.parsed_register_number,
+                                subject_code=r.parsed_subject_code or "N/A",
+                            )
+                            notified.add(r.parsed_register_number)
+                    except Exception as e:
+                        logger.warning(f"Email notification failed for {r.parsed_register_number}: {e}")
+    except Exception as email_err:
+        logger.warning(f"Batch email notifications failed (non-blocking): {email_err}")
     
     return BulkUploadResponse(
         total_files=len(files),
