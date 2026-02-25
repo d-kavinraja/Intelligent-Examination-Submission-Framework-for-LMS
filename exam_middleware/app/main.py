@@ -93,21 +93,32 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text("ALTER TABLE subject_mappings ADD COLUMN exam_type VARCHAR(10) NOT NULL DEFAULT 'CIA1'"))
 
             # 3. Update Constraints
-            # Drop old subject_mappings unique constraint if it exists (subject_code only)
+            # Drop old subject_mappings unique constraints/indices if they exist
             try:
+                # SQLAlchemy often creates an index named ix_subject_mappings_subject_code
+                await conn.execute(text("DROP INDEX IF EXISTS ix_subject_mappings_subject_code"))
                 await conn.execute(text("ALTER TABLE subject_mappings DROP CONSTRAINT IF EXISTS subject_mappings_subject_code_key"))
                 await conn.execute(text("ALTER TABLE subject_mappings DROP CONSTRAINT IF EXISTS uq_subject_code"))
+                
                 # Add new one if not exists
-                await conn.execute(text("ALTER TABLE subject_mappings ADD CONSTRAINT uq_subject_exam_type UNIQUE (subject_code, exam_type)"))
+                # Check if uq_subject_exam_type already exists to avoid redundant errors
+                res = await conn.execute(text("SELECT conname FROM pg_constraint WHERE conname='uq_subject_exam_type'"))
+                if not res.fetchone():
+                    await conn.execute(text("ALTER TABLE subject_mappings ADD CONSTRAINT uq_subject_exam_type UNIQUE (subject_code, exam_type)"))
             except Exception as ce:
                 logger.debug(f"Constraint update (subject_mappings) skipped or already done: {ce}")
 
-            # Drop old examination_artifacts unique constraint if it exists
+            # Drop old examination_artifacts unique constraints/indices
             try:
+                await conn.execute(text("DROP INDEX IF EXISTS ix_examination_artifacts_parsed_reg_no"))
+                await conn.execute(text("DROP INDEX IF EXISTS ix_examination_artifacts_parsed_subject_code"))
                 await conn.execute(text("ALTER TABLE examination_artifacts DROP CONSTRAINT IF EXISTS examination_artifacts_parsed_reg_no_parsed_subject_code_key"))
                 await conn.execute(text("ALTER TABLE examination_artifacts DROP CONSTRAINT IF EXISTS uq_paper_submission"))
+                
                 # Add new one if not exists
-                await conn.execute(text("ALTER TABLE examination_artifacts ADD CONSTRAINT uq_paper_submission UNIQUE (parsed_reg_no, parsed_subject_code, exam_type, attempt_number)"))
+                res = await conn.execute(text("SELECT conname FROM pg_constraint WHERE conname='uq_paper_submission'"))
+                if not res.fetchone():
+                    await conn.execute(text("ALTER TABLE examination_artifacts ADD CONSTRAINT uq_paper_submission UNIQUE (parsed_reg_no, parsed_subject_code, exam_type, attempt_number)"))
             except Exception as ce:
                 logger.debug(f"Constraint update (artifacts) skipped or already done: {ce}")
 
