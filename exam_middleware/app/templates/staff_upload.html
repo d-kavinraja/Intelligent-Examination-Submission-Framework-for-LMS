@@ -1588,17 +1588,17 @@
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+            let html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">';
             html += `<thead>
                         <tr>
-                            <th>Filename</th>
-                            <th>Register No.</th>
-                            <th>Subject</th>
-                            <th>Exam Type</th>
-                            <th>Attempt</th>
-                            <th>Status</th>
-                            <th>Uploaded</th>
-                            <th>Actions</th>
+                            <th class="text-nowrap">Filename</th>
+                            <th class="text-nowrap">Register No.</th>
+                            <th class="text-nowrap">Subject</th>
+                            <th class="text-nowrap">Exam Type</th>
+                            <th class="text-nowrap text-center">Attempt</th>
+                            <th class="text-nowrap">Status</th>
+                            <th class="text-nowrap">Uploaded</th>
+                            <th class="text-nowrap text-center">Actions</th>
                         </tr>
                     </thead><tbody>`;
 
@@ -1619,23 +1619,27 @@
 
                 html += `
                     <tr>
-                        <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
-                        <td><span class="badge bg-secondary">${regNo}</span></td>
-                        <td><span class="badge bg-primary">${subCode}</span></td>
-                        <td><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
-                        <td><span class="badge bg-outline-dark border">${attemptNum}</span></td>
-                        <td>${statusBadge}</td>
-                        <td><small class="text-muted">${uploadDate}</small></td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-2 btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-eye"></i> Details
-                            </button>
-                            <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-2">${a.report_count || 0}</span>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger btn-delete ms-2 action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
+                        <td class="text-nowrap text-truncate" style="max-width: 200px;" title="${filename}">
+                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>${filename}
+                        </td>
+                        <td class="text-nowrap"><span class="badge bg-secondary">${regNo}</span></td>
+                        <td class="text-nowrap"><span class="badge bg-primary">${subCode}</span></td>
+                        <td class="text-nowrap"><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
+                        <td class="text-nowrap text-center"><span class="badge bg-light text-dark border border-secondary">${attemptNum}</span></td>
+                        <td class="text-nowrap">${statusBadge}</td>
+                        <td class="text-nowrap"><small class="text-muted">${uploadDate}</small></td>
+                        <td class="text-nowrap">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-eye"></i> Details
+                                </button>
+                                <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-1">${a.report_count || 0}</span>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger btn-delete action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
