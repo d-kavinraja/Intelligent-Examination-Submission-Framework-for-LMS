@@ -24,6 +24,7 @@ from app.schemas import (
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
 from app.services.submission_service import SubmissionService
 from app.services.moodle_client import MoodleClient, MoodleAPIError
+from app.services.notification_service import NotificationService
 from app.api.routes.auth import get_current_staff
 from app.core.config import settings
 from app.core.security import generate_transaction_id
@@ -32,6 +33,57 @@ from app.db.models import AuditLog
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.post("/notifications/test-upload-email")
+async def send_test_upload_notification_email(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff),
+):
+    """
+    Send a test upload-notification email to a student.
+
+    Body:
+    {
+      "register_number": "212222240047",
+      "subject_code": "19AI405",
+      "exam_type": "CIA1",
+      "filename": "212222240047_19AI405.pdf"
+    }
+    """
+    register_number = (payload.get("register_number") or "").strip()
+    subject_code = (payload.get("subject_code") or "").strip().upper()
+    exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
+    filename = (payload.get("filename") or f"{register_number}_{subject_code}.pdf").strip()
+
+    if not register_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="register_number is required",
+        )
+    if not subject_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="subject_code is required",
+        )
+
+    notification_service = NotificationService(db)
+    result = await notification_service.send_test_upload_notification(
+        register_number=register_number,
+        subject_code=subject_code,
+        exam_type=exam_type,
+        filename=filename,
+        uploaded_by_username=current_staff.username,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("message") or "Failed to send test notification",
+        )
+
+    return result
 
 
 # ============================================

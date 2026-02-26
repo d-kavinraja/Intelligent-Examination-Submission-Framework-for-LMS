@@ -209,6 +209,57 @@ class MoodleClient:
             
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def get_users_by_field(
+        self,
+        field: str,
+        value: str,
+        token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch Moodle users by a specific field.
+
+        Function: core_user_get_users_by_field
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_user_get_users_by_field",
+            "moodlewsrestformat": "json",
+            "field": field,
+            "values[0]": value,
+        }
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "core_user_get_users_by_field")
+
+            if isinstance(result, list):
+                return result
+
+            return []
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def get_user_by_username(
+        self,
+        username: str,
+        token: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch a single Moodle user profile by username."""
+        users = await self.get_users_by_field(field="username", value=username, token=token)
+        if not users:
+            return None
+        return users[0]
     
     # =========================================
     # Course and Assignment Discovery

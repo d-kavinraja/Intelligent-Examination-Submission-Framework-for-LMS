@@ -48,6 +48,17 @@ class Settings(BaseSettings):
     moodle_token_endpoint: str = Field(default="/login/token.php")
     moodle_service: str = Field(default="moodle_mobile_app")
     moodle_admin_token: Optional[str] = None
+
+    # SMTP Mail
+    smtp_enabled: bool = Field(default=False)
+    smtp_host: str = Field(default="")
+    smtp_port: int = Field(default=587)
+    smtp_username: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_use_tls: bool = Field(default=True)
+    smtp_use_ssl: bool = Field(default=False)
+    smtp_from_email: str = Field(default="")
+    smtp_from_name: str = Field(default="Examination Middleware")
     
     # File Storage
     upload_dir: str = Field(default="./uploads")
@@ -134,6 +145,11 @@ class Settings(BaseSettings):
     def get_subject_assignment_mapping(self) -> dict:
         """Return subject code to assignment ID mapping"""
         return {}
+
+    @property
+    def smtp_sender_email(self) -> str:
+        """Resolved sender email address for outgoing notifications"""
+        return self.smtp_from_email or self.smtp_username
 
 
 @lru_cache()

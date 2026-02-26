@@ -19,6 +19,7 @@ from app.schemas import (
 )
 from app.services.file_processor import file_processor
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
+from app.services.notification_service import NotificationService
 from app.api.routes.auth import get_current_staff
 from app.db.models import WorkflowStatus, ExaminationArtifact, SubjectMapping, StudentUsernameRegister
 
@@ -85,6 +86,7 @@ async def upload_single_file(
     # Create artifact record
     artifact_service = ArtifactService(db)
     audit_service = AuditService(db)
+    notification_service = NotificationService(db)
     
     try:
         artifact = await artifact_service.create_artifact(
@@ -112,6 +114,13 @@ async def upload_single_file(
             artifact_id=artifact.id,
             description=f"Uploaded file: {file.filename}",
             request_data={"filename": file.filename, "size": metadata.get("size_bytes")}
+        )
+
+        # Best-effort student notification (does not block upload success)
+        await notification_service.notify_student_on_upload(
+            artifact=artifact,
+            uploaded_by_username=current_staff.username,
+            actor_ip=request.client.host if request and request.client else None,
         )
         
         await db.commit()
@@ -158,6 +167,7 @@ async def upload_bulk_files(
     results = []
     successful = 0
     failed = 0
+    notification_service = NotificationService(db)
     
     for file in files:
         if not file.filename:
@@ -211,6 +221,13 @@ async def upload_bulk_files(
                     uploaded_by_staff_id=current_staff.id,
                     file_content=content
                 )
+
+            # Best-effort student notification (does not block upload success)
+            await notification_service.notify_student_on_upload(
+                artifact=artifact,
+                uploaded_by_username=current_staff.username,
+                actor_ip=request.client.host if request and request.client else None,
+            )
             
             results.append(FileUploadResponse(
                 success=True,
