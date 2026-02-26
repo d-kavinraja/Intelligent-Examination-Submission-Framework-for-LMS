@@ -5,7 +5,9 @@ from app.services.mail_service import MailService
 
 
 @pytest.mark.asyncio
-async def test_send_notification_returns_false_when_smtp_not_configured(monkeypatch):
+async def test_send_notification_returns_false_when_email_not_configured(monkeypatch):
+    monkeypatch.setattr(settings, "sendgrid_api_key", "")
+    monkeypatch.setattr(settings, "email_from_email", "")
     monkeypatch.setattr(settings, "smtp_enabled", False)
     monkeypatch.setattr(settings, "smtp_host", "")
     monkeypatch.setattr(settings, "smtp_from_email", "")
@@ -26,11 +28,15 @@ async def test_send_notification_returns_false_when_smtp_not_configured(monkeypa
     )
 
     assert sent is False
-    assert "SMTP" in message
+    assert "not configured" in message
 
 
 @pytest.mark.asyncio
 async def test_send_notification_success(monkeypatch):
+    # Disable SendGrid to test SMTP path
+    monkeypatch.setattr(settings, "sendgrid_api_key", "")
+    monkeypatch.setattr(settings, "email_from_email", "")
+    
     monkeypatch.setattr(settings, "smtp_enabled", True)
     monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
     monkeypatch.setattr(settings, "smtp_port", 587)

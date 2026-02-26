@@ -49,7 +49,12 @@ class Settings(BaseSettings):
     moodle_service: str = Field(default="moodle_mobile_app")
     moodle_admin_token: Optional[str] = None
 
-    # SMTP Mail
+    # Email Notifications (SendGrid preferred, SMTP fallback)
+    sendgrid_api_key: str = Field(default="")
+    email_from_email: str = Field(default="")
+    email_from_name: str = Field(default="Examination Middleware")
+    
+    # SMTP Mail (fallback for local dev)
     smtp_enabled: bool = Field(default=False)
     smtp_host: str = Field(default="")
     smtp_port: int = Field(default=587)
@@ -150,6 +155,11 @@ class Settings(BaseSettings):
     def smtp_sender_email(self) -> str:
         """Resolved sender email address for outgoing notifications"""
         return self.smtp_from_email or self.smtp_username
+    
+    @property
+    def email_sender_email(self) -> str:
+        """Primary sender email (for SendGrid or SMTP)"""
+        return self.email_from_email or self.smtp_sender_email
 
 
 @lru_cache()

@@ -50,6 +50,11 @@ python-dotenv
 email-validator
 
 # ==============================
+# Email Services
+# ==============================
+sendgrid
+
+# ==============================
 # File Processing
 # ==============================
 python-magic
