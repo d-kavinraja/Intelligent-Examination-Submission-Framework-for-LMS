@@ -1695,7 +1695,7 @@
                 const resp = await fetch(`/admin/artifacts/${uuid}/toggle-attempt-lock`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     }
                 });
