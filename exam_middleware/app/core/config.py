@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = Field(default='["http://localhost:8000"]')
     
+    # Email Notifications (SMTP)
+    smtp_host: str = Field(default="smtp.gmail.com")
+    smtp_port: int = Field(default=587)
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_use_tls: bool = Field(default=True)
+    smtp_use_ssl: bool = Field(default=False)
+    email_notifications_enabled: bool = Field(default=False)
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
