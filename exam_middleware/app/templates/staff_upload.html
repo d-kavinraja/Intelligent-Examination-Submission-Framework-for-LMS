@@ -1864,6 +1864,7 @@
             // Reset flags before re-checking
             validFiles.forEach(f => {
                 f.duplicate = false;
+                f.isAttempt2 = false;
                 f.duplicateStatus = null;
                 f.duplicateUploadedAt = null;
                 f.subjectMapped = null;
@@ -1889,9 +1890,18 @@
                     const dupData = await dupRes.json();
                     (dupData.results || []).forEach((r, i) => {
                         if (r.exists && validFiles[i]) {
-                            validFiles[i].duplicate = true;
-                            validFiles[i].duplicateStatus = r.status;
-                            validFiles[i].duplicateUploadedAt = r.uploaded_at;
+                            if (r.can_upload_as_attempt_2) {
+                                // Attempt 2 is unlocked — this will upload as attempt 2, not a duplicate
+                                validFiles[i].duplicate = false;
+                                validFiles[i].isAttempt2 = true;
+                                validFiles[i].duplicateStatus = null;
+                                validFiles[i].duplicateUploadedAt = null;
+                            } else {
+                                validFiles[i].duplicate = true;
+                                validFiles[i].isAttempt2 = false;
+                                validFiles[i].duplicateStatus = r.status;
+                                validFiles[i].duplicateUploadedAt = r.uploaded_at;
+                            }
                         }
                     });
                 }
@@ -1964,10 +1974,12 @@
                 } else {
                     statusHtml = `<br><small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Reg: ${f.registerNumber} | Subject: ${f.subjectCode}</small>`;
 
-                    // Duplicate warning
+                    // Duplicate warning or Attempt 2 notice
                     if (f.duplicate) {
                         const dupDate = f.duplicateUploadedAt ? new Date(f.duplicateUploadedAt).toLocaleDateString() : '';
                         statusHtml += `<br><small class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Already uploaded (Status: ${f.duplicateStatus || 'unknown'}${dupDate ? ', on ' + dupDate : ''})</small>`;
+                    } else if (f.isAttempt2) {
+                        statusHtml += `<br><small class="text-info fw-semibold"><i class="bi bi-arrow-repeat me-1"></i>Will be uploaded as Attempt 2 (Attempt 1 completed)</small>`;
                     }
 
                     // Mapping status

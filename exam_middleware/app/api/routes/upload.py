@@ -300,18 +300,27 @@ async def check_duplicates(
                     ExaminationArtifact.exam_type == exam_type,
                     ExaminationArtifact.workflow_status != WorkflowStatus.DELETED
                 )
-            )
+            ).order_by(ExaminationArtifact.attempt_number.desc())
         )
-        existing = result.scalar_one_or_none()
+        existing_all = result.scalars().all()
 
-        if existing:
+        if existing_all:
+            latest = existing_all[0]
+            max_attempt = latest.attempt_number
+            attempt_2_locked = getattr(latest, 'attempt_2_locked', True)
+            # If attempt 2 is unlocked AND only attempt 1 exists, the file can be
+            # uploaded as attempt 2 — so it's not a blocking duplicate.
+            can_upload_as_attempt_2 = (not attempt_2_locked and max_attempt == 1)
             results.append({
                 "reg_no": reg_no,
                 "subject_code": subject_code,
                 "exam_type": exam_type,
                 "exists": True,
-                "status": existing.workflow_status.value,
-                "uploaded_at": existing.uploaded_at.isoformat() if existing.uploaded_at else None
+                "status": latest.workflow_status.value,
+                "uploaded_at": latest.uploaded_at.isoformat() if latest.uploaded_at else None,
+                "attempt_2_locked": attempt_2_locked,
+                "max_attempt": max_attempt,
+                "can_upload_as_attempt_2": can_upload_as_attempt_2
             })
         else:
             results.append({
@@ -320,7 +329,10 @@ async def check_duplicates(
                 "exam_type": exam_type,
                 "exists": False,
                 "status": None,
-                "uploaded_at": None
+                "uploaded_at": None,
+                "attempt_2_locked": True,
+                "max_attempt": 0,
+                "can_upload_as_attempt_2": False
             })
 
     return {"results": results}

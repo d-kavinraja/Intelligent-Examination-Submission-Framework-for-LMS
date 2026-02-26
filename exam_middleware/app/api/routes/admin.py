@@ -965,6 +965,35 @@ async def toggle_attempt_lock(
     # Determine new lock state (toggle)
     new_locked = not artifact.attempt_2_locked
 
+    # Validation: Only allow UNLOCKING if attempt 1 is COMPLETED or SUBMITTED_TO_LMS
+    if not new_locked:  # unlocking
+        from sqlalchemy import select as sa_select, and_ as sa_and
+        # Find the attempt 1 artifact for this group
+        a1_result = await db.execute(
+            sa_select(ExaminationArtifact).where(
+                sa_and(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                    ExaminationArtifact.attempt_number == 1,
+                    ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
+                )
+            )
+        )
+        attempt1 = a1_result.scalar_one_or_none()
+        if not attempt1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No attempt 1 found for this group. Upload attempt 1 first."
+            )
+        completed_statuses = [WorkflowStatus.COMPLETED, WorkflowStatus.SUBMITTED_TO_LMS]
+        if attempt1.workflow_status not in completed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot unlock attempt 2: Attempt 1 is still {attempt1.workflow_status.value}. "
+                       f"Attempt 1 must be COMPLETED or SUBMITTED before unlocking attempt 2."
+            )
+
     # Update ALL artifacts in the same group (reg_no + subject_code + exam_type)
     if artifact.parsed_reg_no and artifact.parsed_subject_code:
         from sqlalchemy import update, and_
