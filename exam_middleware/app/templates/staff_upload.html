@@ -1612,10 +1612,25 @@
                 const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
                 const examType = a.exam_type || '-';
                 const attemptNum = a.attempt_number || 1;
+                const isLocked = a.attempt_2_locked !== false; // default true
 
                 // Try to resolve artifact identifier (prefer id, then artifact_uuid)
                 const artifactIdVal = a.id || a.artifact_id || a._id || '';
                 const artifactUuidVal = a.artifact_uuid || a.uuid || a.file_uuid || '';
+
+                // Attempt badge: green for active attempt, orange for attempt 2, with lock indicator
+                let attemptBadgeClass = attemptNum === 1 ? 'bg-success text-white' : 'bg-warning text-dark';
+                let attemptLabel = `#${attemptNum}`;
+                let lockIcon = '';
+                if (attemptNum === 1 && !isLocked) {
+                    lockIcon = `<i class="bi bi-unlock-fill text-success ms-1" title="Attempt 2 unlocked"></i>`;
+                } else if (attemptNum === 1 && isLocked) {
+                    lockIcon = `<i class="bi bi-lock-fill text-muted ms-1" title="Attempt 2 locked"></i>`;
+                }
+                const statusLower = (a.status || '').toLowerCase();
+                if (statusLower === 'superseded') {
+                    attemptBadgeClass = 'bg-secondary text-white';
+                }
 
                 html += `
                     <tr>
@@ -1625,13 +1640,18 @@
                         <td class="text-nowrap"><span class="badge bg-secondary">${regNo}</span></td>
                         <td class="text-nowrap"><span class="badge bg-primary">${subCode}</span></td>
                         <td class="text-nowrap"><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
-                        <td class="text-nowrap text-center"><span class="badge bg-light text-dark border border-secondary">${attemptNum}</span></td>
+                        <td class="text-nowrap text-center">
+                            <span class="badge ${attemptBadgeClass}">${attemptLabel}</span>${lockIcon}
+                        </td>
                         <td class="text-nowrap">${statusBadge}</td>
                         <td class="text-nowrap"><small class="text-muted">${uploadDate}</small></td>
                         <td class="text-nowrap">
                             <div class="d-flex gap-1 justify-content-center">
                                 <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
                                     <i class="bi bi-eye"></i> Details
+                                </button>
+                                <button class="btn btn-sm ${isLocked ? 'btn-outline-warning' : 'btn-warning'} btn-toggle-lock action-btn" data-artifact-uuid="${artifactUuidVal || ''}" title="${isLocked ? 'Unlock Attempt 2' : 'Lock Attempt 2'}">
+                                    <i class="bi ${isLocked ? 'bi-unlock' : 'bi-lock'}"></i> ${isLocked ? 'Unlock' : 'Lock'}
                                 </button>
                                 <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
                                     <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-1">${a.report_count || 0}</span>
@@ -1657,6 +1677,50 @@
                 searchInput.addEventListener('input', (e) => {
                     renderPendingFiles(e.target.value);
                 });
+            }
+        });
+
+        // Toggle attempt 2 lock/unlock handler (delegated)
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-toggle-lock');
+            if (!btn) return;
+            const uuid = btn.getAttribute('data-artifact-uuid');
+            if (!uuid) return;
+
+            btn.disabled = true;
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const resp = await fetch(`/admin/artifacts/${uuid}/toggle-attempt-lock`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    // Update local data and re-render
+                    const newLocked = data.attempt_2_locked;
+                    pendingArtifacts.forEach(a => {
+                        if (a.artifact_uuid === uuid ||
+                            (a.register_number === data.reg_no && a.subject_code === data.subject_code && a.exam_type === data.exam_type) ||
+                            (a.reg_no === data.reg_no && a.subject_code === data.subject_code && a.exam_type === data.exam_type)) {
+                            a.attempt_2_locked = newLocked;
+                        }
+                    });
+                    renderPendingFiles();
+                    showToast(data.message || 'Lock state updated', 'success');
+                } else {
+                    showToast(data.detail || 'Failed to toggle lock', 'error');
+                    btn.innerHTML = origHtml;
+                }
+            } catch (err) {
+                showToast('Network error toggling lock', 'error');
+                btn.innerHTML = origHtml;
+            } finally {
+                btn.disabled = false;
             }
         });
 
@@ -2117,11 +2181,16 @@
                         data.results.forEach(r => {
                             const icon = r.success ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
                             const singleError = r.error || (r.errors && r.errors.length ? r.errors[0] : null) || r.message || 'Unknown error';
-                            const attemptBadge = (r.attempt_number && r.attempt_number > 1) ? `<span class="badge bg-warning text-dark ms-2">Attempt ${r.attempt_number} (previous superseded)</span>` : '';
+                            const attemptBadge = (r.attempt_number && r.attempt_number > 1)
+                                ? `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-arrow-repeat me-1"></i>Attempt ${r.attempt_number} (previous superseded)</span>`
+                                : `<span class="badge bg-success text-white ms-2">Attempt 1</span>`;
+                            const lockBadge = r.attempt_2_locked === false
+                                ? `<span class="badge bg-info text-white ms-1"><i class="bi bi-unlock-fill"></i> Att.2 Open</span>`
+                                : `<span class="badge bg-secondary text-white ms-1"><i class="bi bi-lock-fill"></i> Att.2 Locked</span>`;
                             resultsHtml += `
                                 <div class="list-group-item d-flex align-items-center">
                                     <i class="${icon} me-3" style="font-size: 1.25rem;"></i>
-                                    <strong class="flex-grow-1">${r.filename}${attemptBadge}</strong>
+                                    <strong class="flex-grow-1">${r.filename}${attemptBadge}${lockBadge}</strong>
                                     ${r.success ? `<span class="badge bg-success px-3 py-2">Uploaded${r.exam_type ? ' (' + r.exam_type + ')' : ''}</span>` : `<span class="badge bg-danger px-3 py-2">Failed: ${singleError}</span>`}
                                 </div>
                             `;

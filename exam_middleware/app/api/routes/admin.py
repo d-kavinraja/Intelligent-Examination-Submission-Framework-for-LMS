@@ -939,6 +939,162 @@ async def clear_artifact_transaction_id(
 
 
 # ============================================
+# Attempt Lock / Unlock Management
+# ============================================
+
+@router.post("/artifacts/{artifact_uuid}/toggle-attempt-lock")
+async def toggle_attempt_lock(
+    artifact_uuid: str,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Toggle the attempt_2_locked flag for the artifact group
+    (same reg_no + subject_code + exam_type).
+    Only admin/staff can unlock attempt 2 for students.
+    """
+    from app.db.models import WorkflowStatus
+
+    artifact_service = ArtifactService(db)
+    audit_service = AuditService(db)
+
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+    if not artifact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    # Determine new lock state (toggle)
+    new_locked = not artifact.attempt_2_locked
+
+    # Update ALL artifacts in the same group (reg_no + subject_code + exam_type)
+    if artifact.parsed_reg_no and artifact.parsed_subject_code:
+        from sqlalchemy import update, and_
+        stmt = (
+            update(ExaminationArtifact)
+            .where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                )
+            )
+            .values(attempt_2_locked=new_locked)
+        )
+        await db.execute(stmt)
+    else:
+        # Single artifact without parsed metadata
+        artifact.attempt_2_locked = new_locked
+
+    action_desc = "locked" if new_locked else "unlocked"
+    artifact.add_log_entry(f"attempt_2_{action_desc}", {
+        "toggled_by": current_staff.username,
+        "new_state": "locked" if new_locked else "unlocked"
+    })
+
+    await audit_service.log_action(
+        action=f"attempt_2_{action_desc}",
+        action_category="admin",
+        actor_type="staff",
+        actor_id=str(current_staff.id),
+        actor_username=current_staff.username,
+        artifact_id=artifact.id,
+        description=f"Attempt 2 {action_desc} for {artifact.parsed_reg_no}/{artifact.parsed_subject_code}/{artifact.exam_type}",
+        request_data={
+            "reg_no": artifact.parsed_reg_no,
+            "subject_code": artifact.parsed_subject_code,
+            "exam_type": artifact.exam_type,
+            "new_locked": new_locked
+        }
+    )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not toggle attempt lock"
+        )
+
+    return {
+        "message": f"Attempt 2 {action_desc} for {artifact.parsed_reg_no}/{artifact.parsed_subject_code}/{artifact.exam_type}",
+        "attempt_2_locked": new_locked,
+        "reg_no": artifact.parsed_reg_no,
+        "subject_code": artifact.parsed_subject_code,
+        "exam_type": artifact.exam_type
+    }
+
+
+@router.post("/bulk-toggle-attempt-lock")
+async def bulk_toggle_attempt_lock(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Bulk lock/unlock attempt 2 for multiple artifact groups.
+    Body: { "artifact_uuids": ["uuid1", "uuid2", ...], "locked": true/false }
+    """
+    from sqlalchemy import update, and_
+    from app.db.models import WorkflowStatus
+
+    artifact_uuids = payload.get("artifact_uuids", [])
+    target_locked = payload.get("locked", True)
+
+    if not artifact_uuids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No artifact UUIDs provided")
+
+    artifact_service = ArtifactService(db)
+    audit_service = AuditService(db)
+    updated_count = 0
+
+    for uuid_str in artifact_uuids:
+        artifact = await artifact_service.get_by_uuid(uuid_str)
+        if not artifact:
+            continue
+
+        if artifact.parsed_reg_no and artifact.parsed_subject_code:
+            stmt = (
+                update(ExaminationArtifact)
+                .where(
+                    and_(
+                        ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                        ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                        ExaminationArtifact.exam_type == artifact.exam_type,
+                    )
+                )
+                .values(attempt_2_locked=target_locked)
+            )
+            await db.execute(stmt)
+            updated_count += 1
+
+    action_desc = "locked" if target_locked else "unlocked"
+    await audit_service.log_action(
+        action=f"bulk_attempt_2_{action_desc}",
+        action_category="admin",
+        actor_type="staff",
+        actor_id=str(current_staff.id),
+        actor_username=current_staff.username,
+        description=f"Bulk attempt 2 {action_desc}: {updated_count} groups",
+        request_data={"artifact_uuids": artifact_uuids, "locked": target_locked}
+    )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not bulk toggle attempt lock"
+        )
+
+    return {
+        "message": f"Attempt 2 {action_desc} for {updated_count} artifact group(s)",
+        "updated_count": updated_count,
+        "attempt_2_locked": target_locked
+    }
+
+
+# ============================================
 # Student Username → Register Number Mappings
 # ============================================
 

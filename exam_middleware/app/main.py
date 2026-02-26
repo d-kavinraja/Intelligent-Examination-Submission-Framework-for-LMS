@@ -85,6 +85,12 @@ async def lifespan(app: FastAPI):
                 logger.info("Adding attempt_number to examination_artifacts...")
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN attempt_number INTEGER NOT NULL DEFAULT 1"))
 
+            # Check for attempt_2_locked
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='attempt_2_locked'"))
+            if not res.fetchone():
+                logger.info("Adding attempt_2_locked to examination_artifacts...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN attempt_2_locked BOOLEAN NOT NULL DEFAULT TRUE"))
+
             # 2. Handle subject_mappings table
             # Check for exam_type
             res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='subject_mappings' AND column_name='exam_type'"))

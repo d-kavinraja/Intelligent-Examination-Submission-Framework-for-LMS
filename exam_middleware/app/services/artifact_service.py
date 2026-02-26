@@ -191,6 +191,13 @@ class ArtifactService:
                         await self.db.flush()
                         attempt_number = 1  # Reuse attempt 1 slot
                     else:
+                        # Check if attempt 2 is locked (admin must unlock first)
+                        if getattr(latest, 'attempt_2_locked', True):
+                            raise Exception(
+                                f"Attempt 2 is locked for register {parsed_reg_no}, "
+                                f"subject {parsed_subject_code}, exam {exam_type}. "
+                                f"An admin must unlock attempt 2 before uploading."
+                            )
                         # Mark attempt 1 as SUPERSEDED and create attempt 2
                         attempt_number = 2
                         latest.workflow_status = WorkflowStatus.SUPERSEDED

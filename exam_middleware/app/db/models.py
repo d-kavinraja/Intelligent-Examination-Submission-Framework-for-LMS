@@ -58,6 +58,7 @@ class ExaminationArtifact(Base):
     # Exam type and attempt tracking
     exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
     attempt_number = Column(Integer, nullable=False, default=1, server_default="1")  # Max 2 attempts
+    attempt_2_locked = Column(Boolean, nullable=False, default=True, server_default="true")  # Admin controls attempt 2 unlock
     
     # File Storage
     file_blob_path = Column(String(512), nullable=False)

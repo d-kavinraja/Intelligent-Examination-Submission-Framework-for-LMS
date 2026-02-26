@@ -1634,6 +1634,7 @@
                         message: p.message,
                         exam_type: p.exam_type || null,
                         attempt_number: p.attempt_number || 1,
+                        attempt_2_locked: p.attempt_2_locked !== false,
                         file_extension: p.filename ? p.filename.split('.').pop() : ''
                     }));
 
@@ -1649,6 +1650,7 @@
                         workflow_status: (p.workflow_status || 'submitted_to_moodle').toLowerCase(),
                         exam_type: p.exam_type || null,
                         attempt_number: p.attempt_number || 1,
+                        attempt_2_locked: p.attempt_2_locked !== false,
                         file_extension: p.original_filename ? p.original_filename.split('.').pop() : ''
                     }));
 
@@ -1731,10 +1733,12 @@
                                     <h5 class="card-title mb-0">${paper.subject_code}</h5>
                                     <span class="status-badge status-${statusClass}">${statusText}</span>
                                 </div>
-                                <div class="d-flex gap-2 mb-2">
+                                <div class="d-flex gap-2 flex-wrap mb-2">
                                     ${paper.exam_type ? `<span class="badge ${paper.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white" style="font-size: 0.7rem;">${paper.exam_type === 'CIA1' ? 'CIA-1' : paper.exam_type === 'CIA2' ? 'CIA-2' : paper.exam_type}</span>` : ''}
-                                    ${paper.attempt_number && paper.attempt_number > 1 ? `<span class="badge bg-warning text-dark" style="font-size: 0.7rem;">Attempt ${paper.attempt_number}</span>` : ''}
-                                    ${isSuperseded ? `<span class="badge bg-secondary text-white" style="font-size: 0.7rem;">Replaced by newer attempt</span>` : ''}
+                                    <span class="badge ${paper.attempt_number === 2 ? 'bg-warning text-dark' : 'bg-success text-white'}" style="font-size: 0.7rem;">
+                                        <i class="bi ${paper.attempt_number === 2 ? 'bi-arrow-repeat' : 'bi-1-circle'}"></i> Attempt ${paper.attempt_number || 1}
+                                    </span>
+                                    ${isSuperseded ? `<span class="badge bg-secondary text-white" style="font-size: 0.7rem;"><i class="bi bi-archive"></i> Replaced by newer attempt</span>` : ''}
                                 </div>
                                 ${paper.subject_name ? `<p class="card-text text-muted small mb-1">${paper.subject_name}</p>` : ''}
                                 <p class="card-text text-muted small">

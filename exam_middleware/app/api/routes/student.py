@@ -220,6 +220,7 @@ async def get_dashboard(
             workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
             exam_type=exam_type,
             attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
+            attempt_2_locked=getattr(artifact, 'attempt_2_locked', True),
             can_submit=assignment_id is not None,
             message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
         ))
@@ -243,6 +244,7 @@ async def get_dashboard(
                 parsed_subject_code=a.parsed_subject_code,
                 exam_type=a_exam_type,
                 attempt_number=getattr(a, 'attempt_number', 1) or 1,
+                attempt_2_locked=getattr(a, 'attempt_2_locked', True),
                 workflow_status=WorkflowStatusEnum(a.workflow_status.value),
                 moodle_assignment_id=a.moodle_assignment_id,
                 uploaded_at=a.uploaded_at,

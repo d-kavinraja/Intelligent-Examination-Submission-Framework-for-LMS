@@ -90,6 +90,7 @@ class FileUploadResponse(BaseModel):
     parsed_subject_code: Optional[str] = None
     exam_type: Optional[str] = None
     attempt_number: Optional[int] = None
+    attempt_2_locked: Optional[bool] = None
     workflow_status: Optional[str] = None
     errors: Optional[List[str]] = None
 
@@ -154,6 +155,7 @@ class ArtifactResponse(BaseModel):
     parsed_subject_code: Optional[str]
     exam_type: str = "CIA1"
     attempt_number: int = 1
+    attempt_2_locked: bool = True
     workflow_status: WorkflowStatusEnum
     moodle_assignment_id: Optional[int]
     uploaded_at: datetime
@@ -189,6 +191,7 @@ class StudentPendingPaper(BaseModel):
     workflow_status: Optional[str]
     exam_type: str = "CIA1"
     attempt_number: int = 1
+    attempt_2_locked: bool = True
     can_submit: bool
     message: Optional[str] = None
 

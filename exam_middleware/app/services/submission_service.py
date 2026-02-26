@@ -133,6 +133,34 @@ class SubmissionService:
                 lms_transaction_id=result.get("transaction_id")
             )
             
+            # If this is attempt 2, ensure attempt 1 is marked SUPERSEDED
+            if getattr(artifact, 'attempt_number', 1) == 2 and artifact.parsed_reg_no and artifact.parsed_subject_code:
+                from sqlalchemy import select, and_
+                attempt1_q = await self.db.execute(
+                    select(ExaminationArtifact).where(
+                        and_(
+                            ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                            ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                            ExaminationArtifact.exam_type == artifact.exam_type,
+                            ExaminationArtifact.attempt_number == 1,
+                            ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
+                            ExaminationArtifact.workflow_status != WorkflowStatus.SUPERSEDED,
+                        )
+                    )
+                )
+                attempt1 = attempt1_q.scalar_one_or_none()
+                if attempt1:
+                    attempt1.workflow_status = WorkflowStatus.SUPERSEDED
+                    try:
+                        attempt1.add_log_entry("superseded_on_attempt2_submit", {
+                            "reason": "attempt_2_submitted_to_lms",
+                            "attempt_2_artifact_id": artifact.id
+                        })
+                    except Exception:
+                        pass
+                    await self.db.flush()
+                    logger.info(f"Marked attempt 1 (id={attempt1.id}) as SUPERSEDED after attempt 2 submission")
+            
             # Log success
             await self.audit_service.log_action(
                 action="submission_completed",

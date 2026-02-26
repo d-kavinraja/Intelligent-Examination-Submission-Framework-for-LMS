@@ -124,6 +124,7 @@ async def upload_single_file(
             parsed_subject_code=artifact.parsed_subject_code,
             exam_type=artifact.exam_type,
             attempt_number=artifact.attempt_number,
+            attempt_2_locked=artifact.attempt_2_locked,
             workflow_status=artifact.workflow_status.value
         )
         
@@ -220,6 +221,7 @@ async def upload_bulk_files(
                 parsed_subject_code=artifact.parsed_subject_code,
                 exam_type=artifact.exam_type,
                 attempt_number=artifact.attempt_number,
+                attempt_2_locked=artifact.attempt_2_locked,
                 workflow_status=artifact.workflow_status.value
             ))
             successful += 1
@@ -423,6 +425,7 @@ async def get_all_uploads(
             "subject_code": a.parsed_subject_code,
             "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
             "attempt_number": getattr(a, 'attempt_number', 1) or 1,
+            "attempt_2_locked": getattr(a, 'attempt_2_locked', True),
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count
@@ -464,6 +467,7 @@ async def get_pending_uploads(
             "subject_code": a.parsed_subject_code,
             "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
             "attempt_number": getattr(a, 'attempt_number', 1) or 1,
+            "attempt_2_locked": getattr(a, 'attempt_2_locked', True),
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count
