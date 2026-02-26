@@ -287,6 +287,12 @@
         .paper-card {
             animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
             transition: var(--transition);
+            overflow: hidden;
+        }
+
+        .paper-card .card-body {
+            overflow: hidden;
+            word-break: break-word;
         }
 
         @keyframes scaleIn {
@@ -432,6 +438,12 @@
             transition: var(--transition);
             border: none;
             letter-spacing: 0.01em;
+        }
+
+        /* Restore borders for outline button variants */
+        .btn[class*="btn-outline"] {
+            border: 1.5px solid currentColor;
+            background: transparent;
         }
 
         .btn-submit {
@@ -1167,6 +1179,13 @@
                 <button class="btn btn-outline-success btn-sm" onclick="filterByAttempt(2)">Attempt 2</button>
             </div>
 
+            <div class="mb-3 mt-3">
+                <div class="input-group" style="max-width: 420px;">
+                    <span class="input-group-text bg-white" style="border: 1.5px solid var(--gray-300); border-right: none; border-radius: 10px 0 0 10px;"><i class="bi bi-search text-muted"></i></span>
+                    <input type="search" id="papersSearch" class="form-control" placeholder="Search subject, filename, status..." style="border: 1.5px solid var(--gray-300); border-left: none; border-radius: 0 10px 10px 0;">
+                </div>
+            </div>
+
             <div class="row g-4" id="papersGrid"></div>
 
             <div class="card" id="emptyState" style="display: none;">
@@ -1747,7 +1766,7 @@
                                     ${isSuperseded ? `<span class="badge bg-secondary text-white" style="font-size: 0.7rem;"><i class="bi bi-archive"></i> Replaced by newer attempt</span>` : ''}
                                 </div>
                                 ${paper.subject_name ? `<p class="card-text text-muted small mb-1">${paper.subject_name}</p>` : ''}
-                                <p class="card-text text-muted small">
+                                <p class="card-text text-muted small text-truncate mb-1" title="${paper.filename || paper.original_filename}" style="max-width: 100%;">
                                     <i class="bi bi-file-earmark me-1"></i>
                                     ${paper.filename || paper.original_filename}
                                 </p>
@@ -1816,6 +1835,19 @@
                 filteredPapers = filteredPapers.filter(p => (p.attempt_number || 1) === currentAttemptFilter);
             }
 
+            // Search filter
+            const searchInput = document.getElementById('papersSearch');
+            const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            if (q) {
+                filteredPapers = filteredPapers.filter(p => {
+                    const subject = (p.subject_code || '').toLowerCase();
+                    const subName = (p.subject_name || '').toLowerCase();
+                    const fname = (p.filename || p.original_filename || '').toLowerCase();
+                    const status = (p.workflow_status || p.status || '').toLowerCase();
+                    return subject.includes(q) || subName.includes(q) || fname.includes(q) || status.includes(q);
+                });
+            }
+
             if (filteredPapers.length === 0) {
                 grid.innerHTML = '';
                 emptyState.style.display = 'block';
@@ -1830,6 +1862,14 @@
             _originalRenderPapers();
             papers = allPapers;
         };
+
+        // Attach search listener for paper search
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('papersSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => renderPapers());
+            }
+        });
 
         function updateStats() {
             const total = papers.length;

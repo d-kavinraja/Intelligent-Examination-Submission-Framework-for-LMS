@@ -119,6 +119,30 @@
             margin-bottom: 0;
         }
 
+        /* Card-header button overrides for gradient background */
+        .card-header .btn-group .btn {
+            border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
+            color: rgba(255, 255, 255, 0.9);
+            background: transparent;
+            font-size: 0.78rem;
+            padding: 0.25rem 0.75rem;
+        }
+        .card-header .btn-group .btn:hover,
+        .card-header .btn-group .btn.active {
+            background: rgba(255, 255, 255, 0.25) !important;
+            color: #fff !important;
+            border-color: #fff !important;
+        }
+        .card-header .btn-sm.btn-outline-primary {
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+        .card-header .btn-sm.btn-outline-primary:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border-color: #fff !important;
+            color: #fff !important;
+        }
+
         /* Navbar */
         .navbar {
             background: rgba(255, 255, 255, 0.92) !important;
@@ -1667,7 +1691,7 @@
 
                 html += `
                     <tr>
-                        <td class="text-nowrap text-truncate" style="max-width: 200px;" title="${filename}">
+                        <td class="text-truncate" style="max-width: 160px;" title="${filename}">
                             <i class="bi bi-file-earmark-pdf text-danger me-1"></i>${filename}
                         </td>
                         <td class="text-nowrap"><span class="badge bg-secondary">${regNo}</span></td>
@@ -1677,20 +1701,20 @@
                             <span class="badge ${attemptBadgeClass}">${attemptLabel}</span>${lockIcon}
                         </td>
                         <td class="text-nowrap">${statusBadge}</td>
-                        <td class="text-nowrap"><small class="text-muted">${uploadDate}</small></td>
-                        <td class="text-nowrap">
+                        <td><small class="text-muted">${uploadDate}</small></td>
+                        <td>
                             <div class="d-flex gap-1 justify-content-center">
-                                <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                    <i class="bi bi-eye"></i> Details
+                                <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}" title="View Details">
+                                    <i class="bi bi-eye"></i>
                                 </button>
                                 ${attemptNum === 1 ? `<button class="btn btn-sm ${isLocked ? 'btn-outline-warning' : 'btn-warning'} btn-toggle-lock action-btn" data-artifact-uuid="${artifactUuidVal || ''}" title="${isLocked ? 'Unlock Attempt 2' : 'Lock Attempt 2'}">
-                                    <i class="bi ${isLocked ? 'bi-unlock' : 'bi-lock'}"></i> ${isLocked ? 'Unlock' : 'Lock'}
+                                    <i class="bi ${isLocked ? 'bi-unlock' : 'bi-lock'}"></i>
                                 </button>` : ''}
-                                <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                    <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-1">${a.report_count || 0}</span>
+                                <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}" title="Reports (${a.report_count || 0})">
+                                    <i class="bi bi-flag-fill"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger btn-delete action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                    <i class="bi bi-trash"></i> Delete
+                                <button class="btn btn-sm btn-outline-danger btn-delete action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}" title="Delete">
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </div>
                         </td>
