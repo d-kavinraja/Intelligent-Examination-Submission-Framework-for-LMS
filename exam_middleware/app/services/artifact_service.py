@@ -114,29 +114,47 @@ class ArtifactService:
                             f"Please verify the file metadata or contact an administrator."
                         )
 
-                # If metadata matches, treat as re-upload for idempotency
-                logger.warning(f"Duplicate artifact detected: {transaction_id}, updating with new file")
-                existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
-                existing.file_hash = file_hash
-                existing.file_size_bytes = file_size_bytes
-                existing.file_content = file_content  # Update DB-backed content
-                existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
-                existing.error_message = None  # Clear any previous errors
-                now = datetime.now(timezone.utc)
-                existing.uploaded_at = now  # Refresh upload timestamp on re-upload
-                existing.validated_at = None
-                existing.submit_timestamp = None
-                existing.completed_at = None
-                try:
-                    existing.add_log_entry("re-uploaded", {
-                        "new_file_path": file_blob_path,
-                        "new_hash": file_hash
-                    })
-                except Exception:
-                    pass
-                await self.db.flush()
-                await self.db.refresh(existing)
-                return existing
+                # If the existing artifact is attempt 1 and attempt 2 is unlocked,
+                # this should create a NEW attempt 2, not re-upload attempt 1
+                if (getattr(existing, 'attempt_number', 1) == 1
+                        and getattr(existing, 'attempt_2_locked', True) is False
+                        and getattr(existing, 'workflow_status', None) != WorkflowStatus.DELETED):
+                    # Generate a distinct transaction_id for attempt 2 so it doesn't collide
+                    transaction_id = generate_transaction_id(
+                        parsed_reg_no,
+                        parsed_subject_code,
+                        f"{exam_type}_attempt2_{datetime.utcnow().strftime('%Y%m')}"
+                    )
+                    logger.info(
+                        "Attempt 2 unlocked for %s/%s/%s – bypassing re-upload of attempt 1 (id=%s), "
+                        "new transaction_id=%s",
+                        parsed_reg_no, parsed_subject_code, exam_type, existing.id, transaction_id
+                    )
+                    # Fall through to the attempt-number logic below
+                else:
+                    # If metadata matches, treat as re-upload for idempotency
+                    logger.warning(f"Duplicate artifact detected: {transaction_id}, updating with new file")
+                    existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
+                    existing.file_hash = file_hash
+                    existing.file_size_bytes = file_size_bytes
+                    existing.file_content = file_content  # Update DB-backed content
+                    existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
+                    existing.error_message = None  # Clear any previous errors
+                    now = datetime.now(timezone.utc)
+                    existing.uploaded_at = now  # Refresh upload timestamp on re-upload
+                    existing.validated_at = None
+                    existing.submit_timestamp = None
+                    existing.completed_at = None
+                    try:
+                        existing.add_log_entry("re-uploaded", {
+                            "new_file_path": file_blob_path,
+                            "new_hash": file_hash
+                        })
+                    except Exception:
+                        pass
+                    await self.db.flush()
+                    await self.db.refresh(existing)
+                    return existing
 
         # Pre-check uniqueness of parsed_reg_no + parsed_subject_code + exam_type to avoid DB constraint failure
         # Auto-calculate attempt_number (max 2)
@@ -322,6 +340,7 @@ class ArtifactService:
             WorkflowStatus.QUEUED,
             WorkflowStatus.UPLOADING,
             WorkflowStatus.SUBMITTING,
+            WorkflowStatus.SUPERSEDED,
         ]
 
         # Build identity conditions conservatively

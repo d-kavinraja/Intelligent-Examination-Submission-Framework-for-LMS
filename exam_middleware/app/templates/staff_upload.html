@@ -942,6 +942,14 @@
                             <button type="button" class="btn btn-outline-primary"
                                 onclick="setPendingFilter('CIA2')">CIA-2</button>
                         </div>
+                        <div class="btn-group btn-group-sm" id="attemptFilterGroup">
+                            <button type="button" class="btn btn-outline-success active"
+                                onclick="setAttemptFilter('all')">All Attempts</button>
+                            <button type="button" class="btn btn-outline-success"
+                                onclick="setAttemptFilter(1)">Attempt 1</button>
+                            <button type="button" class="btn btn-outline-success"
+                                onclick="setAttemptFilter(2)">Attempt 2</button>
+                        </div>
                         <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
                             <i class="bi bi-arrow-clockwise me-1"></i>
                             Refresh
@@ -1330,6 +1338,7 @@
 
         // Filtering state
         let pendingFilter = 'all';
+        let pendingAttemptFilter = 'all';
 
         function setPendingFilter(filter) {
             pendingFilter = filter;
@@ -1342,6 +1351,25 @@
                 const buttons = document.querySelectorAll('#pendingFilterGroup .btn');
                 buttons.forEach(b => {
                     if (b.textContent === (filter === 'all' ? 'All' : filter.replace('CIA', 'CIA-'))) {
+                        b.classList.add('active');
+                    }
+                });
+            }
+            renderPendingFiles(document.getElementById('pendingFilesSearch').value);
+        }
+
+        function setAttemptFilter(filter) {
+            pendingAttemptFilter = filter;
+            document.querySelectorAll('#attemptFilterGroup .btn').forEach(b => b.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                const buttons = document.querySelectorAll('#attemptFilterGroup .btn');
+                buttons.forEach(b => {
+                    const text = b.textContent.trim();
+                    if ((filter === 'all' && text === 'All Attempts') ||
+                        (filter === 1 && text === 'Attempt 1') ||
+                        (filter === 2 && text === 'Attempt 2')) {
                         b.classList.add('active');
                     }
                 });
@@ -1567,6 +1595,11 @@
                 filtered = filtered.filter(a => (a.exam_type || 'CIA1').toUpperCase() === pendingFilter.toUpperCase());
             }
 
+            // Apply Attempt Filter
+            if (pendingAttemptFilter !== 'all') {
+                filtered = filtered.filter(a => (a.attempt_number || 1) === pendingAttemptFilter);
+            }
+
             if (q) {
                 filtered = filtered.filter(a => {
                     const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
@@ -1650,9 +1683,9 @@
                                 <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
                                     <i class="bi bi-eye"></i> Details
                                 </button>
-                                <button class="btn btn-sm ${isLocked ? 'btn-outline-warning' : 'btn-warning'} btn-toggle-lock action-btn" data-artifact-uuid="${artifactUuidVal || ''}" title="${isLocked ? 'Unlock Attempt 2' : 'Lock Attempt 2'}">
+                                ${attemptNum === 1 ? `<button class="btn btn-sm ${isLocked ? 'btn-outline-warning' : 'btn-warning'} btn-toggle-lock action-btn" data-artifact-uuid="${artifactUuidVal || ''}" title="${isLocked ? 'Unlock Attempt 2' : 'Lock Attempt 2'}">
                                     <i class="bi ${isLocked ? 'bi-unlock' : 'bi-lock'}"></i> ${isLocked ? 'Unlock' : 'Lock'}
-                                </button>
+                                </button>` : ''}
                                 <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
                                     <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-1">${a.report_count || 0}</span>
                                 </button>

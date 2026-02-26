@@ -1161,6 +1161,12 @@
                 <button class="btn btn-outline-secondary btn-sm" onclick="filterByExamType('CIA2')">CIA-2</button>
             </div>
 
+            <div class="exam-type-filter mt-2" id="attemptFilter">
+                <button class="btn btn-outline-success btn-sm active" onclick="filterByAttempt('all')">All Attempts</button>
+                <button class="btn btn-outline-success btn-sm" onclick="filterByAttempt(1)">Attempt 1</button>
+                <button class="btn btn-outline-success btn-sm" onclick="filterByAttempt(2)">Attempt 2</button>
+            </div>
+
             <div class="row g-4" id="papersGrid"></div>
 
             <div class="card" id="emptyState" style="display: none;">
@@ -1776,6 +1782,7 @@
         }
 
         let currentExamFilter = 'all';
+        let currentAttemptFilter = 'all';
         function filterByExamType(type) {
             currentExamFilter = type;
             // Update button active states
@@ -1786,7 +1793,16 @@
             renderPapers();
         }
 
-        // Patch renderPapers to respect exam type filter
+        function filterByAttempt(attempt) {
+            currentAttemptFilter = attempt;
+            document.querySelectorAll('#attemptFilter .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            renderPapers();
+        }
+
+        // Patch renderPapers to respect exam type and attempt filters
         const _originalRenderPapers = renderPapers;
         renderPapers = function () {
             const grid = document.getElementById('papersGrid');
@@ -1794,7 +1810,10 @@
 
             let filteredPapers = papers;
             if (currentExamFilter !== 'all') {
-                filteredPapers = papers.filter(p => p.exam_type === currentExamFilter);
+                filteredPapers = filteredPapers.filter(p => p.exam_type === currentExamFilter);
+            }
+            if (currentAttemptFilter !== 'all') {
+                filteredPapers = filteredPapers.filter(p => (p.attempt_number || 1) === currentAttemptFilter);
             }
 
             if (filteredPapers.length === 0) {
