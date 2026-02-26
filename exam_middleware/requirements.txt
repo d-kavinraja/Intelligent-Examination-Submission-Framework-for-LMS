@@ -50,9 +50,8 @@ python-dotenv
 email-validator
 
 # ==============================
-# Email Services
+# Email Services (uses httpx - already included above)
 # ==============================
-sendgrid
 
 # ==============================
 # File Processing

@@ -109,29 +109,48 @@ class MailService:
     async def _send_via_sendgrid(
         self, to_email: str, to_name: str, subject: str, body: str
     ) -> Tuple[bool, str]:
-        """Send email via SendGrid HTTP API."""
-        try:
-            from sendgrid import SendGridAPIClient
-            from sendgrid.helpers.mail import Mail, Email, To, Content
-        except ImportError:
-            return False, "SendGrid library not installed"
+        """Send email via SendGrid v3 REST API using httpx (no extra library)."""
+        import httpx
 
-        message = Mail(
-            from_email=Email(settings.email_sender_email, settings.email_from_name),
-            to_emails=To(to_email, to_name),
-            subject=subject,
-            plain_text_content=Content("text/plain", body),
-        )
+        payload = {
+            "personalizations": [
+                {
+                    "to": [{"email": to_email, "name": to_name}],
+                    "subject": subject,
+                }
+            ],
+            "from": {
+                "email": settings.email_sender_email,
+                "name": settings.email_from_name,
+            },
+            "content": [{"type": "text/plain", "value": body}],
+        }
 
-        sg = SendGridAPIClient(settings.sendgrid_api_key)
-        response = await asyncio.to_thread(sg.send, message)
-        
+        headers = {
+            "Authorization": f"Bearer {settings.sendgrid_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(
+                "https://api.sendgrid.com/v3/mail/send",
+                json=payload,
+                headers=headers,
+            )
+
         if response.status_code in (200, 201, 202):
             logger.info("SendGrid email sent to %s (status: %s)", to_email, response.status_code)
             return True, "Notification sent"
         else:
-            logger.error("SendGrid returned status %s: %s", response.status_code, response.body)
-            return False, f"SendGrid error: {response.status_code}"
+            error_body = response.text
+            logger.error(
+                "SendGrid API error: status=%s body=%s key_prefix=%s from=%s",
+                response.status_code,
+                error_body,
+                settings.sendgrid_api_key[:10] + "..." if settings.sendgrid_api_key else "EMPTY",
+                settings.email_sender_email,
+            )
+            return False, f"SendGrid error {response.status_code}: {error_body}"
 
     async def _send_via_smtp(
         self, to_email: str, to_name: str, subject: str, body: str
