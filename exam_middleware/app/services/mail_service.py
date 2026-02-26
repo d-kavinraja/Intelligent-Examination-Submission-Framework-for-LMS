@@ -21,7 +21,10 @@ class MailService:
     def is_configured(self) -> bool:
         """Return True when email sending is configured (SendGrid or SMTP)."""
         # Prefer SendGrid (works from cloud platforms)
-        if settings.sendgrid_api_key and settings.email_sender_email:
+        # Only require the API key — the sender email will be read from
+        # EMAIL_FROM_EMAIL; if empty, SendGrid will reject the request
+        # with a clear error rather than silently disabling notifications.
+        if settings.sendgrid_api_key:
             return True
         
         # Fallback to SMTP (local dev only, blocked on most cloud platforms)
@@ -112,6 +115,10 @@ class MailService:
         """Send email via SendGrid v3 REST API using httpx (no extra library)."""
         import httpx
 
+        sender_email = settings.email_sender_email
+        if not sender_email:
+            return False, "EMAIL_FROM_EMAIL (or SMTP_FROM_EMAIL) is not set — cannot send via SendGrid"
+
         payload = {
             "personalizations": [
                 {
@@ -120,7 +127,7 @@ class MailService:
                 }
             ],
             "from": {
-                "email": settings.email_sender_email,
+                "email": sender_email,
                 "name": settings.email_from_name,
             },
             "content": [{"type": "text/plain", "value": body}],

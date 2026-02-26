@@ -36,13 +36,34 @@ class NotificationService:
         """
         Notify student when a paper is uploaded by staff.
 
-        Best-effort behavior: failures are logged and audited, but never raised.
+        Best-effort behavior: failures are logged and audited, but **never** raised
+        so the upload response is never blocked by notification issues.
         """
+        try:
+            await self._do_notify_student_on_upload(
+                artifact=artifact,
+                uploaded_by_username=uploaded_by_username,
+                actor_ip=actor_ip,
+            )
+        except Exception as exc:
+            # Catch-all: notification must never break upload flow
+            logger.error(
+                "Notification failed for artifact %s (best-effort, swallowed): %s",
+                getattr(artifact, 'id', '?'), exc,
+            )
+
+    async def _do_notify_student_on_upload(
+        self,
+        artifact: ExaminationArtifact,
+        uploaded_by_username: str,
+        actor_ip: Optional[str] = None,
+    ) -> None:
+        """Internal implementation — exceptions propagate to caller wrapper."""
         if not artifact.parsed_reg_no or not artifact.parsed_subject_code:
             return
 
         if not mail_service.is_configured():
-            logger.debug("Skipping notification: SMTP not configured")
+            logger.debug("Skipping notification: email service not configured")
             return
 
         result = await self.db.execute(

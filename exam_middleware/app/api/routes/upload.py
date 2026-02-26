@@ -3,14 +3,14 @@ Upload API Routes
 Handles file uploads from staff
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import List, Optional, Dict
 import logging
 
-from app.db.database import get_db
+from app.db.database import get_db, async_session_maker
 from app.db.models import StaffUser
 from app.schemas import (
     FileUploadResponse,
@@ -28,11 +28,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _bg_notify_student(
+    artifact_id: int,
+    uploaded_by_username: str,
+    actor_ip: Optional[str],
+) -> None:
+    """Run student notification in the background with its own DB session."""
+    try:
+        async with async_session_maker() as session:
+            from app.db.models import ExaminationArtifact
+            result = await session.execute(
+                select(ExaminationArtifact).where(ExaminationArtifact.id == artifact_id)
+            )
+            artifact = result.scalar_one_or_none()
+            if artifact:
+                notification_service = NotificationService(session)
+                await notification_service.notify_student_on_upload(
+                    artifact=artifact,
+                    uploaded_by_username=uploaded_by_username,
+                    actor_ip=actor_ip,
+                )
+                await session.commit()
+    except Exception as exc:
+        logging.getLogger(__name__).error(
+            "Background notification failed for artifact %s: %s", artifact_id, exc
+        )
+
+
 @router.post("/single", response_model=FileUploadResponse)
 async def upload_single_file(
     file: UploadFile = File(...),
     exam_type: str = Form("CIA1"),
     request: Request = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
@@ -86,7 +114,6 @@ async def upload_single_file(
     # Create artifact record
     artifact_service = ArtifactService(db)
     audit_service = AuditService(db)
-    notification_service = NotificationService(db)
     
     try:
         artifact = await artifact_service.create_artifact(
@@ -115,15 +142,16 @@ async def upload_single_file(
             description=f"Uploaded file: {file.filename}",
             request_data={"filename": file.filename, "size": metadata.get("size_bytes")}
         )
+        
+        await db.commit()
 
-        # Best-effort student notification (does not block upload success)
-        await notification_service.notify_student_on_upload(
-            artifact=artifact,
+        # Schedule non-blocking student notification in background
+        background_tasks.add_task(
+            _bg_notify_student,
+            artifact_id=artifact.id,
             uploaded_by_username=current_staff.username,
             actor_ip=request.client.host if request and request.client else None,
         )
-        
-        await db.commit()
         
         return FileUploadResponse(
             success=True,
@@ -156,6 +184,7 @@ async def upload_bulk_files(
     files: List[UploadFile] = File(...),
     exam_type: str = Form("CIA1"),
     request: Request = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
@@ -167,7 +196,6 @@ async def upload_bulk_files(
     results = []
     successful = 0
     failed = 0
-    notification_service = NotificationService(db)
     
     for file in files:
         if not file.filename:
@@ -222,9 +250,10 @@ async def upload_bulk_files(
                     file_content=content
                 )
 
-            # Best-effort student notification (does not block upload success)
-            await notification_service.notify_student_on_upload(
-                artifact=artifact,
+            # Schedule non-blocking student notification in background
+            background_tasks.add_task(
+                _bg_notify_student,
+                artifact_id=artifact.id,
                 uploaded_by_username=current_staff.username,
                 actor_ip=request.client.host if request and request.client else None,
             )
