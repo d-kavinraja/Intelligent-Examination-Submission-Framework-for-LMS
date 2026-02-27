@@ -1,16 +1,13 @@
-﻿# Production Dockerfile for Render — SINGLE STAGE (no multi-stage library mismatch)
+﻿# Production Dockerfile for Render
+# ML inference is offloaded to HuggingFace Spaces API
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    QT_QPA_PLATFORM=offscreen \
-    OPENCV_IO_ENABLE_OPENEXR=0 \
-    DISPLAY="" \
-    XDG_RUNTIME_DIR=/tmp
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install ALL system dependencies in one layer, then refresh linker cache
+# Install minimal system dependencies (no heavy ML libs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -18,25 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     libmagic1 \
     curl \
-    poppler-utils \
-    libgl1 \
-    libglib2.0-0 \
-    libxcb1 \
-    libx11-6 \
-    libxext6 \
-    libxrender1 \
-    libsm6 \
-    libice6 \
-    libxinerama1 \
-    libxi6 \
-    libxrandr2 \
-    libxcursor1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libfontconfig1 \
-    libfreetype6 \
     && rm -rf /var/lib/apt/lists/* \
     && ldconfig
 
@@ -45,29 +23,16 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies (ML packages commented out)
 COPY requirements.txt .
-RUN pip install --no-warn-script-location -r requirements.txt && \
-    pip uninstall -y opencv-python 2>/dev/null; \
-    pip install --no-warn-script-location --force-reinstall opencv-python-headless && \
-    ldconfig
+RUN pip install --no-warn-script-location -r requirements.txt
 
-# BUILD-TIME SMOKE TEST — if cv2 cannot import, deploy FAILS here
-RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
-    python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
-    python -c "import torch; print('[OK] torch', torch.__version__)" && \
-    echo "=== All imports verified ==="
-
-# Copy application code and model weights
+# Copy application code (NO models directory — inference via HF Spaces)
 COPY --chown=appuser:appuser . .
-COPY --chown=appuser:appuser models/ models/
 
-# Create necessary directories
+# Create necessary directories (but NOT models/)
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
-
-# Clean up build-only packages
-RUN apt-get purge -y gcc && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 USER appuser
 EXPOSE 8000
