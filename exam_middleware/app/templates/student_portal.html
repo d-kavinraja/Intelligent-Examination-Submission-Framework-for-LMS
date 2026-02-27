@@ -1162,9 +1162,17 @@
             </div>
 
             <div class="exam-type-filter mt-2" id="attemptFilter">
-                <button class="btn btn-outline-success btn-sm active" onclick="filterByAttempt('all')">All Attempts</button>
-                <button class="btn btn-outline-success btn-sm" onclick="filterByAttempt(1)">Attempt 1</button>
-                <button class="btn btn-outline-success btn-sm" onclick="filterByAttempt(2)">Attempt 2</button>
+                <button class="btn btn-outline-secondary btn-sm active" onclick="filterByAttempt('all')">All Attempts</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="filterByAttempt(1)">Attempt 1</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="filterByAttempt(2)">Attempt 2</button>
+            </div>
+
+            <div class="mb-3 mt-2">
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius: 10px 0 0 10px;"><i class="bi bi-search"></i></span>
+                    <input type="search" id="studentPapersSearch" class="form-control" style="border-radius: 0 10px 10px 0;"
+                        placeholder="Search by subject code, filename, status..." oninput="renderPapers()">
+                </div>
             </div>
 
             <div class="row g-4" id="papersGrid"></div>
@@ -1594,6 +1602,9 @@
             const desktopName = document.getElementById('userNameDesktop');
             if (mobileName) mobileName.textContent = studentRegNo;
             if (desktopName) desktopName.textContent = studentRegNo;
+            // Show desktop user-inline div (hidden on logout)
+            const desktopUserDiv = document.querySelector('.user-inline');
+            if (desktopUserDiv) desktopUserDiv.style.display = '';
             document.getElementById('logoutBtn').style.display = 'block';
             document.getElementById('studentName').textContent = name;
         }
@@ -1613,6 +1624,20 @@
             document.getElementById('userInfo').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
             document.getElementById('papersGrid').innerHTML = '';
+
+            // Clear register number from navbar on both mobile and desktop
+            const mobileName = document.getElementById('userNameMobile');
+            const desktopName = document.getElementById('userNameDesktop');
+            if (mobileName) mobileName.textContent = '';
+            if (desktopName) desktopName.textContent = '';
+            const desktopUserDiv = document.querySelector('.user-inline');
+            if (desktopUserDiv) desktopUserDiv.style.display = 'none';
+            const studentNameEl = document.getElementById('studentName');
+            if (studentNameEl) studentNameEl.textContent = '';
+
+            // Clear search input
+            const searchInput = document.getElementById('studentPapersSearch');
+            if (searchInput) searchInput.value = '';
         }
 
         async function loadPapers() {
@@ -1803,11 +1828,13 @@
             renderPapers();
         }
 
-        // Patch renderPapers to respect exam type and attempt filters
+        // Patch renderPapers to respect exam type, attempt filters, and search
         const _originalRenderPapers = renderPapers;
         renderPapers = function () {
             const grid = document.getElementById('papersGrid');
             const emptyState = document.getElementById('emptyState');
+            const searchInput = document.getElementById('studentPapersSearch');
+            const searchTerm = (searchInput ? searchInput.value : '').trim().toLowerCase();
 
             let filteredPapers = papers;
             if (currentExamFilter !== 'all') {
@@ -1815,6 +1842,19 @@
             }
             if (currentAttemptFilter !== 'all') {
                 filteredPapers = filteredPapers.filter(p => (p.attempt_number || 1) === currentAttemptFilter);
+            }
+            if (searchTerm) {
+                filteredPapers = filteredPapers.filter(p => {
+                    const haystack = [
+                        p.subject_code,
+                        p.subject_name,
+                        p.filename,
+                        p.original_filename,
+                        p.workflow_status,
+                        p.exam_type
+                    ].filter(Boolean).join(' ').toLowerCase();
+                    return haystack.includes(searchTerm);
+                });
             }
 
             if (filteredPapers.length === 0) {
