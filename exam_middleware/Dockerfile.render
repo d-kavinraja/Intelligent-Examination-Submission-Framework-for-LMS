@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     DISPLAY="" \
     XDG_RUNTIME_DIR=/tmp
 
-# Install ALL system dependencies in one layer, then refresh linker cache
+# Install system dependencies (NO X11 libs needed — we use opencv-python-headless)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -21,22 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libgl1 \
     libglib2.0-0 \
-    libxcb1 \
-    libx11-6 \
-    libxext6 \
-    libxrender1 \
-    libsm6 \
-    libice6 \
-    libxinerama1 \
-    libxi6 \
-    libxrandr2 \
-    libxcursor1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libfontconfig1 \
-    libfreetype6 \
     && rm -rf /var/lib/apt/lists/* \
     && ldconfig
 
@@ -46,10 +30,15 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /app
 
 # Install Python dependencies
+# CRITICAL: ultralytics depends on "opencv-python" (GUI) which needs libxcb/X11.
+# We MUST force headless-only. Steps:
+#   1. Install all deps from requirements.txt
+#   2. Nuke every opencv variant
+#   3. Re-install ONLY opencv-python-headless (no X11 needed)
 COPY requirements.txt .
 RUN pip install --no-warn-script-location -r requirements.txt && \
-    pip uninstall -y opencv-python 2>/dev/null; \
-    pip install --no-warn-script-location --force-reinstall opencv-python-headless && \
+    pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null; true && \
+    pip install --no-warn-script-location --force-reinstall --no-deps opencv-python-headless && \
     ldconfig
 
 # Copy application code and model weights
@@ -60,13 +49,15 @@ COPY --chown=appuser:appuser models/ models/
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
 
-# Clean up build-only packages (no autoremove — it strips required X11/xcb libs)
-RUN apt-get purge -y gcc && rm -rf /var/lib/apt/lists/* && ldconfig
+# Clean up build-only packages (NO autoremove — it can strip required libs)
+RUN apt-get update && apt-get purge -y gcc && apt-get -y --purge autoremove gcc && \
+    rm -rf /var/lib/apt/lists/* && ldconfig
 
-# BUILD-TIME SMOKE TEST — runs AFTER cleanup so it catches missing libs
+# BUILD-TIME SMOKE TEST — runs AFTER cleanup to catch missing libs at build time
 RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
     python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
     python -c "import torch; print('[OK] torch', torch.__version__)" && \
+    python -c "from pdf2image import convert_from_path; print('[OK] pdf2image')" && \
     echo "=== All imports verified ==="
 
 USER appuser
