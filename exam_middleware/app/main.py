@@ -91,6 +91,14 @@ async def lifespan(app: FastAPI):
                 logger.info("Adding attempt_2_locked to examination_artifacts...")
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN attempt_2_locked BOOLEAN NOT NULL DEFAULT TRUE"))
 
+            # Check for auto_processed
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='auto_processed'"))
+            if not res.fetchone():
+                logger.info("Adding auto_processed to examination_artifacts...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN auto_processed BOOLEAN NOT NULL DEFAULT FALSE"))
+                # Create index for fast filtering
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_examination_artifacts_auto_processed ON examination_artifacts(auto_processed) WHERE auto_processed = true"))
+
             # 2. Handle subject_mappings table
             # Check for exam_type
             res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='subject_mappings' AND column_name='exam_type'"))

@@ -70,8 +70,9 @@ class Settings(BaseSettings):
     max_file_size_mb: int = Field(default=50)
     allowed_extensions: str = Field(default=".pdf,.jpg,.jpeg,.png")
     
-    # ML Service
-    ml_service_url: str = Field(default="http://localhost:8501")
+    # ML Service - HuggingFace Spaces for extraction
+    hf_space_url: str = Field(default="https://kavinraja-ml-service.hf.space")
+    ml_service_url: str = Field(default="http://localhost:8501")  # Local fallback
     ml_service_enabled: bool = Field(default=False)
     
     # Logging
