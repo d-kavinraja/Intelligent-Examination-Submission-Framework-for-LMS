@@ -176,6 +176,15 @@ async def scan_extract_and_upload(
         reg_no = result.get("register_number", "")
         sub_code = result.get("subject_code", "")
 
+        reg_conf = result.get("register_confidence", 0.0)
+        sub_conf = result.get("subject_confidence", 0.0)
+        
+        # Remote API might return different confidence structure
+        if "register_candidates" in result and result["register_candidates"]:
+            reg_conf = result["register_candidates"][0].get("confidence", 0.0)
+        if "subject_candidates" in result and result["subject_candidates"]:
+            sub_conf = result["subject_candidates"][0].get("confidence", 0.0)
+
         if not reg_no or not sub_code:
             return JSONResponse(status_code=422, content={
                 "success": False,
@@ -183,8 +192,8 @@ async def scan_extract_and_upload(
                 "error": "Could not extract register number and/or subject code",
                 "register_number": reg_no,
                 "subject_code": sub_code,
-                "register_confidence": result.get("register_confidence", 0),
-                "subject_confidence": result.get("subject_confidence", 0),
+                "register_confidence": reg_conf,
+                "subject_confidence": sub_conf,
                 "original_filename": file.filename,
             })
 
@@ -247,8 +256,8 @@ async def scan_extract_and_upload(
                 "renamed_filename": renamed_filename,
                 "register_number": reg_no,
                 "subject_code": sub_code,
-                "register_confidence": result.get("register_confidence", 0),
-                "subject_confidence": result.get("subject_confidence", 0),
+                "register_confidence": reg_conf,
+                "subject_confidence": sub_conf,
             },
         )
 
@@ -268,9 +277,15 @@ async def scan_extract_and_upload(
             "original_filename": file.filename,
             "renamed_filename": renamed_filename,
             "register_number": reg_no,
+<<<<<<< Updated upstream
             "register_confidence": result.get("register_confidence", 0),
             "subject_code": sub_code,
             "subject_confidence": result.get("subject_confidence", 0),
+=======
+            "register_confidence": reg_conf,
+            "subject_code": sub_code,
+            "subject_confidence": sub_conf,
+>>>>>>> Stashed changes
             "exam_type": exam_type,
             "artifact_uuid": str(artifact.artifact_uuid),
             "attempt_number": artifact.attempt_number,
