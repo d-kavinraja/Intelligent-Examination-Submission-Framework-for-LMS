@@ -183,8 +183,8 @@ async def scan_extract_and_upload(
                 "error": "Could not extract register number and/or subject code",
                 "register_number": reg_no,
                 "subject_code": sub_code,
-                "register_confidence": result["register_confidence"],
-                "subject_confidence": result["subject_confidence"],
+                "register_confidence": result.get("register_confidence", 0),
+                "subject_confidence": result.get("subject_confidence", 0),
                 "original_filename": file.filename,
             })
 
@@ -247,8 +247,8 @@ async def scan_extract_and_upload(
                 "renamed_filename": renamed_filename,
                 "register_number": reg_no,
                 "subject_code": sub_code,
-                "register_confidence": result["register_confidence"],
-                "subject_confidence": result["subject_confidence"],
+                "register_confidence": result.get("register_confidence", 0),
+                "subject_confidence": result.get("subject_confidence", 0),
             },
         )
 
