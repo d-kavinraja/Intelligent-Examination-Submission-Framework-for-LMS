@@ -92,7 +92,8 @@ class FileProcessor:
     def validate_file(
         self,
         file_content: bytes,
-        filename: str
+        filename: str,
+        skip_filename_validation: bool = False
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Validate uploaded file
@@ -100,6 +101,7 @@ class FileProcessor:
         Args:
             file_content: Raw file bytes
             filename: Original filename
+            skip_filename_validation: If True, skip filename format check (for extraction mode)
             
         Returns:
             Tuple of (is_valid, message, metadata)
@@ -126,14 +128,23 @@ class FileProcessor:
         
         metadata["mime_type"] = mime_type
         
-        # Parse filename
-        register_no, subject_code, is_parsed = self.parse_filename(filename)
-        metadata["parsed_register_no"] = register_no
-        metadata["parsed_subject_code"] = subject_code
-        metadata["filename_valid"] = is_parsed
-        
-        if not is_parsed:
-            return False, "Invalid filename format. Expected: REGISTER_SUBJECT.pdf", metadata
+        # Parse filename (but allow ANY filename in extraction mode)
+        if not skip_filename_validation:
+            register_no, subject_code, is_parsed = self.parse_filename(filename)
+            metadata["parsed_register_no"] = register_no
+            metadata["parsed_subject_code"] = subject_code
+            metadata["filename_valid"] = is_parsed
+            
+            if not is_parsed:
+                return False, "Invalid filename format. Expected: REGISTER_SUBJECT.pdf or use /scan-upload for auto-extraction", metadata
+        else:
+            # In extraction mode, filename format doesn't matter
+            # Extract will happen via ML models
+            register_no, subject_code, is_parsed = self.parse_filename(filename)
+            metadata["parsed_register_no"] = register_no
+            metadata["parsed_subject_code"] = subject_code
+            metadata["filename_valid"] = is_parsed
+            metadata["will_extract"] = True
         
         return True, "File validated successfully", metadata
     
