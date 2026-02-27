@@ -7,14 +7,17 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies (includes all X11/xcb libs so pip wheels can link)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     libgl1 \
     libglib2.0-0 \
     libxcb1 \
     libx11-6 \
+    libxext6 \
+    libxrender1 \
+    libsm6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -23,14 +26,22 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --user --no-warn-script-location -r requirements.txt
 
+# ---- Smoke test: fail the build if cv2/ultralytics can't import ----
+ENV PATH=/root/.local/bin:$PATH \
+    QT_QPA_PLATFORM=offscreen
+RUN python -c "import cv2; print('cv2 OK:', cv2.__version__)" && \
+    python -c "from ultralytics import YOLO; print('ultralytics OK')"
+
+# =====================================================================
 # Final stage
+# =====================================================================
 FROM python:3.11-slim
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
+# Install ALL runtime libraries opencv-python-headless + ultralytics need
+RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libpq5 \
     libmagic1 \
@@ -42,6 +53,22 @@ RUN apt-get update && apt-get install -y \
     libx11-6 \
     libxext6 \
     libxrender1 \
+    libsm6 \
+    libice6 \
+    libxinerama1 \
+    libxi6 \
+    libxrandr2 \
+    libxcursor1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libatk1.0-0 \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    libfontconfig1 \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -59,12 +86,16 @@ COPY --chown=appuser:appuser models/ models/
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
 
-# Set PATH to include user packages
-# QT_QPA_PLATFORM=offscreen tells OpenCV/Qt to use a virtual display (no X11 needed)
+# Set PATH and headless display environment
 ENV PATH=/home/appuser/.local/bin:$PATH \
     QT_QPA_PLATFORM=offscreen \
     OPENCV_IO_ENABLE_OPENEXR=0 \
-    DISPLAY=""
+    DISPLAY="" \
+    XDG_RUNTIME_DIR=/tmp
+
+# ---- Smoke test in runtime stage: catches missing shared libs early ----
+RUN python -c "import cv2; print('Runtime cv2 OK:', cv2.__version__)" && \
+    python -c "from ultralytics import YOLO; print('Runtime ultralytics OK')"
 
 # Switch to non-root user
 USER appuser
