@@ -164,8 +164,9 @@ class ScannerAgent:
                 log.info(f"   ✓ Moved to: processed/{dest.name}")
                 return True
             else:
-                error = data.get("error", "Unknown error")
-                stage = data.get("stage", "unknown")
+                # Handle both {"error":...} and FastAPI {"detail":...} formats
+                error = data.get("error") or data.get("detail") or str(data)
+                stage = data.get("stage", "server")
                 log.error(f"   ✗ Failed at stage '{stage}': {error}")
 
                 # If extraction failed (can't read reg/subject), move to failed

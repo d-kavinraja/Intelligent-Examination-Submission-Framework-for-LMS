@@ -261,12 +261,23 @@ async def scan_extract_and_upload(
             "workflow_status": artifact.workflow_status.value,
         })
 
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        await db.rollback()
+        return JSONResponse(status_code=e.status_code, content={
+            "success": False,
+            "stage": "server",
+            "error": str(e.detail),
+            "original_filename": file.filename if file else None,
+        })
     except Exception as e:
         logger.exception("Scan-upload pipeline failed")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Scan-upload failed: {str(e)}")
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "stage": "server",
+            "error": str(e),
+            "original_filename": file.filename if file else None,
+        })
 
 
 # ---- Scanner Agent heartbeat / processed log --------------------------------

@@ -206,7 +206,21 @@ async def lifespan(app: FastAPI):
     static_path.mkdir(parents=True, exist_ok=True)
     
     logger.info("Examination Middleware started successfully")
-    
+
+    # Preload AI extraction models at startup to avoid timeout on first request
+    try:
+        import asyncio
+        from app.services.extraction_service import is_extraction_available, get_extractor
+        if is_extraction_available():
+            logger.info("Preloading AI extraction models (this may take ~30s)...")
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, get_extractor)
+            logger.info("✓ AI extraction models loaded and ready")
+        else:
+            logger.warning("AI extraction models not found — skipping preload")
+    except Exception as e:
+        logger.warning(f"Could not preload extraction models: {e}")
+
     yield
     
     # Shutdown
