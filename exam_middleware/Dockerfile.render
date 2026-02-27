@@ -24,7 +24,12 @@ WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt .
-RUN pip install --user --no-warn-script-location -r requirements.txt
+RUN pip install --user --no-warn-script-location -r requirements.txt && \
+    # ultralytics pulls in opencv-python (full), which needs X11/libxcb.
+    # Force-replace it with headless version AFTER all deps are installed.
+    pip install --user --no-warn-script-location --force-reinstall --no-deps opencv-python-headless && \
+    # Remove the full opencv-python metadata so nothing re-pulls it
+    rm -rf /root/.local/lib/python3.11/site-packages/opencv_python-*.dist-info 2>/dev/null || true
 
 # ---- Smoke test: fail the build if cv2/ultralytics can't import ----
 ENV PATH=/root/.local/bin:$PATH \
