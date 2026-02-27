@@ -229,6 +229,9 @@ async def scan_extract_and_upload(
             uploaded_by_staff_id=current_staff.id,
             file_content=content,
         )
+        
+        # Mark as auto-processed (extracted and renamed via ML)
+        artifact.auto_processed = True
 
         await audit_service.log_action(
             action="scan_auto_uploaded",

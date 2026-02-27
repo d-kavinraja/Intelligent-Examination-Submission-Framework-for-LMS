@@ -80,6 +80,9 @@ class ExaminationArtifact(Base):
         nullable=False
     )
     
+    # Auto-Processing Tracking
+    auto_processed = Column(Boolean, nullable=False, default=False, server_default="false")  # Set to True if extracted and renamed via ML
+    
     # Moodle Submission Tracking
     moodle_draft_item_id = Column(BigInteger, nullable=True)  # For retry logic
     moodle_submission_id = Column(String(100), nullable=True)
