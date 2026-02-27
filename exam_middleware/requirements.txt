@@ -67,7 +67,7 @@ pypdf
 torch
 torchvision
 ultralytics
-opencv-python-headless
+# opencv-python-headless  # removed - replaced with PIL+numpy to avoid libxcb dependency
 pdf2image
 numpy
 

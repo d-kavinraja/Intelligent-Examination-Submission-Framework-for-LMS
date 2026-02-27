@@ -10,7 +10,6 @@ import logging
 import tempfile
 from pathlib import Path
 
-import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -209,7 +208,9 @@ class AnswerSheetExtractor:
     def _extract_register_number(self, crop: np.ndarray) -> tuple[str, float]:
         """Return (decoded_text, confidence)."""
         try:
-            pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop).convert("L")
+            # Convert BGR numpy array → grayscale PIL without cv2
+            gray = crop[:, :, ::-1] if len(crop.shape) == 3 else crop
+            pil = Image.fromarray(gray).convert("L")
             tensor = self.register_transform(pil).unsqueeze(0).to(self.device)
             with torch.no_grad():
                 out = self.register_crnn(tensor).squeeze(1)
@@ -235,7 +236,9 @@ class AnswerSheetExtractor:
     def _extract_subject_code(self, crop: np.ndarray) -> tuple[str, float]:
         """Return (decoded_text, confidence)."""
         try:
-            pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop).convert("L")
+            # Convert BGR numpy array → grayscale PIL without cv2
+            gray = crop[:, :, ::-1] if len(crop.shape) == 3 else crop
+            pil = Image.fromarray(gray).convert("L")
             tensor = self.subject_transform(pil).unsqueeze(0).to(self.device)
             with torch.no_grad():
                 out = self.subject_crnn(tensor).squeeze(1)
@@ -311,14 +314,16 @@ class AnswerSheetExtractor:
                 images = convert_from_path(file_path, dpi=300, first_page=1, last_page=1)
                 if not images:
                     return {"error": "Could not convert PDF to image"}
-                image = cv2.cvtColor(np.array(images[0]), cv2.COLOR_RGB2BGR)
+                # PIL gives RGB, convert to BGR numpy for YOLO
+                image = np.array(images[0])[:, :, ::-1]
             except ImportError:
                 return {"error": "pdf2image not installed — cannot process PDFs"}
             except Exception as e:
                 return {"error": f"PDF conversion failed: {e}"}
         elif ext in (".jpg", ".jpeg", ".png", ".bmp", ".tiff"):
-            image = cv2.imread(file_path)
-            if image is None:
+            # Load image with PIL, convert RGB→BGR numpy for YOLO
+            image = np.array(Image.open(file_path).convert("RGB"))[:, :, ::-1]
+            if image is None or image.size == 0:
                 return {"error": f"Could not read image: {file_path}"}
         else:
             return {"error": f"Unsupported file type: {ext}"}
