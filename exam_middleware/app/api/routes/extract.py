@@ -23,9 +23,36 @@ router = APIRouter()
 @router.get("/status")
 async def extraction_status():
     """Check whether the extraction models are available."""
-    from app.services.extraction_service import is_extraction_available
-    available = is_extraction_available()
-    return {"extraction_available": available}
+    from pathlib import Path
+    models_dir = Path(__file__).resolve().parent.parent.parent.parent / "models"
+    model_files = {}
+    if models_dir.exists():
+        model_files = {f.name: f.stat().st_size for f in models_dir.iterdir() if f.is_file()}
+
+    try:
+        from app.services.extraction_service import is_extraction_available
+        available = is_extraction_available()
+    except ImportError as e:
+        return {
+            "extraction_available": False,
+            "error": f"Import error: {e}",
+            "models_directory": str(models_dir),
+            "models_dir_exists": models_dir.exists(),
+            "model_files": model_files,
+        }
+    except Exception as e:
+        return {
+            "extraction_available": False,
+            "error": str(e),
+            "models_directory": str(models_dir),
+            "model_files": model_files,
+        }
+    return {
+        "extraction_available": available,
+        "models_directory": str(models_dir),
+        "models_dir_exists": models_dir.exists(),
+        "model_files": model_files,
+    }
 
 
 @router.post("/extract")
