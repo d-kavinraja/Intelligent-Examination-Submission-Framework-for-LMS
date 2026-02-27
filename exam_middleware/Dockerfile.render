@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     DISPLAY="" \
     XDG_RUNTIME_DIR=/tmp
 
-# Install system dependencies (NO X11 libs needed — we use opencv-python-headless)
+# Install system dependencies including X11/xcb libs needed by OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -21,6 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libgl1 \
     libglib2.0-0 \
+    libxcb1 \
+    libx11-6 \
+    libxext6 \
+    libsm6 \
+    libxrender1 \
     && rm -rf /var/lib/apt/lists/* \
     && ldconfig
 

@@ -1599,6 +1599,7 @@
         }
 
         function logout() {
+            stopReportPolling();
             sessionToken = null;
             studentRegNo = null;
             papers = [];
@@ -2160,6 +2161,12 @@
                 const res = await fetch('/student/reports', {
                     headers: { 'X-Session-ID': sessionToken }
                 });
+                if (res.status === 401) {
+                    console.warn('Session expired — stopping report polling and logging out.');
+                    stopReportPolling();
+                    logout();
+                    return;
+                }
                 if (!res.ok) return;
                 const reports = await res.json();
                 const unresolved = (reports || []).filter(r => !r.resolved).length;
