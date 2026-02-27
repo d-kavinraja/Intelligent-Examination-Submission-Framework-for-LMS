@@ -1242,9 +1242,12 @@
                         <i class="bi bi-clock-history me-2"></i>
                         Recent Auto-Processed Files
                     </h5>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadScanLog()">
-                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-                    </button>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input type="text" id="scanLogSearch" class="form-control form-control-sm" placeholder="Search by filename, reg no, subject..." style="width: 260px;">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadScanLog()">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-4">
                     <div id="scanLogList">
@@ -2932,6 +2935,7 @@
                 if (res.ok) {
                     showToast(data.message || 'Artifact permanently deleted', 'success');
                     loadPendingFiles();
+                    loadScanLog();
                 } else {
                     showToast(data.detail || data.message || 'Failed to delete artifact', 'danger');
                 }
@@ -2956,6 +2960,7 @@
                 if (res.ok) {
                     showToast(data.message || 'All artifacts purged', 'success');
                     loadPendingFiles();
+                    loadScanLog();
                 } else {
                     showToast(data.detail || data.message || 'Failed to purge artifacts', 'danger');
                 }
@@ -3351,6 +3356,7 @@
                         </div>`;
                     fileInput.value = '';
                     loadPendingFiles();
+                    loadScanLog();
                 } else {
                     resultDiv.innerHTML = `
                         <div class="alert alert-danger small">
@@ -3368,6 +3374,9 @@
             }
         }
 
+        // Cache scan log entries for client-side filtering
+        let scanLogEntries = [];
+
         async function loadScanLog() {
             const container = document.getElementById('scanLogList');
             try {
@@ -3377,8 +3386,8 @@
                 });
                 const dbData = await dbRes.json();
                 const dbEntries = (dbData.auto_processed || []).map(a => ({
-                    original_filename: a.raw_filename || a.original_filename,
-                    renamed_filename: a.original_filename,
+                    original_filename: a.original_filename,
+                    renamed_filename: a.raw_filename || a.original_filename,
                     register_number: a.parsed_reg_no,
                     subject_code: a.parsed_subject_code,
                     exam_type: a.exam_type,
@@ -3395,53 +3404,85 @@
                     memEntries = (memData.entries || []).filter(e => !e.success);
                 } catch (_) {}
 
-                const entries = [...dbEntries, ...memEntries];
+                scanLogEntries = [...dbEntries, ...memEntries];
 
                 // Update stats
-                const success = entries.filter(e => e.success).length;
-                const failed = entries.filter(e => !e.success).length;
-                document.getElementById('scanProcessed').textContent = entries.length;
+                const success = scanLogEntries.filter(e => e.success).length;
+                const failed = scanLogEntries.filter(e => !e.success).length;
+                document.getElementById('scanProcessed').textContent = scanLogEntries.length;
                 document.getElementById('scanSuccess').textContent = success;
                 document.getElementById('scanFailed').textContent = failed;
 
-                if (entries.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center text-muted py-4">
-                            <i class="bi bi-inbox fs-1"></i>
-                            <p class="mt-2">No auto-processed files yet. Start the Scanner Agent to begin.</p>
-                        </div>`;
-                    return;
-                }
-
-                let html = '<div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size: 0.85rem;">';
-                html += '<thead><tr><th>Original File</th><th>Renamed To</th><th>Reg No</th><th>Subject</th><th>Exam</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>';
-                entries.forEach(e => {
-                    const wsLower = (e.workflow_status || '').toLowerCase();
-                    let badge;
-                    if (!e.success) {
-                        badge = '<span class="badge bg-danger"><i class="bi bi-x"></i> Failed</span>';
-                    } else if (wsLower === 'submitted_to_moodle' || wsLower === 'completed') {
-                        badge = '<span class="badge bg-primary"><i class="bi bi-cloud-check"></i> Submitted</span>';
-                    } else {
-                        badge = '<span class="badge bg-success"><i class="bi bi-check"></i> Uploaded</span>';
-                    }
-                    const uploadTime = e.uploaded_at ? new Date(e.uploaded_at).toLocaleString() : '-';
-                    html += `<tr>
-                        <td class="text-truncate" style="max-width: 150px;" title="${e.original_filename || ''}">${e.original_filename || '-'}</td>
-                        <td class="text-truncate" style="max-width: 150px;" title="${e.renamed_filename || ''}">${e.renamed_filename || '-'}</td>
-                        <td><span class="badge bg-secondary">${e.register_number || '-'}</span></td>
-                        <td><span class="badge bg-primary">${e.subject_code || '-'}</span></td>
-                        <td><span class="badge bg-info text-dark">${e.exam_type || '-'}</span></td>
-                        <td>${badge}</td>
-                        <td><small>${uploadTime}</small></td>
-                    </tr>`;
-                });
-                html += '</tbody></table></div>';
-                container.innerHTML = html;
+                // Render with current search query
+                const searchInput = document.getElementById('scanLogSearch');
+                renderScanLog((searchInput && searchInput.value) || '');
             } catch (e) {
                 container.innerHTML = `<div class="text-muted small">Could not load scan log: ${e.message}</div>`;
             }
         }
+
+        function renderScanLog(query) {
+            const container = document.getElementById('scanLogList');
+            const q = (query || '').toLowerCase().trim();
+
+            let filtered = scanLogEntries.slice();
+            if (q) {
+                filtered = filtered.filter(e => {
+                    const orig = (e.original_filename || '').toLowerCase();
+                    const renamed = (e.renamed_filename || '').toLowerCase();
+                    const reg = (e.register_number || '').toLowerCase();
+                    const sub = (e.subject_code || '').toLowerCase();
+                    const exam = (e.exam_type || '').toLowerCase();
+                    return orig.includes(q) || renamed.includes(q) || reg.includes(q) || sub.includes(q) || exam.includes(q);
+                });
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2">${q ? 'No matching files' : 'No auto-processed files yet. Start the Scanner Agent to begin.'}</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size: 0.85rem;">';
+            html += '<thead><tr><th>Original File</th><th>Renamed To</th><th>Reg No</th><th>Subject</th><th>Exam</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>';
+            filtered.forEach(e => {
+                const wsLower = (e.workflow_status || '').toLowerCase();
+                let badge;
+                if (!e.success) {
+                    badge = '<span class="badge bg-danger"><i class="bi bi-x"></i> Failed</span>';
+                } else if (wsLower === 'submitted_to_moodle' || wsLower === 'completed') {
+                    badge = '<span class="badge bg-primary"><i class="bi bi-cloud-check"></i> Submitted</span>';
+                } else {
+                    badge = '<span class="badge bg-success"><i class="bi bi-check"></i> Uploaded</span>';
+                }
+                const uploadTime = e.uploaded_at ? new Date(e.uploaded_at).toLocaleString() : '-';
+                html += `<tr>
+                    <td class="text-truncate" style="max-width: 150px;" title="${e.original_filename || ''}">${e.original_filename || '-'}</td>
+                    <td class="text-truncate" style="max-width: 150px;" title="${e.renamed_filename || ''}">${e.renamed_filename || '-'}</td>
+                    <td><span class="badge bg-secondary">${e.register_number || '-'}</span></td>
+                    <td><span class="badge bg-primary">${e.subject_code || '-'}</span></td>
+                    <td><span class="badge bg-info text-dark">${e.exam_type || '-'}</span></td>
+                    <td>${badge}</td>
+                    <td><small>${uploadTime}</small></td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            html += `<div class="text-muted small mt-2">Showing ${filtered.length} of ${scanLogEntries.length} entries</div>`;
+            container.innerHTML = html;
+        }
+
+        // Attach scan log search listener
+        document.addEventListener('DOMContentLoaded', () => {
+            const scanSearch = document.getElementById('scanLogSearch');
+            if (scanSearch) {
+                scanSearch.addEventListener('input', (e) => {
+                    renderScanLog(e.target.value);
+                });
+            }
+        });
     </script>
 
 </body>
