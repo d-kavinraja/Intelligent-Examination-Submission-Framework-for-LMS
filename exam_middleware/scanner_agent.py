@@ -4,15 +4,17 @@ the Ricoh scanner. It watches a folder for new scanned files and
 automatically sends them to the server for AI extraction + upload.
 
 === SETUP ===
-1. pip install requests watchdog
+1. pip install requests
 2. Configure SETTINGS below (server URL, credentials, scan folder)
 3. Run:  python scanner_agent.py
 
 === HOW IT WORKS ===
 Scanner saves to WATCH_FOLDER → Agent detects new file → waits for
-file to finish writing → POSTs to /extract/scan-upload → server runs
-AI extraction → renames to {reg_no}_{subject_code}_{exam_type}.pdf →
-creates artifact → Agent moves original file to "processed/" folder.
+file to finish writing → adds to QUEUE → processes ONE file at a time →
+POSTs to /extract/scan-upload → waits for server response → verifies
+artifact UUID is unique → moves original file → processes NEXT file.
+
+Each file is fully uploaded and confirmed before the next one starts.
 """
 
 import os
@@ -20,10 +22,12 @@ import sys
 import time
 import json
 import shutil
+import hashlib
 import logging
 import argparse
 from pathlib import Path
 from datetime import datetime
+from collections import deque
 
 import requests
 
@@ -51,6 +55,13 @@ POLL_INTERVAL = 3
 # (ensures scanner has finished writing)
 FILE_STABLE_WAIT = 2
 
+# Delay between processing each file in the queue (seconds)
+# Prevents server overload and ensures DB commits complete
+QUEUE_DELAY = 3
+
+# Maximum retries for a single file
+MAX_RETRIES = 2
+
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
 
@@ -62,6 +73,15 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("ScannerAgent")
+
+
+def file_sha256(file_path: Path) -> str:
+    """Compute SHA-256 hash of a file."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
 
 
 class ScannerAgent:
@@ -80,8 +100,14 @@ class ScannerAgent:
         self.processed_folder.mkdir(parents=True, exist_ok=True)
         self.failed_folder.mkdir(parents=True, exist_ok=True)
 
-        # Track files we've already seen (to avoid re-processing)
+        # Sequential queue — files wait here until processed one-by-one
+        self._queue: deque[Path] = deque()
+        # Track files already queued/processed (by path) to avoid duplicates
         self._seen_files: set[str] = set()
+        # Track artifact UUIDs returned by server to detect overwrites
+        self._uploaded_uuids: set[str] = set()
+        # Stats
+        self._stats = {"processed": 0, "failed": 0, "skipped": 0}
 
     def login(self) -> bool:
         """Authenticate with the server and get a JWT token."""
@@ -120,12 +146,14 @@ class ScannerAgent:
             log.error(f"Could not check extraction status: {e}")
             return False
 
-    def process_file(self, file_path: Path) -> bool:
+    def process_file(self, file_path: Path, retry_count: int = 0) -> bool:
         """
         Send a single scanned file to the server for extraction + upload.
-        Returns True if successful.
+        Blocks until the server responds. Returns True if successful.
         """
-        log.info(f"── Processing: {file_path.name}")
+        file_hash = file_sha256(file_path)
+        log.info(f"── Processing [{self._stats['processed']+self._stats['failed']+1}]: "
+                 f"{file_path.name}  (hash: {file_hash})")
 
         if not self.auth_token:
             if not self.login():
@@ -139,47 +167,66 @@ class ScannerAgent:
                     files={"file": (file_path.name, f, "application/octet-stream")},
                     data={"exam_type": self.exam_type},
                     headers={"Authorization": f"Bearer {self.auth_token}"},
-                    timeout=120,  # extraction can take time
+                    timeout=180,  # generous timeout for HF Space wake-up
                 )
 
             if resp.status_code == 401:
                 log.warning("   Token expired — re-authenticating...")
-                if self.login():
-                    return self.process_file(file_path)  # retry once
+                if self.login() and retry_count < MAX_RETRIES:
+                    return self.process_file(file_path, retry_count + 1)
                 return False
 
             data = resp.json()
 
             if data.get("success"):
-                log.info(f"   ✓ Extracted: Reg={data['register_number']} "
-                         f"({data['register_confidence']}%) | "
-                         f"Subject={data['subject_code']} "
-                         f"({data['subject_confidence']}%)")
-                log.info(f"   ✓ Uploaded as: {data['renamed_filename']}")
-                log.info(f"   ✓ Artifact UUID: {data['artifact_uuid']}")
+                reg = data.get('register_number', '?')
+                sub = data.get('subject_code', '?')
+                reg_conf = data.get('register_confidence', 0)
+                sub_conf = data.get('subject_confidence', 0)
+                renamed = data.get('renamed_filename', '?')
+                uuid = data.get('artifact_uuid', '')
 
-                # Move to processed folder
-                dest = self.processed_folder / f"{data['renamed_filename']}__{file_path.name}"
+                log.info(f"   ✓ Extracted: Reg={reg} ({reg_conf}%) | Subject={sub} ({sub_conf}%)")
+                log.info(f"   ✓ Uploaded as: {renamed}")
+                log.info(f"   ✓ Artifact UUID: {uuid}")
+
+                # Warn if server returned a UUID we've already seen (overwrite)
+                if uuid in self._uploaded_uuids:
+                    log.warning(f"   ⚠ DUPLICATE UUID detected! Server overwrote a previous upload.")
+                    log.warning(f"   ⚠ This file may have the same extracted reg+subject as another file.")
+                self._uploaded_uuids.add(uuid)
+
+                # Move to processed folder (include hash to distinguish files)
+                dest = self.processed_folder / f"{renamed}__{file_hash}__{file_path.name}"
                 shutil.move(str(file_path), str(dest))
                 log.info(f"   ✓ Moved to: processed/{dest.name}")
+                self._stats["processed"] += 1
                 return True
             else:
-                # Handle both {"error":...} and FastAPI {"detail":...} formats
                 error = data.get("error") or data.get("detail") or str(data)
                 stage = data.get("stage", "server")
                 log.error(f"   ✗ Failed at stage '{stage}': {error}")
 
-                # If extraction failed (can't read reg/subject), move to failed
+                # Move to failed folder
                 dest = self.failed_folder / file_path.name
+                if dest.exists():
+                    dest = self.failed_folder / f"{file_hash}__{file_path.name}"
                 shutil.move(str(file_path), str(dest))
-                log.warning(f"   Moved to: failed/{file_path.name}")
+                log.warning(f"   Moved to: failed/{dest.name}")
+                self._stats["failed"] += 1
                 return False
 
         except requests.exceptions.Timeout:
             log.error(f"   ✗ Request timed out (server may be starting up)")
+            if retry_count < MAX_RETRIES:
+                log.info(f"   Retrying ({retry_count + 1}/{MAX_RETRIES})...")
+                time.sleep(5)
+                return self.process_file(file_path, retry_count + 1)
+            self._stats["failed"] += 1
             return False
         except Exception as e:
             log.error(f"   ✗ Error: {e}")
+            self._stats["failed"] += 1
             return False
 
     def _is_file_stable(self, file_path: Path) -> bool:
@@ -192,8 +239,8 @@ class ScannerAgent:
         except OSError:
             return False
 
-    def scan_folder(self):
-        """Scan the watch folder for new files and process them."""
+    def _discover_new_files(self):
+        """Scan the watch folder and add new files to the queue."""
         if not self.watch_folder.exists():
             log.error(f"Watch folder does not exist: {self.watch_folder}")
             return
@@ -212,17 +259,40 @@ class ScannerAgent:
                 continue
 
             self._seen_files.add(str(entry))
-            self.process_file(entry)
+            self._queue.append(entry)
+            log.info(f"   ⊕ Queued: {entry.name}  (queue size: {len(self._queue)})")
+
+    def _process_queue(self):
+        """Process files from the queue ONE AT A TIME, sequentially."""
+        while self._queue:
+            file_path = self._queue.popleft()
+
+            # Skip if file was already moved/deleted
+            if not file_path.exists():
+                log.warning(f"   Skipping (file gone): {file_path.name}")
+                self._stats["skipped"] += 1
+                continue
+
+            # Process this file — block until complete
+            success = self.process_file(file_path)
+
+            # Wait before processing next file to let server DB commit
+            if self._queue:
+                remaining = len(self._queue)
+                log.info(f"   ⏳ Waiting {QUEUE_DELAY}s before next file... "
+                         f"({remaining} remaining in queue)")
+                time.sleep(QUEUE_DELAY)
 
     def run(self):
-        """Main loop — continuously watch folder and process new files."""
+        """Main loop — discover files and process them sequentially."""
         log.info("=" * 60)
-        log.info("  Scanner Agent — Smart Scan Pipeline")
+        log.info("  Scanner Agent — Sequential Queue Pipeline")
         log.info("=" * 60)
         log.info(f"  Server:       {self.server_url}")
         log.info(f"  Watch folder: {self.watch_folder}")
         log.info(f"  Exam type:    {self.exam_type}")
         log.info(f"  Poll every:   {POLL_INTERVAL}s")
+        log.info(f"  Queue delay:  {QUEUE_DELAY}s between files")
         log.info("=" * 60)
 
         # Pre-flight checks
@@ -235,14 +305,29 @@ class ScannerAgent:
                         "Will retry when first file is processed.")
 
         log.info(f"\nWatching '{self.watch_folder}' for new scanned files...")
+        log.info("Files will be uploaded ONE AT A TIME in sequence.")
         log.info("Press Ctrl+C to stop.\n")
 
         try:
             while True:
-                self.scan_folder()
+                # Step 1: Discover new files and add to queue
+                self._discover_new_files()
+
+                # Step 2: Process queue sequentially (blocks until empty)
+                if self._queue:
+                    log.info(f"── Queue has {len(self._queue)} file(s) — processing sequentially...")
+                    self._process_queue()
+                    log.info(f"── Queue empty. Stats: "
+                             f"✓ {self._stats['processed']} processed | "
+                             f"✗ {self._stats['failed']} failed | "
+                             f"⊘ {self._stats['skipped']} skipped")
+
                 time.sleep(POLL_INTERVAL)
         except KeyboardInterrupt:
-            log.info("\nStopped by user.")
+            log.info(f"\nStopped by user. Final stats: "
+                     f"✓ {self._stats['processed']} processed | "
+                     f"✗ {self._stats['failed']} failed | "
+                     f"⊘ {self._stats['skipped']} skipped")
 
 
 def main():
@@ -253,7 +338,12 @@ def main():
     parser.add_argument("--folder", default=WATCH_FOLDER, help=f"Scanner output folder (default: {WATCH_FOLDER})")
     parser.add_argument("--exam-type", default=DEFAULT_EXAM_TYPE, choices=["CIA1", "CIA2"],
                         help=f"Exam type (default: {DEFAULT_EXAM_TYPE})")
+    parser.add_argument("--delay", type=int, default=QUEUE_DELAY,
+                        help=f"Seconds between processing each file (default: {QUEUE_DELAY})")
     args = parser.parse_args()
+
+    global QUEUE_DELAY
+    QUEUE_DELAY = args.delay
 
     agent = ScannerAgent(
         server_url=args.server,

@@ -51,7 +51,8 @@ class ArtifactService:
         file_size_bytes: Optional[int] = None,
         mime_type: Optional[str] = None,
         uploaded_by_staff_id: Optional[int] = None,
-        file_content: Optional[bytes] = None
+        file_content: Optional[bytes] = None,
+        force_unique: bool = False,
     ) -> ExaminationArtifact:
         """
         Create a new examination artifact
@@ -68,17 +69,26 @@ class ArtifactService:
             mime_type: MIME type
             uploaded_by_staff_id: Staff user who uploaded
             file_content: Raw bytes of the file for persistent storage
+            force_unique: If True, include file_hash in transaction_id so
+                          physically different files always create separate
+                          artifacts even when ML extracts the same reg/subject.
+                          Used by the scan-upload pipeline.
             
         Returns:
             Created ExaminationArtifact
         """
         # Generate transaction ID for idempotency (include exam_type)
+        # When force_unique=True, also include the file_hash so each
+        # distinct physical file gets its own artifact row.
         transaction_id = None
         if parsed_reg_no and parsed_subject_code:
+            extra = f"{exam_type}_{datetime.utcnow().strftime('%Y%m')}"
+            if force_unique and file_hash:
+                extra = f"{extra}_{file_hash}"
             transaction_id = generate_transaction_id(
                 parsed_reg_no,
                 parsed_subject_code,
-                f"{exam_type}_{datetime.utcnow().strftime('%Y%m')}"
+                extra
             )
             
             # Check for existing artifact with same transaction ID

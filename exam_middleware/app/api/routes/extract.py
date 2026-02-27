@@ -228,6 +228,7 @@ async def scan_extract_and_upload(
             mime_type=metadata.get("mime_type", "application/pdf"),
             uploaded_by_staff_id=current_staff.id,
             file_content=content,
+            force_unique=True,  # Each scanned file must create its own artifact
         )
         
         # Mark as auto-processed (extracted and renamed via ML)
