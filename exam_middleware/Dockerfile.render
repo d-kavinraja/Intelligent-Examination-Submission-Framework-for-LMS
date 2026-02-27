@@ -52,12 +52,6 @@ RUN pip install --no-warn-script-location -r requirements.txt && \
     pip install --no-warn-script-location --force-reinstall opencv-python-headless && \
     ldconfig
 
-# BUILD-TIME SMOKE TEST — if cv2 cannot import, deploy FAILS here
-RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
-    python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
-    python -c "import torch; print('[OK] torch', torch.__version__)" && \
-    echo "=== All imports verified ==="
-
 # Copy application code and model weights
 COPY --chown=appuser:appuser . .
 COPY --chown=appuser:appuser models/ models/
@@ -66,8 +60,14 @@ COPY --chown=appuser:appuser models/ models/
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
 
-# Clean up build-only packages
-RUN apt-get purge -y gcc && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+# Clean up build-only packages (no autoremove — it strips required X11/xcb libs)
+RUN apt-get purge -y gcc && rm -rf /var/lib/apt/lists/* && ldconfig
+
+# BUILD-TIME SMOKE TEST — runs AFTER cleanup so it catches missing libs
+RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
+    python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
+    python -c "import torch; print('[OK] torch', torch.__version__)" && \
+    echo "=== All imports verified ==="
 
 USER appuser
 EXPOSE 8000
