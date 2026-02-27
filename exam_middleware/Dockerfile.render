@@ -1,16 +1,14 @@
-﻿# Production Dockerfile for Render — SINGLE STAGE (no multi-stage library mismatch)
+﻿# Production Dockerfile for Render
+# ML inference is offloaded to HuggingFace Spaces API
+# Local models are OPTIONAL for fallback only
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    QT_QPA_PLATFORM=offscreen \
-    OPENCV_IO_ENABLE_OPENEXR=0 \
-    DISPLAY="" \
-    XDG_RUNTIME_DIR=/tmp
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies including X11/xcb libs needed by OpenCV
+# Install minimal system dependencies (no heavy libs like torch/ultralytics)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -18,14 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     libmagic1 \
     curl \
-    poppler-utils \
-    libgl1 \
-    libglib2.0-0 \
-    libxcb1 \
-    libx11-6 \
-    libxext6 \
-    libsm6 \
-    libxrender1 \
     && rm -rf /var/lib/apt/lists/* \
     && ldconfig
 
@@ -35,35 +25,19 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /app
 
 # Install Python dependencies
-# CRITICAL: ultralytics depends on "opencv-python" (GUI) which needs libxcb/X11.
-# We MUST force headless-only. Steps:
-#   1. Install all deps from requirements.txt
-#   2. Nuke every opencv variant
-#   3. Re-install ONLY opencv-python-headless (no X11 needed)
+# Note: torch/ultralytics/opencv-* are OPTIONAL (commented out in requirements or marked as extras)
+# Remote extraction is primary; local is optional fallback
 COPY requirements.txt .
-RUN pip install --no-warn-script-location -r requirements.txt && \
-    pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null; true && \
-    pip install --no-warn-script-location --force-reinstall --no-deps opencv-python-headless && \
-    ldconfig
+RUN pip install --no-warn-script-location -r requirements.txt
 
-# Copy application code and model weights
+# Copy application code (NO models directory)
 COPY --chown=appuser:appuser . .
-COPY --chown=appuser:appuser models/ models/
 
-# Create necessary directories
+# Do NOT copy models/ directory — inference happens on HF Spaces
+
+# Create necessary directories (but NOT models/)
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
-
-# Clean up build-only packages (NO autoremove — it can strip required libs)
-RUN apt-get update && apt-get purge -y gcc && apt-get -y --purge autoremove gcc && \
-    rm -rf /var/lib/apt/lists/* && ldconfig
-
-# BUILD-TIME SMOKE TEST — runs AFTER cleanup to catch missing libs at build time
-RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
-    python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
-    python -c "import torch; print('[OK] torch', torch.__version__)" && \
-    python -c "from pdf2image import convert_from_path; print('[OK] pdf2image')" && \
-    echo "=== All imports verified ==="
 
 USER appuser
 EXPOSE 8000

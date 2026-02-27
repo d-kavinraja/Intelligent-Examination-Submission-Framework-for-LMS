@@ -61,16 +61,17 @@ pillow
 pypdf
 
 # ==============================
-# ML / Extraction (YOLO + CRNN)
+# ML / Extraction (OPTIONAL - Local fallback only)
+# Primary inference via HF Spaces API (HF_SPACE_URL env var)
+# Uncomment below to enable local extraction as fallback
 # ==============================
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
-# Install headless OpenCV FIRST so ultralytics uses it instead of full opencv-python
-opencv-python-headless
-ultralytics
-pdf2image
-numpy
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# torch
+# torchvision
+# opencv-python-headless
+# ultralytics
+# pdf2image
+# numpy
 
 # ==============================
 # Logging and Monitoring

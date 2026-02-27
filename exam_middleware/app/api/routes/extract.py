@@ -22,37 +22,36 @@ router = APIRouter()
 
 @router.get("/status")
 async def extraction_status():
-    """Check whether the extraction models are available."""
-    from pathlib import Path
-    models_dir = Path(__file__).resolve().parent.parent.parent.parent / "models"
-    model_files = {}
-    if models_dir.exists():
-        model_files = {f.name: f.stat().st_size for f in models_dir.iterdir() if f.is_file()}
-
+    """Check whether the extraction models are available (local or remote)."""
     try:
-        from app.services.extraction_service import is_extraction_available
+        from app.services.remote_extraction_service import get_extractor_mode, is_extraction_available, HF_SPACE_URL
+
+        mode = get_extractor_mode()
         available = is_extraction_available()
-    except ImportError as e:
-        return {
-            "extraction_available": False,
-            "error": f"Import error: {e}",
-            "models_directory": str(models_dir),
-            "models_dir_exists": models_dir.exists(),
-            "model_files": model_files,
-        }
+
+        if mode == "remote":
+            return {
+                "extraction_available": available,
+                "mode": "remote",
+                "hf_space_url": HF_SPACE_URL,
+            }
+        else:
+            # Local mode — provide model file info
+            from pathlib import Path
+            models_dir = Path(__file__).resolve().parent.parent.parent.parent / "models"
+            model_files = {}
+            if models_dir.exists():
+                model_files = {f.name: f.stat().st_size for f in models_dir.iterdir() if f.is_file()}
+
+            return {
+                "extraction_available": available,
+                "mode": "local",
+                "models_directory": str(models_dir),
+                "models_dir_exists": models_dir.exists(),
+                "model_files": model_files,
+            }
     except Exception as e:
-        return {
-            "extraction_available": False,
-            "error": str(e),
-            "models_directory": str(models_dir),
-            "model_files": model_files,
-        }
-    return {
-        "extraction_available": available,
-        "models_directory": str(models_dir),
-        "models_dir_exists": models_dir.exists(),
-        "model_files": model_files,
-    }
+        return {"extraction_available": False, "error": str(e), "mode": "unknown"}
 
 
 @router.post("/extract")
@@ -60,6 +59,7 @@ async def extract_from_upload(file: UploadFile = File(...)):
     """
     Upload a scanned answer sheet (PDF, JPG, PNG) and get back the
     extracted register number and subject code.
+    Uses HuggingFace Spaces API if configured, falls back to local extraction.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
@@ -73,37 +73,51 @@ async def extract_from_upload(file: UploadFile = File(...)):
         )
 
     try:
-        from app.services.extraction_service import is_extraction_available, get_extractor
+        from app.services.remote_extraction_service import is_extraction_available, extract_from_bytes_with_fallback
 
         if not is_extraction_available():
             raise HTTPException(
                 status_code=503,
-                detail="Extraction models not available on this server. "
-                       "Ensure model weight files are present in the models/ directory.",
+                detail="Extraction service not available. "
+                       "Configure HF_SPACE_URL environment variable or ensure local models exist.",
             )
 
         data = await file.read()
         if len(data) > 50 * 1024 * 1024:  # 50 MB limit
             raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
 
-        extractor = get_extractor()
-        result = extractor.extract_from_bytes(data, file.filename)
+        result = await extract_from_bytes_with_fallback(data, file.filename)
 
-        if "error" in result:
+        if not result.get("success"):
             return JSONResponse(
                 status_code=422,
-                content={"success": False, "error": result["error"]},
+                content={"success": False, "error": result.get("error", "Extraction failed")},
             )
+
+        # Handle both local and remote response formats
+        register_number = result.get("register_number", "")
+        subject_code = result.get("subject_code", "")
+        register_confidence = result.get("register_confidence", 0.0)
+        subject_confidence = result.get("subject_confidence", 0.0)
+        
+        # Remote API might return different confidence structure
+        if "register_candidates" in result and result["register_candidates"]:
+            register_confidence = result["register_candidates"][0].get("confidence", 0.0)
+        if "subject_candidates" in result and result["subject_candidates"]:
+            subject_confidence = result["subject_candidates"][0].get("confidence", 0.0)
 
         return JSONResponse(content={
             "success": True,
-            "register_number": result["register_number"],
-            "register_confidence": result["register_confidence"],
-            "subject_code": result["subject_code"],
-            "subject_confidence": result["subject_confidence"],
-            "regions_found": result["regions_found"],
-            "suggested_filename": f"{result['register_number']}_{result['subject_code']}.pdf"
-            if result["register_number"] and result["subject_code"] else None,
+            "register_number": register_number,
+            "register_confidence": register_confidence,
+            "subject_code": subject_code,
+            "subject_confidence": subject_confidence,
+            "regions_found": {
+                "register": len(result.get("register_candidates", [])),
+                "subject": len(result.get("subject_candidates", [])),
+            },
+            "suggested_filename": f"{register_number}_{subject_code}.pdf"
+            if register_number and subject_code else None,
         })
 
     except HTTPException:
@@ -138,7 +152,7 @@ async def scan_extract_and_upload(
         raise HTTPException(status_code=400, detail=f"Unsupported file type '{raw_ext}'")
 
     try:
-        from app.services.extraction_service import is_extraction_available, get_extractor
+        from app.services.remote_extraction_service import is_extraction_available, extract_from_bytes_with_fallback
 
         if not is_extraction_available():
             raise HTTPException(status_code=503, detail="Extraction models not available on server")
@@ -148,20 +162,19 @@ async def scan_extract_and_upload(
         if len(content) > 50 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
 
-        # ---- 2. Run AI extraction -------------------------------------------
-        extractor = get_extractor()
-        result = extractor.extract_from_bytes(content, file.filename)
+        # ---- 2. Run AI extraction (remote or local fallback) ----------------
+        result = await extract_from_bytes_with_fallback(content, file.filename)
 
-        if "error" in result:
+        if not result.get("success"):
             return JSONResponse(status_code=422, content={
                 "success": False,
                 "stage": "extraction",
-                "error": result["error"],
+                "error": result.get("error", "Extraction failed"),
                 "original_filename": file.filename,
             })
 
-        reg_no = result["register_number"]
-        sub_code = result["subject_code"]
+        reg_no = result.get("register_number", "")
+        sub_code = result.get("subject_code", "")
 
         if not reg_no or not sub_code:
             return JSONResponse(status_code=422, content={
