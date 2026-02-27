@@ -99,6 +99,18 @@ async def lifespan(app: FastAPI):
                 # Create index for fast filtering
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_examination_artifacts_auto_processed ON examination_artifacts(auto_processed) WHERE auto_processed = true"))
 
+            # Migrate FK constraints to CASCADE on delete (for hard-delete support)
+            try:
+                # audit_logs.artifact_id FK
+                await conn.execute(text("ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_artifact_id_fkey"))
+                await conn.execute(text("ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_artifact_id_fkey FOREIGN KEY (artifact_id) REFERENCES examination_artifacts(id) ON DELETE CASCADE"))
+                # submission_queue.artifact_id FK
+                await conn.execute(text("ALTER TABLE submission_queue DROP CONSTRAINT IF EXISTS submission_queue_artifact_id_fkey"))
+                await conn.execute(text("ALTER TABLE submission_queue ADD CONSTRAINT submission_queue_artifact_id_fkey FOREIGN KEY (artifact_id) REFERENCES examination_artifacts(id) ON DELETE CASCADE"))
+                logger.info("FK constraints updated to CASCADE on delete")
+            except Exception as fke:
+                logger.debug(f"FK CASCADE migration skipped or already done: {fke}")
+
             # 2. Handle subject_mappings table
             # Check for exam_type
             res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='subject_mappings' AND column_name='exam_type'"))

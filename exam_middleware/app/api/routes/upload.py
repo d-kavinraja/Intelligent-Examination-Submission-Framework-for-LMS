@@ -459,22 +459,19 @@ async def validate_mappings(
 async def get_all_uploads(
     limit: int = 50,
     offset: int = 0,
-    include_deleted: bool = Query(default=False, description="Include artifacts marked as DELETED"),
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Get list of all uploaded files (staff view)
+    Get list of all uploaded files (staff view).
+    Deleted artifacts are hard-deleted and won't appear here.
     """
     artifact_service = ArtifactService(db)
     artifacts, total = await artifact_service.get_all_artifacts(limit=limit, offset=offset)
     audit_service = AuditService(db)
-    
-    # Filter out DELETED artifacts by default
-    filtered = [a for a in artifacts if not (a.workflow_status == WorkflowStatus.DELETED and not include_deleted)]
 
     artifacts_list = []
-    for a in filtered:
+    for a in artifacts:
         logs = await audit_service.get_for_artifact(a.id)
         deleted_targets = {str(l.target_id) for l in logs if l.action == 'report_deleted'}
         resolved_targets = {str(l.target_id) for l in logs if l.action == 'report_resolved'}

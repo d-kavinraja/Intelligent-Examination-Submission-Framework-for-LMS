@@ -6,8 +6,7 @@ Administrative functions for system management
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy import text
+from sqlalchemy import select, delete, text
 from typing import Optional
 from sqlalchemy.exc import IntegrityError
 import logging
@@ -813,6 +812,65 @@ async def edit_artifact_metadata(
 
 
 
+@router.delete("/artifacts/purge-all")
+async def purge_all_artifacts(
+    confirm: str = Query(..., description="Must be 'yes' to confirm"),
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Permanently delete ALL artifacts, related audit logs, submission queue entries,
+    and physical files. Also resets the auto-increment ID sequence to 1.
+    Requires confirm='yes' query parameter.
+    """
+    import shutil
+    from app.db.models import AuditLog, SubmissionQueue
+
+    if confirm.lower() != "yes":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pass ?confirm=yes to confirm purge of all artifacts"
+        )
+
+    # Count before purge
+    count_result = await db.execute(
+        select(ExaminationArtifact.id)
+    )
+    total = len(count_result.scalars().all())
+
+    # Delete all related rows
+    await db.execute(delete(AuditLog))
+    await db.execute(delete(SubmissionQueue))
+    await db.execute(delete(ExaminationArtifact))
+    await db.commit()
+
+    # Reset the auto-increment sequences
+    try:
+        await db.execute(text("ALTER SEQUENCE examination_artifacts_id_seq RESTART WITH 1"))
+        await db.execute(text("ALTER SEQUENCE audit_logs_id_seq RESTART WITH 1"))
+        await db.execute(text("ALTER SEQUENCE submission_queue_id_seq RESTART WITH 1"))
+        await db.commit()
+        logger.info("Reset ID sequences to 1")
+    except Exception as e:
+        logger.warning("Could not reset sequences: %s", e)
+
+    # Clean up physical upload directories
+    for folder in ["uploads/processed", "uploads/pending", "uploads/failed", "uploads/temp"]:
+        try:
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                os.makedirs(folder, exist_ok=True)
+                logger.info("Cleared upload folder: %s", folder)
+        except Exception as e:
+            logger.warning("Could not clear folder %s: %s", folder, e)
+
+    logger.info("Staff %s purged all %d artifacts", current_staff.username, total)
+    return {
+        "message": f"All {total} artifacts permanently deleted and IDs reset to 1",
+        "deleted_count": total
+    }
+
+
 @router.delete("/artifacts/{artifact_uuid}")
 async def delete_artifact(
     artifact_uuid: str,
@@ -821,18 +879,20 @@ async def delete_artifact(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Delete an artifact: remove physical file (if present) and mark artifact as failed/removed.
-    This keeps an audit trail while removing it from student/staff listings.
+    Hard-delete an artifact: remove physical file and permanently delete the DB row
+    along with all related audit logs and submission queue entries (CASCADE).
     """
     import os
-    from app.db.models import WorkflowStatus
+    from app.db.models import AuditLog, SubmissionQueue
 
     artifact_service = ArtifactService(db)
-    audit_service = AuditService(db)
 
     artifact = await artifact_service.get_by_uuid(artifact_uuid)
     if not artifact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    artifact_id = artifact.id
+    artifact_filename = artifact.original_filename or artifact.raw_filename or str(artifact_uuid)
 
     # Attempt to delete physical file
     try:
@@ -841,43 +901,31 @@ async def delete_artifact(
             if os.path.exists(path):
                 try:
                     os.remove(path)
-                except Exception:
-                    # Log but continue to allow DB update
-                    pass
+                    logger.info("Deleted physical file: %s", path)
+                except Exception as e:
+                    logger.warning("Could not delete physical file %s: %s", path, e)
     except Exception:
         pass
 
-    # Ensure the DB enum contains the DELETED value (Postgres enum types must be altered)
-    # Try to set the workflow status to DELETED. If the DB enum doesn't support it
-    # (e.g. the enum type wasn't migrated), fall back to annotating the artifact
-    # error_message and leaving the status unchanged so we don't run DDL here.
+    # Delete related rows first (in case CASCADE isn't set up at DB level yet)
     try:
-        artifact.workflow_status = WorkflowStatus.DELETED
-        artifact.error_message = f"Deleted by staff {current_staff.username}" + (f": {reason}" if reason else "")
-        artifact.add_log_entry("admin_delete", {"deleted_by": current_staff.username, "reason": reason})
-        await db.flush()
+        await db.execute(
+            delete(AuditLog).where(AuditLog.artifact_id == artifact_id)
+        )
+        await db.execute(
+            delete(SubmissionQueue).where(SubmissionQueue.artifact_id == artifact_id)
+        )
     except Exception as e:
-        logger.debug("Could not assign WorkflowStatus.DELETED (possibly DB enum missing): %s", e)
-        artifact.error_message = (artifact.error_message or "") + f"; Deleted by staff {current_staff.username}" + (f": {reason}" if reason else "")
-        artifact.add_log_entry("admin_delete", {"deleted_by": current_staff.username, "reason": reason, "note": "enum assignment failed"})
-        # Do not attempt DDL here; leave status as-is and continue
+        logger.warning("Error cleaning up related rows for artifact %s: %s", artifact_id, e)
 
+    # Hard-delete the artifact row
+    await db.delete(artifact)
     await db.commit()
 
-    # Log audit entry
-    await audit_service.log_action(
-        action="admin_delete",
-        action_category="admin",
-        actor_type="staff",
-        actor_id=str(current_staff.id),
-        actor_username=current_staff.username,
-        artifact_id=artifact.id,
-        description=f"Artifact deleted by staff: {current_staff.username}",
-        request_data={"reason": reason}
-    )
-    await db.commit()
+    logger.info("Hard-deleted artifact id=%s uuid=%s by staff=%s reason=%s",
+                artifact_id, artifact_uuid, current_staff.username, reason)
 
-    return {"message": "Artifact removed"}
+    return {"message": f"Artifact '{artifact_filename}' permanently deleted"}
 
 
 @router.post("/artifacts/{artifact_uuid}/reports/{report_id}/resolve")

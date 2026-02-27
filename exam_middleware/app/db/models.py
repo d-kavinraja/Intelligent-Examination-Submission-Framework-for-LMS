@@ -107,7 +107,7 @@ class ExaminationArtifact(Base):
     retry_count = Column(Integer, default=0)
     
     # Relationships
-    audit_logs = relationship("AuditLog", back_populates="artifact")
+    audit_logs = relationship("AuditLog", back_populates="artifact", cascade="all, delete-orphan", passive_deletes=True)
     
     # Indexes for performance
     __table_args__ = (
@@ -254,7 +254,7 @@ class AuditLog(Base):
     actor_ip = Column(String(45), nullable=True)
     
     # Target
-    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id"), nullable=True)
+    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="CASCADE"), nullable=True)
     target_type = Column(String(50), nullable=True)
     target_id = Column(String(100), nullable=True)
     
@@ -290,7 +290,7 @@ class SubmissionQueue(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Reference to artifact
-    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id"), nullable=False)
+    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="CASCADE"), nullable=False)
     
     # Queue State
     status = Column(String(20), default="QUEUED")  # QUEUED, PROCESSING, COMPLETED, FAILED

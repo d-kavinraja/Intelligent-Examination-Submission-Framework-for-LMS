@@ -959,6 +959,10 @@
                             <i class="bi bi-arrow-clockwise me-1"></i>
                             Refresh
                         </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="purgeAllArtifacts()">
+                            <i class="bi bi-trash me-1"></i>
+                            Purge All
+                        </button>
                     </div>
                 </div>
                 <div class="card-body p-4">
@@ -1630,17 +1634,8 @@
                     total = data.total || data.results.length;
                 }
 
-                // Compute visible artifacts (exclude items marked deleted by staff)
-                let visibleArtifacts = [];
-                if (Array.isArray(artifacts)) {
-                    visibleArtifacts = artifacts.filter(a => {
-                        const err = (a.error_message || a.error || a.errorMessage || '').toString();
-                        if (err && err.includes('Deleted by staff')) return false;
-                        const ws = (a.workflow_status || a.status || '').toString().toLowerCase();
-                        if (ws === 'deleted') return false;
-                        return true;
-                    });
-                }
+                // Artifacts are already filtered server-side (hard-deleted rows don't exist)
+                let visibleArtifacts = Array.isArray(artifacts) ? artifacts : [];
 
                 // Update server uploaded count and refresh stats using visible artifacts
                 serverUploadedCount = (visibleArtifacts && visibleArtifacts.length) || total || (artifacts ? artifacts.length : 0);
@@ -1731,14 +1726,7 @@
                 return;
             }
 
-            let filtered = pendingArtifacts.filter(a => {
-                // Hide artifacts that were explicitly deleted by staff
-                const err = (a.error_message || a.error || a.errorMessage || '').toString();
-                if (err && err.includes('Deleted by staff')) return false;
-                const ws = (a.workflow_status || a.status || '').toString().toLowerCase();
-                if (ws === 'deleted') return false;
-                return true;
-            });
+            let filtered = pendingArtifacts.slice(); // All artifacts (deleted rows are hard-deleted from DB)
 
             // Apply CIA Filter
             if (pendingFilter !== 'all') {
@@ -2932,7 +2920,7 @@
         }
 
         async function deleteArtifact(artifactUuid, artifactId) {
-            if (!(await showConfirm('Delete this artifact? This will remove it from student and staff listings.', 'Delete Artifact'))) return;
+            if (!(await showConfirm('Permanently delete this artifact? This will remove the file and all related data from the database. This action cannot be undone.', 'Delete Artifact'))) return;
             try {
                 const res = await fetch(`/admin/artifacts/${encodeURIComponent(artifactUuid)}`, {
                     method: 'DELETE',
@@ -2942,7 +2930,7 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    showToast(data.message || 'Artifact removed', 'success');
+                    showToast(data.message || 'Artifact permanently deleted', 'success');
                     loadPendingFiles();
                 } else {
                     showToast(data.detail || data.message || 'Failed to delete artifact', 'danger');
@@ -2950,6 +2938,30 @@
             } catch (err) {
                 console.error(err);
                 showToast('Error deleting artifact', 'danger');
+            }
+        }
+
+        async function purgeAllArtifacts() {
+            if (!(await showConfirm('⚠️ DANGER: This will permanently delete ALL artifacts, files, and audit logs, and reset IDs to 1. This action cannot be undone. Are you sure?', 'Purge All Artifacts'))) return;
+            // Double confirmation
+            if (!(await showConfirm('This is your FINAL confirmation. All data will be permanently lost. Continue?', 'Final Confirmation'))) return;
+            try {
+                const res = await fetch('/admin/artifacts/purge-all?confirm=yes', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'All artifacts purged', 'success');
+                    loadPendingFiles();
+                } else {
+                    showToast(data.detail || data.message || 'Failed to purge artifacts', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error purging artifacts', 'danger');
             }
         }
 
