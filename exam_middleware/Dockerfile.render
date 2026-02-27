@@ -1,52 +1,19 @@
-# Production Dockerfile for Render Deployment
-FROM python:3.11-slim AS builder
+﻿# Production Dockerfile for Render — SINGLE STAGE (no multi-stage library mismatch)
+FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    QT_QPA_PLATFORM=offscreen \
+    OPENCV_IO_ENABLE_OPENEXR=0 \
+    DISPLAY="" \
+    XDG_RUNTIME_DIR=/tmp
 
-# Install build dependencies (includes all X11/xcb libs so pip wheels can link)
+# Install ALL system dependencies in one layer, then refresh linker cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
-    libgl1 \
-    libglib2.0-0 \
-    libxcb1 \
-    libx11-6 \
-    libxext6 \
-    libxrender1 \
-    libsm6 \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --user --no-warn-script-location -r requirements.txt && \
-    # ultralytics pulls in opencv-python (full), which needs X11/libxcb.
-    # Force-replace it with headless version AFTER all deps are installed.
-    pip install --user --no-warn-script-location --force-reinstall --no-deps opencv-python-headless && \
-    # Remove the full opencv-python metadata so nothing re-pulls it
-    rm -rf /root/.local/lib/python3.11/site-packages/opencv_python-*.dist-info 2>/dev/null || true
-
-# ---- Smoke test: fail the build if cv2/ultralytics can't import ----
-ENV PATH=/root/.local/bin:$PATH \
-    QT_QPA_PLATFORM=offscreen
-RUN python -c "import cv2; print('cv2 OK:', cv2.__version__)" && \
-    python -c "from ultralytics import YOLO; print('ultralytics OK')"
-
-# =====================================================================
-# Final stage
-# =====================================================================
-FROM python:3.11-slim
-
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Install ALL runtime libraries opencv-python-headless + ultralytics need
-RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libpq5 \
     libmagic1 \
@@ -67,50 +34,45 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
-    libatk1.0-0 \
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
+    libxkbcommon0 \
     libfontconfig1 \
     libfreetype6 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /home/appuser/.local
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-warn-script-location -r requirements.txt && \
+    pip uninstall -y opencv-python 2>/dev/null; \
+    pip install --no-warn-script-location --force-reinstall opencv-python-headless && \
+    ldconfig
 
-# Copy application code
+# BUILD-TIME SMOKE TEST — if cv2 cannot import, deploy FAILS here
+RUN python -c "import cv2; print('[OK] cv2', cv2.__version__)" && \
+    python -c "from ultralytics import YOLO; print('[OK] ultralytics')" && \
+    python -c "import torch; print('[OK] torch', torch.__version__)" && \
+    echo "=== All imports verified ==="
+
+# Copy application code and model weights
 COPY --chown=appuser:appuser . .
-
-# Copy model weights
 COPY --chown=appuser:appuser models/ models/
 
-# Create necessary directories with proper permissions
+# Create necessary directories
 RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
 
-# Set PATH and headless display environment
-ENV PATH=/home/appuser/.local/bin:$PATH \
-    QT_QPA_PLATFORM=offscreen \
-    OPENCV_IO_ENABLE_OPENEXR=0 \
-    DISPLAY="" \
-    XDG_RUNTIME_DIR=/tmp
+# Clean up build-only packages
+RUN apt-get purge -y gcc && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
-# ---- Smoke test in runtime stage: catches missing shared libs early ----
-RUN python -c "import cv2; print('Runtime cv2 OK:', cv2.__version__)" && \
-    python -c "from ultralytics import YOLO; print('Runtime ultralytics OK')"
-
-# Switch to non-root user
 USER appuser
-
-# Render dynamically assigns PORT - expose for documentation
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
-# Use shell form so $PORT is expanded at runtime
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
