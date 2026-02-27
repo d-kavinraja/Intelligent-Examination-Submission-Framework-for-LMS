@@ -309,6 +309,14 @@ app.include_router(
     tags=["Administration"],
 )
 
+# Extraction (OCR) router
+from app.api.routes.extract import router as extract_router
+app.include_router(
+    extract_router,
+    prefix="/extract",
+    tags=["Extraction"],
+)
+
 
 # Root endpoint
 @app.get("/", tags=["Root"])

@@ -61,6 +61,17 @@ pillow
 pypdf
 
 # ==============================
+# ML / Extraction (YOLO + CRNN)
+# ==============================
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+ultralytics
+opencv-python-headless
+pdf2image
+numpy
+
+# ==============================
 # Logging and Monitoring
 # ==============================
 structlog

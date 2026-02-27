@@ -11,6 +11,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,6 +33,9 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     libmagic1 \
     curl \
+    poppler-utils \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -40,6 +45,9 @@ COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application code
 COPY --chown=appuser:appuser . .
+
+# Copy model weights
+COPY --chown=appuser:appuser models/ models/
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads storage migrations logs && \
