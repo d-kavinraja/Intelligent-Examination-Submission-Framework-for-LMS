@@ -28,15 +28,15 @@ class FileProcessor:
     
     # Regex patterns for filename parsing
     # Pattern: REGISTER_NUMBER_SUBJECT_CODE.pdf
-    # Example: 212223240065_19AI405.pdf
+    # Examples: 212223240065_19AI405.pdf, 212223240065_AI405.pdf, 212223240065_CS501.pdf
     FILENAME_PATTERN = re.compile(
         r'^(\d{12})_([A-Z0-9]{2,10})\.(pdf|jpg|jpeg|png)$',
         re.IGNORECASE
     )
     
-    # More flexible pattern for variations
+    # More flexible pattern for variations - accepts digits/letters in any order
     FLEXIBLE_PATTERN = re.compile(
-        r'(\d{10,12})[_\-\s]?([A-Z]{2,3}[\d]{2,4}[A-Z]?\d*)',
+        r'(\d{10,12})[_\-\s]?([A-Z0-9]{2,10})',
         re.IGNORECASE
     )
     
