@@ -66,8 +66,9 @@ pypdf
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
+# Install headless OpenCV FIRST so ultralytics uses it instead of full opencv-python
+opencv-python-headless
 ultralytics
-# opencv-python-headless  # removed - replaced with PIL+numpy to avoid libxcb dependency
 pdf2image
 numpy
 

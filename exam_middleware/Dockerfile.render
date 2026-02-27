@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libgl1 \
     libglib2.0-0 \
+    libxcb1 \
+    libx11-6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -58,7 +60,11 @@ RUN mkdir -p uploads storage migrations logs && \
     chown -R appuser:appuser /app
 
 # Set PATH to include user packages
-ENV PATH=/home/appuser/.local/bin:$PATH
+# QT_QPA_PLATFORM=offscreen tells OpenCV/Qt to use a virtual display (no X11 needed)
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    QT_QPA_PLATFORM=offscreen \
+    OPENCV_IO_ENABLE_OPENEXR=0 \
+    DISPLAY=""
 
 # Switch to non-root user
 USER appuser
