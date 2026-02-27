@@ -331,6 +331,7 @@ class ScannerAgent:
 
 
 def main():
+    global QUEUE_DELAY
     parser = argparse.ArgumentParser(description="Scanner Agent — auto-upload scanned answer sheets")
     parser.add_argument("--server", default=SERVER_URL, help=f"Server URL (default: {SERVER_URL})")
     parser.add_argument("--username", default=STAFF_USERNAME, help=f"Staff username (default: {STAFF_USERNAME})")
@@ -342,7 +343,6 @@ def main():
                         help=f"Seconds between processing each file (default: {QUEUE_DELAY})")
     args = parser.parse_args()
 
-    global QUEUE_DELAY
     QUEUE_DELAY = args.delay
 
     agent = ScannerAgent(
