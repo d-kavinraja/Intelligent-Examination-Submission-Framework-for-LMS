@@ -211,8 +211,12 @@ async def upload_bulk_files(
         # Read file content
         content = await file.read()
         
-        # Validate file
-        is_valid, message, metadata = file_processor.validate_file(content, file.filename)
+        # Validate file (skip filename validation - allow ANY format)
+        # Files will be extracted and renamed if extraction is available
+        file_processor = get_file_processor()
+        is_valid, message, metadata = file_processor.validate_file(
+            content, file.filename, skip_filename_validation=True
+        )
         
         if not is_valid:
             results.append(FileUploadResponse(
@@ -537,6 +541,49 @@ async def get_pending_uploads(
         "offset": offset,
         "artifacts": artifacts_list
     }
+
+
+@router.get("/auto-processed")
+async def get_auto_processed_uploads(
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Get all auto-processed uploads (extracted and renamed via ML models)
+    
+    These are files uploaded via /scan-upload that were automatically
+    renamed to REGISTER_SUBJECT format based on ML extraction.
+    """
+    try:
+        stmt = select(ExaminationArtifact).where(
+            ExaminationArtifact.auto_processed == True
+        ).order_by(ExaminationArtifact.uploaded_at.desc())
+        
+        result = await db.execute(stmt)
+        artifacts = result.scalars().all()
+        
+        return {
+            "success": True,
+            "count": len(artifacts),
+            "auto_processed": [
+                {
+                    "id": art.id,
+                    "artifact_uuid": str(art.artifact_uuid),
+                    "original_filename": art.original_filename,
+                    "raw_filename": art.raw_filename,
+                    "parsed_reg_no": art.parsed_reg_no,
+                    "parsed_subject_code": art.parsed_subject_code,
+                    "exam_type": art.exam_type,
+                    "workflow_status": art.workflow_status.value,
+                    "uploaded_at": art.uploaded_at.isoformat() if art.uploaded_at else None,
+                    "file_size_bytes": art.file_size_bytes,
+                }
+                for art in artifacts
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching auto-processed uploads: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch auto-processed uploads")
 
 
 @router.get("/stats")
