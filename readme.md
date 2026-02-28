@@ -1,6 +1,6 @@
 <div align="center">
 
-# Smart Answer Sheet Processor for LMS
+# Intelligent Examination Submission Framework for LMS
 
 ### Examination Middleware (LMS-SAE Bridge)
 
@@ -16,9 +16,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"/>
-  <img src="https://img.shields.io/badge/Redis-Supported-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis"/>
-  <img src="https://img.shields.io/badge/Celery-Background_Tasks-37814A?style=for-the-badge&logo=celery&logoColor=white" alt="Celery"/>
+  <img src="https://img.shields.io/badge/Render-Deployed-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Render"/>
+  <img src="https://img.shields.io/badge/HuggingFace-ML_Inference-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black" alt="HuggingFace"/>
   <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License"/>
 </p>
 
@@ -45,7 +44,7 @@
 - [Database Schema](#database-schema)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Docker Deployment](#docker-deployment)
+- [Render Deployment](#render-deployment)
 - [Access Points](#access-points)
 - [File Naming Convention](#file-naming-convention)
 - [Authentication](#authentication)
@@ -55,7 +54,6 @@
 - [Testing](#testing)
 - [Workflow](#workflow)
 - [Security Features](#security-features)
-- [Background Tasks](#background-tasks)
 - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
 - [Recent Updates](#recent-updates)
@@ -73,8 +71,10 @@
 ### Core Capabilities
 - **Bulk Upload** - Staff can upload hundreds of scanned papers at once
 - **Smart Parsing** - Auto-extracts Register Number & Subject Code from filenames
+- **AI Extraction** - YOLO + CRNN models extract metadata from scanned answer sheets via HuggingFace Spaces
 - **Student Portal** - Students verify and submit their own papers
 - **Moodle Integration** - Direct submission to assignment modules
+- **Real-time Dashboard** - Auto-refreshing stats, reports, and file listings
 - **Audit Trail** - Complete chain of custody logging
 
 </td>
@@ -82,10 +82,11 @@
 
 ### Security & Reliability
 - **JWT Authentication** - Secure staff access
-- **AES-256 Encryption** - Protected Moodle token storage
+- **AES-256 Encryption** - Protected Moodle token storage (Fernet)
 - **Idempotent Operations** - Safe re-uploads with transaction IDs
-- **Submission Queue** - Handles Moodle downtime gracefully
+- **Database-Backed Storage** - Self-healing file persistence for cloud deployments
 - **File Validation** - Hash verification & format checks
+- **Email Notifications** - SendGrid/SMTP upload alerts to students
 
 </td>
 </tr>
@@ -133,7 +134,8 @@ The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
 <summary><b>Phase 1: Administration & Setup</b></summary>
 
 1. **Mapping Configuration** - Admin maps Subject Codes to Moodle Assignment IDs
-2. **Scanning** - Exam cell scans papers using naming convention: `{RegisterNo}_{SubjectCode}.pdf`
+2. **Student Mapping** - Admin maps Moodle usernames to Register Numbers
+3. **Scanning** - Exam cell scans papers using naming convention: `{RegisterNo}_{SubjectCode}.pdf`
 
 </details>
 
@@ -143,6 +145,7 @@ The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
 1. **Login** - Staff authenticates via JWT
 2. **Bulk Upload** - Drag and drop folders of scanned files
 3. **Validation** - System validates filenames, hashes files, stores as `PENDING`
+4. **Smart Scan** - Optional AI-powered auto-extraction via Scanner Agent
 
 </details>
 
@@ -165,13 +168,13 @@ The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
 graph TB
     subgraph "Input Layer"
         A[Physical Scans] -->|Bulk Upload| B[Staff Portal]
+        S[Scanner Agent] -->|Auto Upload| B
     end
     
     subgraph "Processing Layer"
         B -->|Parse & Validate| C[PostgreSQL]
         C -->|DB Fallback| K((File Persistence))
-        C -->|Queue Failed| D[Submission Queue]
-        E[Celery Workers] -->|Retry| D
+        H2[HF Spaces] -->|AI Extraction| B
     end
     
     subgraph "Output Layer"
@@ -197,10 +200,10 @@ graph TB
 | **Web Framework** | FastAPI 0.104+ | Async REST API with auto-docs |
 | **Database** | PostgreSQL 14+ | Persistent storage with JSONB |
 | **Async ORM** | SQLAlchemy 2.0 | Async database operations |
-| **Cache/Queue** | Redis 7+ | Session cache & task queue |
-| **Task Queue** | Celery + Flower | Background job processing |
-| **Containerization** | Docker + Compose | Production deployment |
+| **ML Inference** | HuggingFace Spaces | Remote YOLO + CRNN extraction |
+| **Deployment** | Render.com | Cloud hosting (free tier) |
 | **Security** | bcrypt + Fernet | Password hashing & encryption |
+| **Email** | SendGrid / SMTP | Upload notification emails |
 
 ---
 
@@ -262,7 +265,7 @@ erDiagram
 </details>
 
 <details>
-<summary><b>View Detailed Schema (information_schema.columns)</b></summary>
+<summary><b>View Detailed Schema</b></summary>
 
 ```sql
 -- examination_artifacts
@@ -299,14 +302,10 @@ retry_count            | integer                  | DEFAULT 0
 
 ### Database Initialization
 
-When you run `python init_db.py`, it executes SQLAlchemy's `Base.metadata.create_all()` which creates the database tables defined in `app/db/models.py`. On PostgreSQL, the necessary sequences for integer primary keys are created automatically.
-
-The `init_db.py` script seeds minimal configuration:
+When you run `python init_db.py`, it creates all database tables and seeds minimal configuration:
 - Default admin user (username: `admin`, password: `admin123`)
 - Subject mappings (configurable)
 - System config settings
-
-**Optional Sample Data**: If you run with the `--seed-samples` flag, it will also add a sample artifact and `report_issue` audit log useful for local testing.
 
 ```bash
 # Basic initialization
@@ -315,36 +314,6 @@ python init_db.py
 # With sample data for testing
 python init_db.py --seed-samples
 ```
-
-**Tables and Sequences Created**:
-
-Below is the full list of tables and sequences that should be present after running `init_db.py`:
-
-```
-public | audit_logs                       | table    | postgres
-public | audit_logs_id_seq                | sequence | postgres
-public | examination_artifacts            | table    | postgres
-public | examination_artifacts_id_seq     | sequence | postgres
-public | staff_users                      | table    | postgres
-public | staff_users_id_seq               | sequence | postgres
-public | student_sessions                 | table    | postgres
-public | student_sessions_id_seq          | sequence | postgres
-public | student_username_register        | table    | postgres
-public | student_username_register_id_seq | sequence | postgres
-public | subject_mappings                 | table    | postgres
-public | subject_mappings_id_seq          | sequence | postgres
-public | submission_queue                 | table    | postgres
-public | submission_queue_id_seq          | sequence | postgres
-public | system_config                    | table    | postgres
-public | system_config_id_seq             | sequence | postgres
-```
-
-**Troubleshooting**: If any tables are missing after running `init_db.py`:
-- Ensure your `DATABASE_URL` is set and points to the correct database
-- Confirm the DB user has privileges to create tables in the `public` schema
-- Check `init_db.py` output for errors and fix any import or connection issues before re-running
-
-**Production Note**: For production deployments, we strongly recommend using Alembic for schema migrations instead of `create_all()` so you can evolve the schema safely across releases.
 
 ---
 
@@ -355,20 +324,14 @@ public | system_config_id_seq             | sequence | postgres
 | **Python** | 3.10+ | Required |
 | **PostgreSQL** | 14+ | Primary database |
 | **Moodle LMS** | 3.9+ | With Web Services enabled |
-| **Redis** | 7+ | Optional - for background tasks |
-| **Docker** | 20.10+ | Optional - for containerized deployment |
 
 ---
 
 ## Maintenance Scripts
 
-The project includes utility scripts for managing database mappings:
-
 ### setup_username_reg.py
 
-Upsert a single Moodle `username -> register_number` mapping. Useful to seed or correct mappings used during student login and pending-list authorization.
-
-**Usage:**
+Manage Moodle `username → register_number` mappings:
 
 ```bash
 # Interactive mode
@@ -378,24 +341,13 @@ python setup_username_reg.py
 python setup_username_reg.py --username 22007928 --register 212222240047
 ```
 
-**Purpose**: This script maintains the `student_username_register` table which validates that a Moodle account is allowed to assert a particular register number during login.
-
 ### setup_subject_mapping.py
 
-Interactive workflow to find an assignment by course-module-id (CMID) in Moodle, create or update a `SubjectMapping`, and optionally fix existing artifacts that reference the wrong assignment id.
-
-**Usage:**
+Configure subject to Moodle assignment mappings:
 
 ```bash
-# Interactive mode with guided prompts
 python setup_subject_mapping.py
 ```
-
-**Features**:
-- Search for assignments by CMID in Moodle
-- Create new subject code to assignment mappings
-- Update existing mappings
-- Automatically fix artifacts with incorrect assignment references
 
 ---
 
@@ -404,14 +356,13 @@ python setup_subject_mapping.py
 ### Step 1: Clone and Navigate
 
 ```bash
-git clone https://github.com/yourusername/Smart-answer-sheet-processor-for-LMS.git
-cd exam_middleware
+git clone https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS.git
+cd Intelligent-Examination-Submission-Framework-for-LMS/exam_middleware
 ```
 
 ### Step 2: Create Virtual Environment
 
 ```bash
-# Create virtual environment
 python -m venv venv
 
 # Activate (Windows)
@@ -431,7 +382,6 @@ pip install -r requirements.txt
 ### Step 4: Configure Environment
 
 ```bash
-# Copy example configuration
 copy .env.example .env   # Windows
 cp .env.example .env     # Linux/macOS
 ```
@@ -439,111 +389,74 @@ cp .env.example .env     # Linux/macOS
 Edit `.env` with your settings:
 
 ```env
-# Database Configuration
+# Database
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/exam_middleware
 
-# Security Keys (CHANGE IN PRODUCTION!)
+# Security (CHANGE IN PRODUCTION!)
 SECRET_KEY=your-super-secret-key-change-in-production
-ENCRYPTION_KEY=your-32-byte-encryption-key-here
 
-# Moodle Configuration
+# Moodle
 MOODLE_BASE_URL=https://your-moodle-site.com
 MOODLE_ADMIN_TOKEN=your-admin-token
 MOODLE_SERVICE=moodle_mobile_app
 
-# File Storage
+# Storage
 UPLOAD_DIR=./uploads
 MAX_FILE_SIZE_MB=50
-ALLOWED_EXTENSIONS=.pdf,.jpg,.jpeg,.png
 
-# Redis (Optional)
-REDIS_URL=redis://localhost:6379/0
+# AI Extraction (HuggingFace Spaces)
+HF_SPACE_URL=https://kavinraja-ml-service.hf.space
 ```
 
 ### Step 5: Setup Database
 
 ```bash
-# Create PostgreSQL database
 psql -U postgres -c "CREATE DATABASE exam_middleware;"
-
-# Initialize tables and seed data
 python init_db.py
-
-# Optional: Add sample data for testing
-python init_db.py --seed-samples
 ```
 
-### Step 6: Run the Application
+### Step 6: Run
 
 ```bash
-# Development mode with hot-reload
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Or use the run script
-python run.py
+# Or: python run.py
 ```
 
-### Step 7: Verify Installation
+### Step 7: Verify
 
-Open your browser and navigate to:
 - **Health Check**: http://localhost:8000/health
 - **API Docs**: http://localhost:8000/docs
-
----
-
-## Docker Deployment
-
-### Multi-Stage Build
-The application uses a optimized multi-stage `Dockerfile` to produce small, secure production images.
-- **Stage 1 (Builder)**: Installs build dependencies and creates a Python virtual environment.
-- **Stage 2 (Final)**: Copies only the necessary artifacts and dependencies, running as a non-root user for enhanced security.
-
-### Quick Docker Start
-
-```bash
-# Build and start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop all services
-docker-compose down
-```
-
-### Docker Services
-
-| Service | Port | Description |
-|:--------|:-----|:------------|
-| `app` | 8000 | Main FastAPI application |
-| `postgres` | 5432 | PostgreSQL database |
-| `redis` | 6379 | Redis cache/queue |
-| `celery_worker` | - | Background task worker |
-| `flower` | 5555 | Celery task monitoring |
+- **Staff Portal**: http://localhost:8000/portal/staff
 
 ---
 
 ## Render Deployment
 
-The middleware is optimized for deployment on **Render.com**.
+The middleware is deployed on **Render.com** with a cloud-optimized architecture.
 
 ### Deployment Strategy
-Due to Render's ephemeral filesystem, this project implements a **Database-Backed Persistent Storage Fallback**.
-- Files are saved to local disk for fast performance.
-- Simultaneously, raw file bytes are stored in the PostgreSQL database.
-- If the local disk is wiped (e.g., during a service restart), the system automatically restores and serves files from the database.
+Due to Render's ephemeral filesystem, this project implements a **Database-Backed Persistent Storage Fallback**:
+- Files are saved to local disk for fast performance
+- Simultaneously, raw file bytes are stored in PostgreSQL (`file_content` BYTEA column)
+- If the local disk is wiped (e.g., during a service restart), the system automatically serves files from the database
+
+### ML Inference Architecture
+Heavy ML models (YOLO + CRNN) are **not** installed on Render. Instead, inference is offloaded to a separate **HuggingFace Spaces** service:
+- **HF Space URL**: `https://kavinraja-ml-service.hf.space`
+- The Render app calls this via HTTP for register number / subject code extraction
+- If the HF Space is unavailable, extraction falls back to filename parsing only
 
 ### Key Deployment Files
-- **`Dockerfile.render`**: Optimized for Render's environment.
-- **`render.yaml`**: Blueprint for one-click deployment including PostgreSQL and Redis.
+- **`Dockerfile.render`**: Lightweight Python 3.11-slim image (no ML dependencies)
+- **`render.yaml`**: Blueprint for one-click deployment including PostgreSQL
 
-### One-Click Deploy (Render Blueprint)
-1. In Render, select **New -> Blueprint**.
-2. Connect your repository.
-3. Render will automatically detect `render.yaml` and provision the Web Service, Managed PostgreSQL, and Redis instance.
+### One-Click Deploy
+1. In Render, select **New → Blueprint**
+2. Connect your repository
+3. Render will automatically detect `render.yaml` and provision the Web Service and Managed PostgreSQL
 
 ### Auto-Migrations
-The application handles schema updates automatically on startup. If the `file_content` column is missing, the lifespan event in `main.py` will add it without manual intervention.
+The application automatically detects missing columns on startup and applies schema fixes without manual DDL.
 
 ---
 
@@ -555,14 +468,16 @@ The application handles schema updates automatically on startup. If the `file_co
 | **Staff Portal** | [https://exam-middleware.onrender.com/portal/staff](https://exam-middleware.onrender.com/portal/staff) |
 | **Student Portal** | [https://exam-middleware.onrender.com/portal/student](https://exam-middleware.onrender.com/portal/student) |
 | **API Health** | [https://exam-middleware.onrender.com/health](https://exam-middleware.onrender.com/health) |
+| **API Docs** | [https://exam-middleware.onrender.com/docs](https://exam-middleware.onrender.com/docs) |
+| **HF ML Service** | [https://kavinraja-ml-service.hf.space](https://kavinraja-ml-service.hf.space) |
 
 ### Local Development
 | Portal | URL | Description |
 |:-------|:----|:------------|
 | **Staff Portal** | `http://localhost:8000/portal/staff` | Upload scanned papers |
 | **Student Portal** | `http://localhost:8000/portal/student` | View and submit papers |
-| **Swagger UI** | `http://localhost:8000/docs` | Interactive API documentation |
-| **Health Check** | `http://localhost:8000/health` | System status endpoint |
+| **Swagger UI** | `http://localhost:8000/docs` | Interactive API docs |
+| **Health Check** | `http://localhost:8000/health` | System status |
 
 ---
 
@@ -604,15 +519,8 @@ The application handles schema updates automatically on startup. If the `file_co
 |:-------|:--------|
 | **Method** | JWT Bearer Token |
 | **Default Credentials** | `admin` / `admin123` |
-| **Token Expiry** | 8 hours (480 minutes) |
+| **Token Expiry** | 60 minutes (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`) |
 | **Refresh** | Re-login required |
-
-```bash
-# Login request
-curl -X POST http://localhost:8000/auth/staff/login \
-  -F "username=admin" \
-  -F "password=admin123"
-```
 
 ### Student Authentication
 
@@ -620,7 +528,7 @@ curl -X POST http://localhost:8000/auth/staff/login \
 |:-------|:--------|
 | **Method** | Moodle Token Exchange |
 | **Credentials** | University Moodle login |
-| **Token Storage** | AES-256 encrypted |
+| **Token Storage** | AES-256 encrypted (Fernet) |
 | **Session Expiry** | 24 hours |
 
 ---
@@ -643,6 +551,7 @@ curl -X POST http://localhost:8000/auth/staff/login \
 | `POST` | `/upload/bulk` | Upload multiple files | Staff |
 | `POST` | `/upload/validate` | Validate filename | Staff |
 | `GET` | `/upload/all` | List all artifacts | Staff |
+| `GET` | `/upload/auto-processed` | List auto-processed artifacts | Staff |
 
 ### Student Endpoints
 
@@ -659,9 +568,19 @@ curl -X POST http://localhost:8000/auth/staff/login \
 |:-------|:---------|:------------|:-----|
 | `GET` | `/admin/mappings` | List subject mappings | Staff |
 | `POST` | `/admin/mappings` | Create new mapping | Staff |
-| `GET` | `/admin/queue` | View submission queue | Staff |
-| `GET` | `/admin/stats` | System statistics | Staff |
 | `GET` | `/admin/audit-logs` | View audit trail | Staff |
+| `GET` | `/admin/artifacts/{uuid}` | Get artifact details | Staff |
+| `POST` | `/admin/artifacts/{uuid}/edit` | Edit artifact metadata | Staff |
+| `DELETE` | `/admin/artifacts/{uuid}` | Delete single artifact | Staff |
+| `DELETE` | `/admin/artifacts/purge-all` | Purge all artifacts | Staff |
+
+### Extraction Endpoints (AI Pipeline)
+
+| Method | Endpoint | Description | Auth |
+|:-------|:---------|:------------|:-----|
+| `GET` | `/extract/status` | Check ML model availability | No |
+| `POST` | `/extract/scan-upload` | AI extract + upload single file | Staff |
+| `GET` | `/extract/scan-log` | Get in-memory scan log | No |
 
 ---
 
@@ -669,144 +588,120 @@ curl -X POST http://localhost:8000/auth/staff/login \
 
 ### Required Moodle Setup
 
-Follow these steps to configure Moodle for integration:
-
 **1. Enable Web Services**
-
-- Navigate to: `Site administration` → `Advanced features`
-- Check **Enable web services**
-- Save changes
+- `Site administration` → `Advanced features` → Enable web services
 
 **2. Create External Service**
-
-- Navigate to: `Site administration` → `Server` → `Web services` → `External services`
-- Click **Add**
-- Configure the service:
-  - **Name**: `FileUpload`
-  - **Short name**: `fileupload`
-  - **Enabled**: Yes
-- Add required functions:
+- `Site administration` → `Server` → `Web services` → `External services`
+- Add service: **FileUpload** (short name: `fileupload`)
+- Add functions:
   - `core_webservice_get_site_info`
   - `mod_assign_save_submission`
   - `mod_assign_submit_for_grading`
   - `core_user_get_users_by_field`
 
 **3. Create Token**
-
-- Navigate to: `Site administration` → `Server` → `Web services` → `Manage tokens`
-- Click **Add**
-- Select admin user and the **FileUpload** service
-- Copy the generated token to your `.env` file as `MOODLE_ADMIN_TOKEN`
+- `Site administration` → `Server` → `Web services` → `Manage tokens`
+- Create token for admin user with **FileUpload** service
+- Copy token to `.env` as `MOODLE_ADMIN_TOKEN`
 
 **4. Enable Upload**
-
-- Ensure `webservice/upload.php` is accessible on your Moodle instance
-- Configure maximum upload file size in Moodle settings to match or exceed your middleware setting (default: 50MB)
-- Path: `Site administration` → `Security` → `Site security settings` → **Maximum uploaded file size**
+- Ensure `webservice/upload.php` is accessible
+- Set max upload size ≥ 50MB in `Site administration` → `Security` → `Site security settings`
 
 ---
 
 ## Project Structure
 
 ```
-exam_middleware/
-├── app/
-│   ├── api/
-│   │   └── routes/
-│   │       ├── admin.py          # Admin endpoints
-│   │       ├── auth.py           # Authentication
-│   │       ├── health.py         # Health check
-│   │       ├── student.py        # Student endpoints
-│   │       └── upload.py         # File upload
-│   ├── core/
-│   │   ├── config.py             # Pydantic settings
-│   │   └── security.py           # JWT & encryption
-│   ├── db/
-│   │   ├── database.py           # Async connection
-│   │   └── models.py             # SQLAlchemy models
-│   ├── schemas/
-│   │   └── schemas.py            # Pydantic schemas
-│   ├── services/
-│   │   ├── artifact_service.py   # Artifact CRUD
-│   │   ├── file_processor.py     # File handling
-│   │   ├── moodle_client.py      # Moodle API
-│   │   └── submission_service.py # Submit logic
-│   ├── templates/
-│   │   ├── staff_upload.html     # Staff UI
-│   │   └── student_portal.html   # Student UI
-│   ├── static/
-│   │   └── css/
-│   │       └── style.css         # Styles
-│   └── main.py                   # FastAPI app
-├── uploads/                      # Upload staging
-│   ├── pending/
-│   ├── processed/
-│   ├── failed/
-│   └── temp/
-├── storage/                      # Permanent storage
-├── migrations/                   # Alembic migrations
-├── scripts/                      # Utility scripts
-├── docker-compose.yml            # Docker config
-├── Dockerfile                    # Container build
-├── init_db.py                    # DB initialization
-├── run.py                        # App runner
-├── requirements.txt              # Dependencies
-├── setup_username_reg.py         # Username mapping
-└── setup_subject_mapping.py      # Subject mapping
+Intelligent-Examination-Submission-Framework-for-LMS/
+├── readme.md                     # This file
+├── render.yaml                   # Render.com deployment blueprint
+├── index.html                    # Landing page
+├── requirements.txt              # Root dependencies
+│
+├── exam_middleware/               # Main application
+│   ├── app/
+│   │   ├── api/routes/
+│   │   │   ├── admin.py          # Admin endpoints
+│   │   │   ├── auth.py           # Authentication
+│   │   │   ├── extract.py        # AI extraction pipeline
+│   │   │   ├── health.py         # Health check
+│   │   │   ├── student.py        # Student endpoints
+│   │   │   └── upload.py         # File upload
+│   │   ├── core/
+│   │   │   ├── config.py         # Pydantic settings
+│   │   │   └── security.py       # JWT & Fernet encryption
+│   │   ├── db/
+│   │   │   ├── database.py       # Async DB connection
+│   │   │   └── models.py         # SQLAlchemy models
+│   │   ├── schemas/schemas.py    # Pydantic schemas
+│   │   ├── services/
+│   │   │   ├── artifact_service.py        # Artifact CRUD
+│   │   │   ├── extraction_service.py      # Local ML extraction
+│   │   │   ├── remote_extraction_service.py # HF Spaces extraction
+│   │   │   ├── file_processor.py          # File handling
+│   │   │   ├── mail_service.py            # Email notifications
+│   │   │   ├── moodle_client.py           # Moodle API client
+│   │   │   ├── notification_service.py    # Notification orchestration
+│   │   │   └── submission_service.py      # Submit logic
+│   │   ├── templates/
+│   │   │   ├── staff_upload.html  # Staff UI
+│   │   │   └── student_portal.html # Student UI
+│   │   ├── static/css/style.css   # Styles
+│   │   └── main.py               # FastAPI app entry point
+│   ├── uploads/                   # Upload staging
+│   ├── models/                    # ML model weights (local only)
+│   ├── scripts/                   # SQL migration scripts
+│   ├── tests/                     # Test suite
+│   ├── Dockerfile.render          # Render deployment container
+│   ├── init_db.py                 # DB initialization
+│   ├── run.py                     # App runner
+│   ├── scanner_agent.py           # Ricoh scanner integration
+│   ├── setup_username_reg.py      # Username mapping utility
+│   ├── setup_subject_mapping.py   # Subject mapping utility
+│   └── requirements.txt           # Python dependencies
+│
+└── hf_space/                      # HuggingFace Spaces ML service
+    ├── app.py                     # FastAPI ML inference server
+    ├── Dockerfile                 # HF Space container
+    └── requirements.txt           # ML dependencies (torch, ultralytics)
 ```
 
 ---
 
 ## Testing
 
-### Manual Testing Steps
+### Manual Testing
 
-**1. Create test files** with correct naming:
-```
-611221104088_19AI405.pdf
-611221104089_ML.pdf
-```
-
-**2. Login to Staff Portal** (`admin`/`admin123`)
-
-**3. Upload test files** via drag-and-drop
-
-**4. Login to Student Portal** with Moodle credentials
-
-**5. View and submit papers** to Moodle
+1. Create test files: `611221104088_19AI405.pdf`, `611221104089_ML.pdf`
+2. Login to Staff Portal (`admin`/`admin123`)
+3. Upload files via drag-and-drop
+4. Login to Student Portal with Moodle credentials
+5. View and submit papers to Moodle
 
 ### API Testing with cURL
 
 ```bash
 # Staff Login
 curl -X POST http://localhost:8000/auth/staff/login \
-  -F "username=admin" \
-  -F "password=admin123"
+  -F "username=admin" -F "password=admin123"
 
-# Upload File (use token from login)
+# Upload File
 curl -X POST http://localhost:8000/upload/single \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@611221104088_19AI405.pdf"
 
 # Health Check
 curl http://localhost:8000/health
-
-# Get Statistics
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:8000/admin/stats
 ```
 
 ### Pytest
 
 ```bash
-# Run all tests
 pytest
-
-# Run with coverage
 pytest --cov=app --cov-report=html
-
-# Run specific test file
-pytest tests/test_upload.py -v
+pytest tests/test_moodle_client.py -v
 ```
 
 ---
@@ -820,27 +715,30 @@ sequenceDiagram
     participant Database
     participant Student
     participant Moodle
+    participant HFSpace as HF Spaces
 
-    Note over Staff,Moodle: Phase 1: Upload
+    Note over Staff,HFSpace: Phase 1: Upload
     Staff->>Middleware: Upload scanned papers
-    Middleware->>Middleware: Parse filename
-    Middleware->>Middleware: Calculate SHA-256 hash
-    Middleware->>Database: Store artifact (PENDING)
+    Middleware->>Middleware: Parse filename & SHA-256 hash
+    Middleware->>Database: Store artifact (PENDING) + file_content
     Middleware-->>Staff: Upload success
 
-    Note over Staff,Moodle: Phase 2: Student Review
+    Note over Staff,HFSpace: Phase 1b: Smart Scan (Optional)
+    Staff->>Middleware: Smart Scan (raw image)
+    Middleware->>HFSpace: Extract register no + subject
+    HFSpace-->>Middleware: AI predictions
+    Middleware->>Database: Store with extracted metadata
+
+    Note over Staff,HFSpace: Phase 2: Student Review
     Student->>Middleware: Login (Moodle creds)
     Middleware->>Moodle: Verify credentials
     Moodle-->>Middleware: Token
     Middleware->>Database: Fetch pending papers
-    Database-->>Middleware: Papers list
     Middleware-->>Student: Dashboard
 
-    Note over Staff,Moodle: Phase 3: Submission
+    Note over Staff,HFSpace: Phase 3: Submission
     Student->>Middleware: Submit paper
-    Middleware->>Moodle: Upload to draft area
-    Middleware->>Moodle: Save submission
-    Middleware->>Moodle: Submit for grading
+    Middleware->>Moodle: Upload → Save → Submit for grading
     Moodle-->>Middleware: Submission ID
     Middleware->>Database: Update status (SUBMITTED)
     Middleware-->>Student: Confirmation
@@ -857,34 +755,9 @@ sequenceDiagram
 | **JWT Tokens** | python-jose | Short-lived, signed tokens |
 | **File Validation** | python-magic | MIME type verification |
 | **File Integrity** | SHA-256 | Hash stored for verification |
-| **Audit Logging** | JSONB | All actions logged with IP |
+| **Audit Logging** | JSONB | All actions logged with metadata |
 | **CORS** | Configurable | Whitelist trusted origins |
 | **Idempotency** | Transaction ID | Prevents duplicate submissions |
-
----
-
-## Background Tasks
-
-### Celery Setup (Production)
-
-```bash
-# Start Redis
-redis-server
-
-# Start Celery worker
-celery -A app.core.celery_app worker --loglevel=info
-
-# Start Flower monitoring (optional)
-celery -A app.core.celery_app flower --port=5555
-```
-
-### Background Tasks
-
-| Task | Description | Schedule |
-|:-----|:------------|:---------|
-| `retry_failed_submissions` | Retry queued submissions | Every 5 min |
-| `cleanup_expired_sessions` | Remove old sessions | Every hour |
-| `generate_reports` | Create audit reports | Daily |
 
 ---
 
@@ -896,25 +769,14 @@ celery -A app.core.celery_app flower --port=5555
 curl http://localhost:8000/health
 ```
 
-Response:
-```json
-{
-  "status": "healthy",
-  "database": "connected",
-  "redis": "connected",
-  "moodle": "reachable",
-  "version": "1.0.0"
-}
-```
-
 ### Monitoring Points
 
 | Resource | Location | Purpose |
 |:---------|:---------|:--------|
-| **App Logs** | `exam_middleware.log` | Application events |
+| **App Logs** | `logs/app.log` | Application events |
 | **Audit Table** | `audit_logs` | Complete action history |
-| **Flower** | `http://localhost:5555` | Celery task monitoring |
-| **Prometheus** | `/metrics` | Performance metrics |
+| **Health Check** | `/health` | System status |
+| **API Docs** | `/docs` | Swagger UI |
 
 ---
 
@@ -926,14 +788,7 @@ Response:
 **Symptoms**: `ConnectionRefusedError` or `OperationalError`
 
 **Solutions**:
-1. Verify PostgreSQL is running:
-   ```bash
-   # Windows
-   pg_isready -h localhost -p 5432
-   
-   # Check service
-   Get-Service postgresql*
-   ```
+1. Verify PostgreSQL is running: `pg_isready -h localhost -p 5432`
 2. Check `DATABASE_URL` in `.env`
 3. Verify database exists: `psql -U postgres -l`
 
@@ -948,7 +803,7 @@ Response:
 1. Regenerate token in Moodle admin
 2. Verify external service is enabled
 3. Check required functions are added to service
-4. Test token: 
+4. Test token:
    ```bash
    curl "https://your-moodle.com/webservice/rest/server.php?wstoken=YOUR_TOKEN&wsfunction=core_webservice_get_site_info&moodlewsrestformat=json"
    ```
@@ -958,42 +813,32 @@ Response:
 <details>
 <summary><b>File Upload Failed</b></summary>
 
-**Symptoms**: Upload returns error or hangs
-
 **Solutions**:
 1. Check file size (max 50MB default)
 2. Verify filename format: `{12digits}_{subject}.{ext}`
 3. Check disk space in `uploads/` directory
-4. Review logs: `tail -f exam_middleware.log`
+4. Review logs: `tail -f logs/app.log`
 
 </details>
 
 <details>
 <summary><b>JWT Token Invalid</b></summary>
 
-**Symptoms**: `401 Unauthorized` after login
-
 **Solutions**:
-1. Token may be expired (8 hours default)
+1. Token may be expired (60 minutes default)
 2. Re-login to get fresh token
 3. Verify `SECRET_KEY` hasn't changed
-4. Check clock sync between client/server
 
 </details>
 
 <details>
-<summary><b>Duplicate Transaction ID</b></summary>
-
-**Symptoms**: `IntegrityError` on upload
+<summary><b>HuggingFace Space Unavailable</b></summary>
 
 **Solutions**:
-1. Clear transaction_id on archived artifacts:
-   ```sql
-   UPDATE examination_artifacts 
-   SET transaction_id = NULL 
-   WHERE workflow_status = 'DELETED';
-   ```
-2. Or delete the conflicting artifact via admin panel
+1. Check status at https://kavinraja-ml-service.hf.space/health
+2. Free tier spaces sleep after inactivity — first request wakes it (30-60s delay)
+3. Verify `HF_SPACE_URL` environment variable is set
+4. AI extraction falls back to filename parsing when HF Space is down
 
 </details>
 
@@ -1001,62 +846,45 @@ Response:
 
 ## Recent Updates
 
+### Version 1.4.0 (2026-02-28)
+
+#### Real-time Dashboard Updates
+- **Auto-refresh**: Staff portal auto-refreshes uploaded files, scan logs, and stats every 15 seconds
+- **Instant feedback**: All mutation operations (upload, delete, edit, purge) immediately refresh all data views
+- **Purge All simplified**: Removed double confirmation — single confirmation is sufficient
+- **Manual refresh preserved**: Refresh buttons remain for immediate on-demand refresh
+
+#### Cleanup
+- **Removed unused Docker files**: `Dockerfile.prod`, `docker-compose.yml`, and `DOCKER.md` removed from exam_middleware (deployment uses `Dockerfile.render` via Render)
+- **Updated documentation**: Corrected GitHub URLs, removed references to non-existent Celery/Redis/Flower services, aligned with actual application state
+
 ### Version 1.3.0 (2026-02-21)
 
 #### Persistent Storage & Cloud Readiness
-- **Database-Backed File Persistence**: Implemented a "Self-Healing" storage layer. All uploads are now mirrored to PostgreSQL (LargeBinary/BYTEA). If the local ephemeral disk is cleared (standard on Render/Heroku), the system automatically serves files from the database.
-- **Render.com Optimization**: Added `render.yaml` and `Dockerfile.render` for seamless, one-click cloud deployment.
-- **Auto-Migrations**: The application now automatically detects missing database columns (like `file_content`) on startup and applies schema fixes without requiring manual DDL execution.
+- **Database-Backed File Persistence**: Self-healing storage layer — uploads mirrored to PostgreSQL BYTEA
+- **Render.com Optimization**: `render.yaml` and `Dockerfile.render` for one-click cloud deployment
+- **Auto-Migrations**: Automatic schema fixes on startup
 
 #### Security & Reliability
-- **Metadata Edit Content Preservation**: Fixed a critical bug in `admin.py` where manual metadata edits (register number/subject code corrections) would cause the new artifact to lose its associated file content.
-- **Moodle Upload Robustness**: Updated `MoodleClient` to support direct binary uploads, allowing the submission service to bypass local file requirements.
+- **Metadata Edit Content Preservation**: Fixed file content loss during manual metadata edits
+- **Moodle Upload Robustness**: Direct binary uploads in `MoodleClient`
 
 ### Version 1.2.0 (2026-01-12)
 
-#### New Maintenance Scripts
-
-- **`setup_username_reg.py`** - Manage Moodle username → register number mappings
-  ```bash
-  # Interactive mode
-  python setup_username_reg.py
-  
-  # Direct mode
-  python setup_username_reg.py --username 22007928 --register 212222240047
-  ```
-
-- **`setup_subject_mapping.py`** - Configure subject to Moodle assignment mappings
-
-#### Staff UI Improvements
-
-- Reports modal (view/resolve/edit/delete reports)
+- Maintenance scripts: `setup_username_reg.py`, `setup_subject_mapping.py`
+- Reports modal with view/resolve/edit/delete
 - Improved file listing with accurate counts
-- Hardened client-side session management
-
-#### Backend Enhancements
-
-- Explicit `IntegrityError` handling with safe rollback
-- Stricter identity validation in `get_pending_for_student()`
-- Transaction ID collision remediation support
+- `IntegrityError` handling with safe rollback
 
 ---
 
 ## Contributing
-
-We welcome contributions! Please follow these steps:
 
 1. **Fork** the repository
 2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
 3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
 4. **Push** to the branch (`git push origin feature/amazing-feature`)
 5. **Open** a Pull Request
-
-### Code Style
-
-- Follow PEP 8 for Python code
-- Use type hints for all functions
-- Write docstrings for public APIs
-- Add tests for new features
 
 ---
 

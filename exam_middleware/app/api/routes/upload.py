@@ -213,7 +213,6 @@ async def upload_bulk_files(
         
         # Validate file (skip filename validation - allow ANY format)
         # Files will be extracted and renamed if extraction is available
-        file_processor = get_file_processor()
         is_valid, message, metadata = file_processor.validate_file(
             content, file.filename, skip_filename_validation=True
         )
