@@ -2947,8 +2947,6 @@
 
         async function purgeAllArtifacts() {
             if (!(await showConfirm('⚠️ DANGER: This will permanently delete ALL artifacts, files, and audit logs, and reset IDs to 1. This action cannot be undone. Are you sure?', 'Purge All Artifacts'))) return;
-            // Double confirmation
-            if (!(await showConfirm('This is your FINAL confirmation. All data will be permanently lost. Continue?', 'Final Confirmation'))) return;
             try {
                 const res = await fetch('/admin/artifacts/purge-all?confirm=yes', {
                     method: 'DELETE',

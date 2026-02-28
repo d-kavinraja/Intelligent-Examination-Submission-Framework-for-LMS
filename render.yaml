@@ -9,7 +9,7 @@ services:
     name: exam-middleware
     plan: free
     runtime: docker
-    dockerfilePath: ./Dockerfile.render
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     rootDir: exam_middleware
     envVars:
@@ -32,5 +32,6 @@ services:
       - key: LOG_LEVEL
         value: "INFO"
       - key: CORS_ORIGINS
-        value: '["*"]'      - key: HF_SPACE_URL
+        value: '["*"]'
+      - key: HF_SPACE_URL
         value: "https://kavinraja-ml-service.hf.space"

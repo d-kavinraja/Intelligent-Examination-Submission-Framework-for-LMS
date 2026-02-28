@@ -1,5 +1,6 @@
 ﻿# Production Dockerfile for Render
 # ML inference is offloaded to HuggingFace Spaces API
+# Local models are OPTIONAL for fallback only
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -7,7 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install minimal system dependencies (no heavy ML libs)
+# Install minimal system dependencies (no heavy libs like torch/ultralytics)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -23,12 +24,16 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# Install Python dependencies (ML packages commented out)
+# Install Python dependencies
+# Note: torch/ultralytics/opencv-* are OPTIONAL (commented out in requirements or marked as extras)
+# Remote extraction is primary; local is optional fallback
 COPY requirements.txt .
 RUN pip install --no-warn-script-location -r requirements.txt
 
-# Copy application code (NO models directory — inference via HF Spaces)
+# Copy application code (NO models directory)
 COPY --chown=appuser:appuser . .
+
+# Do NOT copy models/ directory — inference happens on HF Spaces
 
 # Create necessary directories (but NOT models/)
 RUN mkdir -p uploads storage migrations logs && \
