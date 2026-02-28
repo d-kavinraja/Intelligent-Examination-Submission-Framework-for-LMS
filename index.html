@@ -1,73 +1,79 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Examination Middleware - LMS-SAE Bridge | Smart Answer Sheet Processor</title>
-  <meta name="description" content="A robust, secure, and automated bridge designed to streamline the digitization and submission of physical examination answer sheets to the Moodle Learning Management System.">
-  <meta name="keywords" content="examination middleware, LMS, Moodle, answer sheet processor, digital grading, FastAPI, PostgreSQL">
-  <meta name="author" content="D. Kavinraja">
+  <title>Intelligent Examination Submission Framework for LMS</title>
+  <meta name="description" content="An intelligent, AI-powered bridge for digitizing and submitting physical examination answer sheets to Moodle LMS. Features Smart Scan AI, CIA exam management, and secure student verification.">
+  <meta name="keywords" content="examination framework, LMS, Moodle, answer sheet processor, Smart Scan, AI extraction, FastAPI, PostgreSQL, HuggingFace, YOLO, CRNN">
+  <meta name="author" content="D. Kavinraja, Santhan Kumar">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Examination Middleware - LMS-SAE Bridge">
-  <meta property="og:description" content="Streamline digitization and submission of physical examination answer sheets to Moodle LMS">
-  <link rel="canonical" href="https://d-kavinraja.github.io/Smart-answer-sheet-processor-for-LMS/">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <meta property="og:title" content="Intelligent Examination Submission Framework for LMS">
+  <meta property="og:description" content="AI-powered bridge for digitizing and submitting physical examination answer sheets to Moodle LMS">
+  <link rel="canonical" href="https://d-kavinraja.github.io/Intelligent-Examination-Submission-Framework-for-LMS/">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     /* ============================================
        CSS VARIABLES & RESET
     ============================================ */
     :root {
-      --bg: #e8eef3;
-      --bg-card: #f5f8fa;
-      --bg-dark: #1a2332;
-      --text: #1a2332;
-      --text-muted: #5a6a7a;
+      --bg: #f0f4f8;
+      --bg-card: #ffffff;
+      --bg-dark: #0f172a;
+      --bg-darker: #020617;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
       --primary: #0891b2;
       --primary-light: #22d3ee;
       --primary-dark: #0e7490;
-      --secondary: #334155;
-      --secondary-light: #94a3b8;
+      --primary-bg: rgba(8, 145, 178, 0.08);
+      --secondary: #6366f1;
+      --secondary-light: #818cf8;
       --accent: #06b6d4;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.1);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.1);
       --destructive: #ef4444;
-      --border: #cbd5e1;
-      --radius: 0.5rem;
-      --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+      --destructive-bg: rgba(239, 68, 68, 0.08);
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --radius: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-md: 0 8px 16px -4px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+      --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+      --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.15);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    img {
-      max-width: 100%;
-      height: auto;
-    }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; height: auto; }
+    code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 0 1.5rem;
+      padding: 0 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .container { padding: 0 2rem; }
     }
 
     /* ============================================
@@ -77,80 +83,69 @@
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-50px); }
+    @keyframes slideLeft {
+      from { opacity: 0; transform: translateX(-40px); }
       to { opacity: 1; transform: translateX(0); }
     }
-
-    @keyframes slideInRight {
-      from { opacity: 0; transform: translateX(50px); }
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(40px); }
       to { opacity: 1; transform: translateX(0); }
     }
-
     @keyframes scaleIn {
-      from { opacity: 0; transform: scale(0.9); }
+      from { opacity: 0; transform: scale(0.92); }
       to { opacity: 1; transform: scale(1); }
     }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(8, 145, 178, 0.3); }
-      50% { box-shadow: 0 0 40px rgba(8, 145, 178, 0.6); }
-    }
-
     @keyframes float {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(8, 145, 178, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(8, 145, 178, 0.4); }
+    }
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
 
-    .animate-fade-up { animation: fadeUp 0.6s ease-out forwards; opacity: 0; }
-    .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
-    .animate-slide-left { animation: slideInLeft 0.6s ease-out forwards; opacity: 0; }
-    .animate-slide-right { animation: slideInRight 0.6s ease-out forwards; opacity: 0; }
-    .animate-scale { animation: scaleIn 0.5s ease-out forwards; opacity: 0; }
-    .animate-bounce { animation: bounce 2s ease-in-out infinite; }
-    .animate-pulse { animation: pulse 2s ease-in-out infinite; }
-    .animate-float { animation: float 3s ease-in-out infinite; }
+    .anim-up { animation: fadeUp 0.6s ease-out both; }
+    .anim-in { animation: fadeIn 0.5s ease-out both; }
+    .anim-left { animation: slideLeft 0.6s ease-out both; }
+    .anim-right { animation: slideRight 0.6s ease-out both; }
+    .anim-scale { animation: scaleIn 0.5s ease-out both; }
+    .anim-float { animation: float 3s ease-in-out infinite; }
 
-    .delay-1 { animation-delay: 0.1s; }
-    .delay-2 { animation-delay: 0.2s; }
-    .delay-3 { animation-delay: 0.3s; }
-    .delay-4 { animation-delay: 0.4s; }
-    .delay-5 { animation-delay: 0.5s; }
-    .delay-6 { animation-delay: 0.6s; }
-    .delay-7 { animation-delay: 0.7s; }
-    .delay-8 { animation-delay: 0.8s; }
+    .d1 { animation-delay: 0.1s; }
+    .d2 { animation-delay: 0.2s; }
+    .d3 { animation-delay: 0.3s; }
+    .d4 { animation-delay: 0.4s; }
+    .d5 { animation-delay: 0.5s; }
+    .d6 { animation-delay: 0.6s; }
+    .d7 { animation-delay: 0.7s; }
+    .d8 { animation-delay: 0.8s; }
 
     /* ============================================
-       HEADER
+       HEADER / NAVIGATION
     ============================================ */
     header {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      padding: 1rem 0;
-      transition: all 0.3s ease;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      padding: 0.875rem 0;
+      transition: var(--transition);
     }
-
     header.scrolled {
-      background: rgba(245, 248, 250, 0.95);
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       border-bottom: 1px solid var(--border);
     }
-
     header .container {
       display: flex;
       align-items: center;
@@ -160,164 +155,175 @@
     .logo {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.625rem;
+      z-index: 1001;
     }
-
     .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: var(--primary);
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.3s ease;
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.3s;
     }
-
-    .logo:hover .logo-icon {
-      transform: scale(1.1);
-    }
-
-    .logo-icon svg {
-      width: 20px;
-      height: 20px;
-      color: white;
-    }
-
+    .logo:hover .logo-icon { transform: rotate(-5deg) scale(1.05); }
+    .logo-icon svg { width: 20px; height: 20px; color: white; }
     .logo-text {
       font-weight: 700;
-      font-size: 1.125rem;
+      font-size: 1rem;
       color: var(--text);
+      white-space: nowrap;
     }
+    header.scrolled .logo-text { color: var(--text); }
+    .hero .logo-text,
+    header:not(.scrolled) .logo-text { color: white; }
 
+    /* Desktop nav */
     nav {
       display: none;
+      gap: 1.75rem;
     }
-
     @media (min-width: 1024px) {
-      nav {
-        display: flex;
-        gap: 2rem;
-      }
+      nav { display: flex; }
     }
-
     nav a {
-      color: var(--text-muted);
+      color: rgba(255,255,255,0.75);
       font-weight: 500;
-      transition: color 0.3s ease;
+      font-size: 0.9rem;
+      transition: color 0.3s;
       position: relative;
     }
-
+    header.scrolled nav a { color: var(--text-muted); }
     nav a::after {
       content: '';
       position: absolute;
-      bottom: -4px;
-      left: 0;
-      width: 0;
-      height: 2px;
+      bottom: -4px; left: 0;
+      width: 0; height: 2px;
       background: var(--primary);
-      transition: width 0.3s ease;
+      transition: width 0.3s;
     }
-
-    nav a:hover {
-      color: var(--primary);
-    }
-
-    nav a:hover::after {
-      width: 100%;
-    }
+    nav a:hover { color: var(--primary-light); }
+    header.scrolled nav a:hover { color: var(--primary); }
+    nav a:hover::after { width: 100%; }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
+      z-index: 1001;
     }
 
     .github-link {
       display: none;
       align-items: center;
-      gap: 0.5rem;
-      color: var(--text-muted);
+      gap: 0.375rem;
+      color: rgba(255,255,255,0.7);
       font-weight: 500;
-      transition: color 0.3s ease;
+      font-size: 0.875rem;
+      transition: color 0.3s;
     }
-
-    @media (min-width: 640px) {
-      .github-link {
-        display: flex;
-      }
-    }
-
-    .github-link:hover {
-      color: var(--text);
-    }
-
-    .github-link svg {
-      width: 20px;
-      height: 20px;
-    }
+    header.scrolled .github-link { color: var(--text-muted); }
+    @media (min-width: 768px) { .github-link { display: flex; } }
+    .github-link:hover { color: white; }
+    header.scrolled .github-link:hover { color: var(--text); }
+    .github-link svg { width: 20px; height: 20px; }
 
     .btn {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
+      padding: 0.5rem 1.125rem;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       border-radius: var(--radius);
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: var(--transition);
       border: none;
+      white-space: nowrap;
     }
-
     .btn-primary {
       background: var(--primary);
       color: white;
     }
-
     .btn-primary:hover {
       background: var(--primary-dark);
-      transform: translateY(-2px);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
     }
-
     .btn-secondary {
-      background: transparent;
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-    }
-
-    .btn-secondary:hover {
       background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
     }
-
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.4);
+    }
     .btn-outline {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text);
     }
-
     .btn-outline:hover {
       background: var(--bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-lg {
+      padding: 0.75rem 1.75rem;
+      font-size: 0.9375rem;
+      border-radius: var(--radius-lg);
     }
 
-    .mobile-menu-btn {
-      display: block;
+    /* Mobile hamburger */
+    .hamburger {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0.5rem;
+      padding: 6px;
+      z-index: 1001;
     }
-
-    @media (min-width: 1024px) {
-      .mobile-menu-btn {
-        display: none;
-      }
+    @media (min-width: 1024px) { .hamburger { display: none; } }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: white;
+      border-radius: 2px;
+      transition: var(--transition);
     }
+    header.scrolled .hamburger span { background: var(--text); }
+    .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+    .hamburger.active span:nth-child(2) { opacity: 0; }
+    .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
-    .mobile-menu-btn svg {
-      width: 24px;
-      height: 24px;
-      color: var(--text);
+    /* Mobile menu overlay */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.97);
+      backdrop-filter: blur(10px);
+      z-index: 999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .mobile-nav.open { display: flex; }
+    @media (min-width: 1024px) { .mobile-nav { display: none !important; } }
+    .mobile-nav a {
+      color: white;
+      font-size: 1.25rem;
+      font-weight: 600;
+      padding: 0.5rem 1.5rem;
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+    .mobile-nav a:hover {
+      color: var(--primary-light);
+      background: rgba(255,255,255,0.05);
     }
 
     /* ============================================
@@ -329,1563 +335,1219 @@
       align-items: center;
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, var(--bg-dark) 0%, #0f172a 100%);
+      background: var(--bg-dark);
     }
-
     .hero-bg {
       position: absolute;
       inset: 0;
-      background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80') center/cover no-repeat;
-      opacity: 0.3;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(8, 145, 178, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
     }
-
-    .hero-overlay {
+    .hero-grid-bg {
       position: absolute;
       inset: 0;
-      background: linear-gradient(to right, rgba(26, 35, 50, 0.95), rgba(26, 35, 50, 0.7), rgba(26, 35, 50, 0.5));
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
     }
-
-    .hero-overlay::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, var(--bg-dark), transparent);
-    }
-
     .hero .container {
       position: relative;
       z-index: 10;
-      padding-top: 6rem;
+      padding-top: 7rem;
       padding-bottom: 4rem;
     }
-
-    .hero-content {
-      max-width: 48rem;
+    .hero-layout {
+      display: grid;
+      gap: 3rem;
+      align-items: center;
     }
+    @media (min-width: 1024px) {
+      .hero-layout {
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+      }
+    }
+    .hero-content { max-width: 600px; }
 
     .badges {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem;
+      gap: 0.5rem;
       margin-bottom: 1.5rem;
     }
-
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      padding: 0.375rem 0.75rem;
-      background: rgba(8, 145, 178, 0.2);
-      border: 1px solid rgba(8, 145, 178, 0.3);
-      color: white;
+      padding: 0.3125rem 0.75rem;
+      background: rgba(8, 145, 178, 0.15);
+      border: 1px solid rgba(8, 145, 178, 0.25);
+      color: var(--primary-light);
       border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
-
-    .badge svg {
-      width: 12px;
-      height: 12px;
+    .badge svg { width: 12px; height: 12px; }
+    .badge.purple {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.25);
+      color: var(--secondary-light);
+    }
+    .badge.green {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.25);
+      color: #6ee7b7;
     }
 
     .hero h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
+      font-size: 2.25rem;
+      font-weight: 800;
       color: white;
       line-height: 1.1;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
     }
-
-    @media (min-width: 640px) {
-      .hero h1 {
-        font-size: 3.5rem;
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .hero h1 {
-        font-size: 4.5rem;
-      }
-    }
-
-    .hero h1 span {
-      color: var(--primary-light);
+    @media (min-width: 640px) { .hero h1 { font-size: 3rem; } }
+    @media (min-width: 1024px) { .hero h1 { font-size: 3.75rem; } }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .hero-subtitle {
-      font-size: 1.25rem;
-      color: rgba(255,255,255,0.8);
-      margin-bottom: 0.5rem;
-    }
-
-    .hero-description {
       font-size: 1.125rem;
       color: rgba(255,255,255,0.7);
+      margin-bottom: 0.375rem;
+      font-weight: 500;
+    }
+    .hero-desc {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.55);
       margin-bottom: 2rem;
-      max-width: 36rem;
+      max-width: 32rem;
+      line-height: 1.7;
     }
 
     .hero-buttons {
       display: flex;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 0.75rem;
+      margin-bottom: 2.5rem;
     }
 
+    /* Hero visual card */
+    .hero-visual {
+      display: none;
+      position: relative;
+    }
+    @media (min-width: 1024px) { .hero-visual { display: block; } }
+    .hero-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+    }
+    .hero-card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary-light);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1.25rem;
+    }
+    .hero-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      padding: 0.875rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+    .flow-step:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(8, 145, 178, 0.3);
+    }
+    .flow-num {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 0.8125rem;
+      flex-shrink: 0;
+    }
+    .flow-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.85);
+    }
+    .flow-desc {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.45);
+      margin-top: 0.125rem;
+    }
+    .flow-arrow {
+      text-align: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 1.25rem;
+    }
+
+    /* Hero stats */
     .hero-stats {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 1.5rem;
-      margin-top: 4rem;
+      gap: 1rem;
       padding-top: 2rem;
-      border-top: 1px solid rgba(255,255,255,0.2);
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
-
     @media (min-width: 640px) {
-      .hero-stats {
-        grid-template-columns: repeat(4, 1fr);
-      }
+      .hero-stats { grid-template-columns: repeat(4, 1fr); }
     }
-
-    .stat-item {
-      text-align: center;
-    }
-
-    @media (min-width: 640px) {
-      .stat-item {
-        text-align: left;
-      }
-    }
-
+    .stat-item { text-align: center; }
+    @media (min-width: 640px) { .stat-item { text-align: left; } }
     .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--primary-light);
-      margin-bottom: 0.25rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.125rem;
+      white-space: nowrap;
     }
-
-    @media (min-width: 640px) {
-      .stat-value {
-        font-size: 2rem;
-      }
-    }
-
+    @media (min-width: 640px) { .stat-value { font-size: 1.5rem; } }
     .stat-label {
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.6);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.45);
+      font-weight: 500;
     }
 
-    .scroll-indicator {
+    /* Scroll indicator */
+    .scroll-down {
       position: absolute;
       bottom: 2rem;
       left: 50%;
       transform: translateX(-50%);
     }
-
-    .scroll-indicator-inner {
-      width: 24px;
-      height: 40px;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-radius: 9999px;
+    .scroll-dot {
+      width: 20px; height: 32px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
       display: flex;
       justify-content: center;
-      padding-top: 0.5rem;
+      padding-top: 6px;
     }
-
-    .scroll-indicator-dot {
-      width: 6px;
-      height: 12px;
+    .scroll-dot::after {
+      content: '';
+      width: 4px; height: 8px;
       background: var(--primary-light);
-      border-radius: 9999px;
-      animation: bounce 1.5s ease-in-out infinite;
+      border-radius: 4px;
+      animation: float 1.5s ease-in-out infinite;
     }
 
     /* ============================================
-       SECTION STYLES
+       SECTIONS
     ============================================ */
-    section {
-      padding: 5rem 0;
-    }
+    section { padding: 5rem 0; }
+    @media (min-width: 1024px) { section { padding: 7rem 0; } }
 
-    @media (min-width: 1024px) {
-      section {
-        padding: 8rem 0;
-      }
-    }
-
-    .section-header {
+    .section-head {
       text-align: center;
       margin-bottom: 3rem;
     }
-
-    .section-header h2 {
-      font-size: 2rem;
+    .section-label {
+      display: inline-block;
+      font-size: 0.6875rem;
       font-weight: 700;
-      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--primary);
+      background: var(--primary-bg);
+      padding: 0.375rem 1rem;
+      border-radius: 9999px;
       margin-bottom: 1rem;
     }
-
-    @media (min-width: 640px) {
-      .section-header h2 {
-        font-size: 2.5rem;
-      }
+    .section-head h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
     }
-
-    @media (min-width: 1024px) {
-      .section-header h2 {
-        font-size: 3rem;
-      }
-    }
-
-    .section-header h2 span {
-      color: var(--primary);
-    }
-
-    .section-header h2 .destructive {
-      color: var(--destructive);
-    }
-
-    .section-header p {
-      font-size: 1.125rem;
+    @media (min-width: 640px) { .section-head h2 { font-size: 2.5rem; } }
+    .section-head h2 .hl { color: var(--primary); }
+    .section-head h2 .hl-red { color: var(--destructive); }
+    .section-head p {
+      font-size: 1.0625rem;
       color: var(--text-muted);
       max-width: 36rem;
       margin: 0 auto;
     }
 
     /* ============================================
-       PROBLEM SECTION
+       PROBLEM / SOLUTION SECTION
     ============================================ */
-    .problems {
-      background: var(--bg-card);
-    }
-
+    .problems-section { background: var(--bg-card); }
     .problem-grid {
       display: grid;
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
-
-    @media (min-width: 768px) {
-      .problem-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .problem-grid {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
+    @media (min-width: 640px) { .problem-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .problem-grid { grid-template-columns: repeat(4, 1fr); } }
 
     .card {
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-lg);
       padding: 1.5rem;
-      transition: all 0.3s ease;
+      transition: var(--transition);
     }
-
     .card:hover {
-      box-shadow: var(--shadow-lg);
-      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-3px);
+      border-color: transparent;
     }
-
-    .problem-card:hover {
-      border-color: rgba(239, 68, 68, 0.5);
-    }
-
     .card-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
       margin-bottom: 1rem;
     }
-
-    .card-icon.destructive {
-      background: rgba(239, 68, 68, 0.1);
+    .card-icon svg { width: 22px; height: 22px; }
+    .card-icon.red {
+      background: var(--destructive-bg);
       color: var(--destructive);
     }
-
-    .card-icon.primary {
-      background: rgba(8, 145, 178, 0.1);
+    .card-icon.blue {
+      background: var(--primary-bg);
       color: var(--primary);
     }
-
-    .card-icon svg {
-      width: 24px;
-      height: 24px;
+    .card-icon.green {
+      background: var(--success-bg);
+      color: var(--success);
     }
-
+    .card-icon.purple {
+      background: rgba(99, 102, 241, 0.08);
+      color: var(--secondary);
+    }
+    .card-icon.amber {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
     .card h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.375rem;
     }
-
     .card p {
       font-size: 0.875rem;
       color: var(--text-muted);
+      line-height: 1.6;
     }
+    .card:hover.problem-card { border-color: rgba(239, 68, 68, 0.3); }
 
-    /* ============================================
-       SOLUTION SECTION
-    ============================================ */
-    .solution-grid {
+    /* Solution timeline */
+    .solution-row {
       display: grid;
-      gap: 2rem;
-      position: relative;
+      gap: 1.5rem;
       margin-top: 4rem;
     }
-
-    @media (min-width: 1024px) {
-      .solution-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .solution-line {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(to right, rgba(8, 145, 178, 0.2), var(--primary), rgba(8, 145, 178, 0.2));
-      transform: translateY(-50%);
-      z-index: 0;
-    }
-
-    @media (min-width: 1024px) {
-      .solution-line {
-        display: block;
-      }
-    }
-
-    .solution-card {
+    @media (min-width: 768px) { .solution-row { grid-template-columns: repeat(3, 1fr); } }
+    .sol-step {
+      position: relative;
       background: var(--bg);
-      border: 2px solid rgba(8, 145, 178, 0.3);
-      border-radius: var(--radius);
-      padding: 2rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem 1.5rem;
       text-align: center;
-      position: relative;
-      z-index: 1;
-      transition: all 0.3s ease;
+      transition: var(--transition);
     }
-
-    .solution-card:hover {
+    .sol-step:hover {
+      box-shadow: var(--shadow-md);
       border-color: var(--primary);
+      transform: translateY(-3px);
     }
-
-    .solution-number {
-      width: 64px;
-      height: 64px;
+    .sol-num {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       border-radius: 50%;
-      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
       color: white;
-      font-size: 1.5rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 1.5rem;
-      animation: pulse 2s ease-in-out infinite;
+      font-weight: 800;
+      font-size: 1rem;
+      margin: 0 auto 1rem;
     }
+    .sol-step h3 { font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .sol-step p { font-size: 0.875rem; color: var(--text-muted); }
 
-    .solution-card h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.75rem;
-    }
-
-    .solution-card p {
-      color: var(--text-muted);
-    }
-
-    /* Core Concept Box */
-    .core-concept {
-      margin-top: 4rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-radius: 1rem;
+    /* Core concept */
+    .core-box {
+      margin-top: 3rem;
+      background: linear-gradient(135deg, var(--bg-dark), #1e293b);
+      border-radius: var(--radius-xl);
       padding: 2rem;
-    }
-
-    @media (min-width: 1024px) {
-      .core-concept {
-        padding: 3rem;
-      }
-    }
-
-    .core-concept-inner {
       display: flex;
       flex-direction: column;
-      gap: 2rem;
-      align-items: center;
+      gap: 1.5rem;
+      align-items: flex-start;
     }
-
-    @media (min-width: 1024px) {
-      .core-concept-inner {
+    @media (min-width: 768px) {
+      .core-box {
         flex-direction: row;
+        padding: 2.5rem;
+        gap: 2rem;
+        align-items: center;
       }
     }
-
-    .core-concept-icon {
-      width: 80px;
-      height: 80px;
-      border-radius: 1rem;
-      background: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .core-icon {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-
-    .core-concept-icon svg {
-      width: 40px;
-      height: 40px;
-      color: white;
-    }
-
-    .core-concept h3 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.75rem;
-    }
-
-    .core-concept p {
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-    }
-
-    .feature-list {
+    .core-icon svg { width: 28px; height: 28px; color: white; }
+    .core-box h3 { color: white; font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .core-box > div > p { color: rgba(255,255,255,0.6); font-size: 0.9375rem; line-height: 1.7; }
+    .core-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .feature-item {
-      display: flex;
-      align-items: center;
       gap: 0.5rem;
-      font-size: 0.875rem;
-      color: var(--primary);
+      margin-top: 1rem;
     }
+    .core-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.75rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9999px;
+      color: var(--primary-light);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .core-tag svg { width: 12px; height: 12px; }
 
-    .feature-item svg {
-      width: 16px;
-      height: 16px;
+    /* ============================================
+       FEATURES SECTION
+    ============================================ */
+    .features-grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 640px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .features-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-4px);
+      border-color: transparent;
+    }
+    .feature-card .card-icon { margin-bottom: 1rem; }
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .feature-card p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .feature-tag {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      background: var(--primary-bg);
+      padding: 0.25rem 0.625rem;
+      border-radius: 4px;
     }
 
     /* ============================================
        ARCHITECTURE SECTION
     ============================================ */
-    .architecture {
-      background: var(--bg);
-    }
-
+    .arch-section { background: var(--bg-card); }
     .arch-diagram {
-      background: var(--bg-card);
+      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 2rem;
-      margin-bottom: 2rem;
+      border-radius: var(--radius-xl);
+      padding: 2rem 1.5rem;
+      margin-bottom: 2.5rem;
     }
-
+    @media (min-width: 768px) { .arch-diagram { padding: 2.5rem; } }
     .arch-flow {
       display: grid;
-      gap: 2rem;
+      gap: 1.5rem;
+      align-items: stretch;
     }
-
-    @media (min-width: 768px) {
-      .arch-flow {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
+    @media (min-width: 768px) { .arch-flow { grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; align-items: center; } }
     .arch-node {
       text-align: center;
-      position: relative;
-    }
-
-    .arch-node-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 1rem;
-    }
-
-    .arch-node-icon.muted {
-      background: var(--secondary-light);
-      color: var(--text-muted);
-    }
-
-    .arch-node-icon.primary {
-      background: var(--primary);
-      color: white;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .arch-node-icon.secondary {
-      background: var(--secondary);
-      color: white;
-    }
-
-    .arch-node-icon svg {
-      width: 32px;
-      height: 32px;
-    }
-
-    .arch-node h4 {
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.25rem;
-    }
-
-    .arch-node p {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-
-    .arch-node-tags {
-      margin-top: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .arch-tag {
-      padding: 0.5rem;
-      background: rgba(8, 145, 178, 0.1);
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
-      color: var(--primary);
-    }
-
-    .arch-connector {
-      display: none;
-      position: absolute;
-      top: 32px;
-      width: 32px;
-      height: 2px;
-      background: var(--primary);
-    }
-
-    @media (min-width: 768px) {
-      .arch-connector {
-        display: block;
-      }
-      .arch-connector.left {
-        left: -16px;
-      }
-      .arch-connector.right {
-        right: -16px;
-      }
-    }
-
-    /* Database Table */
-    .db-table {
+      padding: 1.25rem;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
+      transition: var(--transition);
+    }
+    .arch-node:hover { box-shadow: var(--shadow-md); border-color: var(--primary); }
+    .arch-node-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 0.75rem;
+    }
+    .arch-node-icon svg { width: 22px; height: 22px; }
+    .arch-node-icon.muted { background: #f1f5f9; color: var(--text-muted); }
+    .arch-node-icon.primary { background: var(--primary-bg); color: var(--primary); }
+    .arch-node-icon.secondary { background: rgba(99,102,241,0.08); color: var(--secondary); }
+    .arch-node-icon.green-icon { background: var(--success-bg); color: var(--success); }
+    .arch-node h4 { font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .arch-node p { font-size: 0.6875rem; color: var(--text-muted); }
+    .arch-arrow {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 1.25rem;
+    }
+    @media (min-width: 768px) { .arch-arrow { display: flex; } }
+    .arch-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; justify-content: center; margin-top: 0.5rem; }
+    .arch-tag {
+      font-size: 0.625rem;
+      padding: 0.125rem 0.5rem;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 4px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
     }
 
-    .db-table-header {
+    /* DB table */
+    .db-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .db-header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
       padding: 1rem 1.5rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-bottom: 1px solid var(--border);
+      background: var(--bg-dark);
+      color: white;
     }
-
-    .db-table-header svg {
-      width: 24px;
-      height: 24px;
-      color: var(--primary);
-    }
-
-    .db-table-header h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    table {
+    .db-header svg { width: 20px; height: 20px; color: var(--primary-light); }
+    .db-header h3 { font-size: 0.9375rem; font-weight: 700; }
+    .db-card table {
       width: 100%;
       border-collapse: collapse;
+      font-size: 0.8125rem;
     }
-
-    th, td {
-      padding: 1rem 1.5rem;
+    .db-card th {
       text-align: left;
-    }
-
-    th {
+      padding: 0.75rem 1.25rem;
+      background: #f8fafc;
+      color: var(--text-muted);
       font-weight: 600;
-      color: var(--text-muted);
-      font-size: 0.875rem;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       border-bottom: 1px solid var(--border);
     }
-
-    td {
-      border-bottom: 1px solid var(--border);
+    .db-card td {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border-light);
     }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:hover {
-      background: rgba(8, 145, 178, 0.02);
-    }
-
+    .db-card tr:last-child td { border-bottom: none; }
     .model-name {
-      font-family: 'Space Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
       color: var(--primary);
-      font-weight: 500;
+      font-size: 0.8125rem;
     }
+    .model-desc { color: var(--text-muted); }
 
-    .model-desc {
-      color: var(--text-muted);
-    }
-
-    /* Security Cards */
+    /* Security grid */
     .security-grid {
       display: grid;
-      gap: 1rem;
-      margin-top: 3rem;
+      gap: 0.75rem;
     }
-
-    @media (min-width: 768px) {
-      .security-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .security-card {
+    @media (min-width: 640px) { .security-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .security-grid { grid-template-columns: repeat(3, 1fr); } }
+    .sec-card {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      background: var(--bg-card);
+      gap: 0.875rem;
+      padding: 1rem 1.25rem;
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1.5rem;
+      transition: var(--transition);
     }
-
-    .security-card-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius);
-      background: rgba(8, 145, 178, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .sec-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+    .sec-icon {
+      width: 36px; height: 36px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-
-    .security-card-icon svg {
-      width: 24px;
-      height: 24px;
-      color: var(--primary);
-    }
-
-    .security-card h4 {
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .security-card p {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
+    .sec-icon svg { width: 18px; height: 18px; }
+    .sec-card h4 { font-size: 0.8125rem; font-weight: 700; }
+    .sec-card p { font-size: 0.6875rem; color: var(--text-muted); }
 
     /* ============================================
        WORKFLOW SECTION
     ============================================ */
-    .workflow {
-      background: var(--bg-card);
-    }
-
     .phase-card {
-      background: var(--bg);
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1.5rem;
       overflow: hidden;
-      margin-bottom: 2rem;
+      transition: var(--transition);
     }
-
+    .phase-card:hover { box-shadow: var(--shadow-md); border-color: transparent; }
     .phase-header {
       display: flex;
       align-items: center;
       gap: 1rem;
-      padding: 1rem 1.5rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-light);
     }
-
     .phase-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius);
-      background: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .phase-icon svg {
-      width: 24px;
-      height: 24px;
-      color: white;
-    }
-
-    .phase-label {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      background: var(--secondary);
-      color: white;
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      margin-bottom: 0.25rem;
-    }
-
-    .phase-title {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .phase-content {
-      padding: 1.5rem;
-    }
-
-    .steps-grid {
-      display: grid;
-      gap: 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .steps-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .steps-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .step-item {
-      display: flex;
-      gap: 0.75rem;
-      padding: 1rem;
-      background: rgba(8, 145, 178, 0.02);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      transition: all 0.3s ease;
-    }
-
-    .step-item:hover {
-      border-color: rgba(8, 145, 178, 0.5);
-    }
-
-    .step-number {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: rgba(8, 145, 178, 0.1);
-      color: var(--primary);
-      font-size: 0.875rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-
-    .step-item h4 {
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.25rem;
+    .phase-icon svg { width: 22px; height: 22px; color: white; }
+    .phase-label {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--primary);
     }
+    .phase-title {
+      font-size: 1.0625rem;
+      font-weight: 700;
+    }
+    .phase-content { padding: 1.25rem 1.5rem; }
+    .steps-list { display: grid; gap: 0.75rem; }
+    @media (min-width: 640px) { .steps-list { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .steps-list { grid-template-columns: repeat(3, 1fr); } }
+    .step-box {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.875rem;
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-light);
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .step-box h4 { font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.125rem; }
+    .step-box p { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; }
 
-    .step-item p {
-      font-size: 0.875rem;
+    /* File naming */
+    .file-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+    .file-box h3 { font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem; }
+    .file-pattern {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+    .file-pattern .var { color: var(--primary); }
+    .file-pattern .sep { color: var(--text-muted); }
+    .file-examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .file-ex {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.375rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text-muted);
     }
-
-    /* File Naming Box */
-    .file-naming {
-      background: var(--secondary);
-      border-radius: 1rem;
-      padding: 2rem;
-      color: white;
-      margin-top: 4rem;
-    }
-
-    .file-naming h3 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .file-pattern {
-      background: rgba(255,255,255,0.1);
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-      text-align: center;
-      font-family: 'Space Mono', monospace;
-      font-size: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .file-pattern .var {
-      color: rgba(255,255,255,0.8);
-    }
-
-    .file-pattern .sep {
-      color: var(--primary-light);
-    }
-
-    .file-examples {
-      display: grid;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    @media (min-width: 640px) {
-      .file-examples {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .file-example {
-      background: rgba(255,255,255,0.05);
-      border-radius: 0.5rem;
-      padding: 1rem;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-      text-align: center;
-    }
-
     .file-rules {
-      display: grid;
-      gap: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
     }
-
-    @media (min-width: 640px) {
-      .file-rules {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
     .file-rule {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.8);
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
     }
-
-    .file-rule svg {
-      width: 16px;
-      height: 16px;
-      color: var(--primary-light);
-      flex-shrink: 0;
-    }
+    .file-rule svg { width: 14px; height: 14px; color: var(--success); }
 
     /* ============================================
        API SECTION
     ============================================ */
-    .api {
-      background: var(--bg);
-    }
+    .api-section { background: var(--bg-card); }
 
-    .access-points {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
+    .access-bar {
+      display: grid;
+      gap: 0.75rem;
       margin-bottom: 2rem;
     }
-
-    .access-points h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 1rem;
-    }
-
-    .access-grid {
-      display: grid;
-      gap: 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .access-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .access-grid {
-        grid-template-columns: repeat(5, 1fr);
-      }
-    }
-
+    @media (min-width: 640px) { .access-bar { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .access-bar { grid-template-columns: repeat(3, 1fr); } }
     .access-item {
-      background: rgba(8, 145, 178, 0.02);
+      padding: 1rem 1.25rem;
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1rem;
     }
-
-    .access-item h4 {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--text);
-      margin-bottom: 0.25rem;
-    }
-
+    .access-item h4 { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.375rem; }
     .access-item code {
       font-size: 0.75rem;
       color: var(--primary);
+      background: var(--primary-bg);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      display: inline-block;
       word-break: break-all;
     }
 
     /* Tabs */
-    .tabs {
-      margin-bottom: 2rem;
-    }
-
-    .tab-list {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.5rem;
+    .tabs-wrap { margin-bottom: 2rem; }
+    .tab-bar {
+      display: flex;
+      gap: 0.25rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
       margin-bottom: 1.5rem;
     }
-
-    @media (min-width: 1024px) {
-      .tab-list {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
-
+    .tab-bar::-webkit-scrollbar { display: none; }
     .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 1rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--transition);
+    }
+    .tab-btn svg { width: 16px; height: 16px; }
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .ep-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .ep-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
       padding: 0.75rem 1rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .tab-btn:hover {
       background: var(--bg);
-    }
-
-    .tab-btn.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: white;
-    }
-
-    .tab-btn svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .endpoint-list {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-light);
       border-radius: var(--radius);
-      overflow: hidden;
+      flex-wrap: wrap;
     }
-
-    .endpoint-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      transition: background 0.3s ease;
+    .method {
+      padding: 0.1875rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
     }
-
-    @media (min-width: 640px) {
-      .endpoint-item {
-        flex-direction: row;
-        align-items: center;
-        gap: 1.5rem;
-      }
-    }
-
-    .endpoint-item:last-child {
-      border-bottom: none;
-    }
-
-    .endpoint-item:hover {
-      background: rgba(8, 145, 178, 0.02);
-    }
-
-    .method-badge {
-      display: inline-flex;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.75rem;
-      font-weight: 600;
-      width: fit-content;
-    }
-
-    .method-badge.get {
-      background: rgba(34, 197, 94, 0.2);
-      color: #16a34a;
-      border: 1px solid rgba(34, 197, 94, 0.3);
-    }
-
-    .method-badge.post {
-      background: rgba(8, 145, 178, 0.2);
-      color: var(--primary);
-      border: 1px solid rgba(8, 145, 178, 0.3);
-    }
-
-    .endpoint-path {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
+    .method.get { background: #dbeafe; color: #2563eb; }
+    .method.post { background: #dcfce7; color: #16a34a; }
+    .method.put { background: #fef3c7; color: #d97706; }
+    .method.delete { background: #fee2e2; color: #dc2626; }
+    .ep-path {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      font-weight: 500;
       color: var(--text);
-      flex: 1;
     }
-
-    .endpoint-desc {
-      font-size: 0.875rem;
+    .ep-desc {
+      font-size: 0.75rem;
       color: var(--text-muted);
+      margin-left: auto;
+    }
+    @media (max-width: 639px) {
+      .ep-desc { margin-left: 0; width: 100%; padding-top: 0.25rem; }
     }
 
-    /* cURL Example */
-    .curl-example {
-      background: var(--secondary);
-      border-radius: var(--radius);
+    /* cURL box */
+    .curl-box {
+      background: var(--bg-dark);
+      border-radius: var(--radius-lg);
       overflow: hidden;
-      margin-top: 3rem;
+      margin-top: 2rem;
     }
-
     .curl-header {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      gap: 0.75rem;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-
-    .curl-header svg {
-      width: 20px;
-      height: 20px;
-      color: white;
-    }
-
-    .curl-header h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: white;
-    }
-
-    .curl-code {
-      padding: 1.5rem;
+    .curl-header svg { width: 16px; height: 16px; color: var(--primary-light); }
+    .curl-header h3 { font-size: 0.8125rem; font-weight: 600; color: white; }
+    .curl-box pre {
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.75);
       overflow-x: auto;
+      line-height: 1.7;
     }
-
-    .curl-code pre {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.9);
-      line-height: 1.6;
-      white-space: pre;
-    }
+    .curl-box .comment { color: rgba(255,255,255,0.3); }
 
     /* ============================================
-       INSTALLATION SECTION
+       INSTALLATION / QUICK START
     ============================================ */
-    .installation {
+    .prereq-box {
       background: var(--bg-card);
-    }
-
-    .prereq-card {
-      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-lg);
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
-
-    .prereq-card h3 {
-      font-size: 1.125rem;
+    .prereq-box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .prereq-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .prereq-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.875rem;
+      background: var(--primary-bg);
+      border: 1px solid rgba(8, 145, 178, 0.15);
+      color: var(--primary-dark);
+      border-radius: 9999px;
+      font-size: 0.75rem;
       font-weight: 600;
-      color: var(--text);
-      margin-bottom: 1rem;
     }
 
-    .prereq-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .prereq-badge {
-      padding: 0.5rem 1rem;
-      background: var(--primary);
-      color: white;
-      border-radius: var(--radius);
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .prereq-badge.optional {
-      background: var(--secondary);
-    }
-
-    .install-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
+    .install-steps { display: flex; flex-direction: column; gap: 1rem; }
     .install-step {
-      background: var(--bg);
+      background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
     }
-
-    .install-step-header {
+    .install-step-head {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 1rem 1.5rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-bottom: 1px solid var(--border);
+      gap: 0.875rem;
+      padding: 1rem 1.25rem;
     }
-
-    .install-step-number {
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius);
-      background: var(--primary);
-      color: white;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .install-step-num {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;
     }
-
     .install-step-title {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 600;
-      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 700;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .install-step-title svg { width: 16px; height: 16px; color: var(--primary); }
+    .install-code {
+      background: var(--bg-dark);
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .install-code pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.8);
+      overflow-x: auto;
+      line-height: 1.7;
+    }
+    .install-code .comment { color: rgba(255,255,255,0.3); }
+    .install-note {
+      padding: 0.625rem 1.25rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: #fefce8;
+      border-top: 1px solid #fef08a;
     }
 
-    .install-step-title svg {
-      width: 20px;
-      height: 20px;
+    /* ============================================
+       DEPLOYMENT SECTION
+    ============================================ */
+    .deploy-section { background: var(--bg-card); }
+    .deploy-grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 768px) { .deploy-grid { grid-template-columns: repeat(2, 1fr); } }
+    .deploy-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      transition: var(--transition);
+    }
+    .deploy-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary); }
+    .deploy-card h3 {
+      display: flex; align-items: center; gap: 0.625rem;
+      font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.75rem;
+    }
+    .deploy-card h3 span { font-size: 1.5rem; }
+    .deploy-card p { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6; }
+    .deploy-card code {
+      display: block;
+      font-size: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--primary);
+      word-break: break-all;
+    }
+    .deploy-features {
+      display: flex; flex-wrap: wrap; gap: 0.375rem;
+      margin-top: 0.75rem;
+    }
+    .deploy-feat {
+      font-size: 0.6875rem;
+      padding: 0.1875rem 0.5rem;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 4px;
+      font-weight: 600;
     }
 
-    .install-step-code {
-      background: var(--secondary);
+    /* ============================================
+       PROJECT STRUCTURE
+    ============================================ */
+    .structure-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .structure-head {
+      display: flex; align-items: center; gap: 0.75rem;
       padding: 1rem 1.5rem;
+      background: var(--bg-dark);
+      color: white;
+      font-size: 0.875rem; font-weight: 700;
+    }
+    .structure-head svg { width: 18px; height: 18px; color: var(--primary-light); }
+    .tree {
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.8;
       overflow-x: auto;
     }
-
-    .install-step-code pre {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.9);
-      line-height: 1.6;
-    }
-
-    .install-step-code .comment {
-      color: rgba(255,255,255,0.5);
-    }
-
-    .install-step-note {
-      padding: 0.75rem 1.5rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-top: 1px solid var(--border);
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
+    .tree-folder { color: var(--secondary); font-weight: 600; }
+    .tree-file { color: var(--text-muted); }
+    .tree-desc { color: var(--text-light); font-size: 0.6875rem; }
 
     /* ============================================
-       PROJECT STRUCTURE SECTION
+       MOODLE CONFIG
     ============================================ */
-    .structure {
-      background: var(--bg);
-    }
-
-    .structure-card {
-      max-width: 900px;
-      margin: 0 auto;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .structure-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 1rem 1.5rem;
-      background: rgba(8, 145, 178, 0.05);
-      border-bottom: 1px solid var(--border);
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .structure-header svg {
-      width: 20px;
-      height: 20px;
-      color: var(--primary);
-    }
-
-    .structure-tree {
-      padding: 0.5rem;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    .tree-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.375rem 0.75rem;
-      border-radius: 0.25rem;
-      transition: background 0.2s ease;
-    }
-
-    .tree-item:hover {
-      background: rgba(8, 145, 178, 0.05);
-    }
-
-    .tree-item svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
-
-    .tree-item svg.folder {
-      color: var(--primary);
-    }
-
-    .tree-item svg.file {
-      color: #22d3ee;
-    }
-
-    .tree-item svg.config {
-      color: var(--text-muted);
-    }
-
-    .tree-item span {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-    }
-
-    .tree-item span.folder-name {
-      font-weight: 500;
-      color: var(--text);
-    }
-
-    .tree-item span.file-name {
-      color: var(--text-muted);
-    }
-
-    .tree-item .desc {
-      margin-left: auto;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      display: none;
-    }
-
-    @media (min-width: 640px) {
-      .tree-item .desc {
-        display: block;
-      }
-    }
-
-    /* ============================================
-       MOODLE CONFIG SECTION
-    ============================================ */
-    .moodle-config {
-      background: var(--bg-card);
-    }
-
-    .config-steps {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .config-step {
+    .moodle-section { background: var(--bg-card); }
+    .config-steps { display: flex; flex-direction: column; gap: 1rem; }
+    .config-card {
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1.5rem;
+      padding: 1.25rem 1.5rem;
+      transition: var(--transition);
     }
-
-    .config-step-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
+    .config-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+    .config-card-head {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;
     }
-
-    .config-step-number {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
+    .config-num {
+      width: 28px; height: 28px;
       background: var(--primary);
       color: white;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.75rem; flex-shrink: 0;
     }
-
-    .config-step h3 {
-      font-size: 1.125rem;
+    .config-card h3 { font-size: 0.9375rem; font-weight: 700; }
+    .config-path {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      padding-left: 2.5rem;
+      line-height: 1.6;
+    }
+    .func-tags {
+      display: flex; flex-wrap: wrap; gap: 0.375rem;
+      padding-left: 2.5rem; margin-top: 0.5rem;
+    }
+    .func-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6875rem;
+      padding: 0.25rem 0.625rem;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 4px;
       font-weight: 600;
-      color: var(--text);
     }
 
-    .config-step-path {
-      background: rgba(8, 145, 178, 0.05);
-      border-radius: var(--radius);
-      padding: 1rem;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      white-space: pre-line;
+    /* Security box */
+    .sec-box {
+      margin-top: 2rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
     }
-
-    .config-step-functions {
-      margin-top: 1rem;
+    .sec-box h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 0.5rem;
     }
-
-    .config-step-functions p {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      margin-bottom: 0.75rem;
+    .sec-list {
+      display: grid; gap: 0.75rem;
     }
-
-    .function-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+    @media (min-width: 640px) { .sec-list { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .sec-list { grid-template-columns: repeat(3, 1fr); } }
+    .sec-item {
+      display: flex; align-items: flex-start; gap: 0.625rem;
     }
-
-    .function-badge {
-      padding: 0.375rem 0.75rem;
-      background: var(--secondary);
-      color: white;
-      border-radius: var(--radius);
-      font-family: 'Space Mono', monospace;
-      font-size: 0.75rem;
-    }
-
-    /* Security Box */
-    .security-box {
-      max-width: 900px;
-      margin: 4rem auto 0;
-      background: var(--secondary);
-      border-radius: 1rem;
-      padding: 2rem;
-      color: white;
-    }
-
-    .security-box h3 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 1.5rem;
-    }
-
-    .security-list {
-      display: grid;
-      gap: 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .security-list {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .security-list {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .security-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-    }
-
-    .security-item svg {
-      width: 20px;
-      height: 20px;
-      color: var(--primary-light);
-      flex-shrink: 0;
+    .sec-item svg {
+      width: 16px; height: 16px;
+      color: var(--success);
       margin-top: 0.125rem;
+      flex-shrink: 0;
     }
+    .sec-item h4 { font-size: 0.8125rem; font-weight: 700; }
+    .sec-item p { font-size: 0.6875rem; color: var(--text-muted); }
 
-    .security-item h4 {
-      font-weight: 600;
+    /* ============================================
+       CONTRIBUTORS
+    ============================================ */
+    .contributors-grid {
+      display: grid;
+      gap: 1.25rem;
+      max-width: 640px;
+      margin: 0 auto;
     }
-
-    .security-item p {
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.7);
+    @media (min-width: 640px) { .contributors-grid { grid-template-columns: repeat(2, 1fr); } }
+    .contrib-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      text-align: center;
+      transition: var(--transition);
+    }
+    .contrib-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+    .contrib-avatar {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      overflow: hidden;
+      border: 3px solid var(--border);
+    }
+    .contrib-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .contrib-card h3 { font-size: 1rem; font-weight: 700; }
+    .contrib-card .contrib-handle {
+      font-size: 0.8125rem; color: var(--primary); font-weight: 500;
+    }
+    .contrib-card .contrib-role {
+      font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;
     }
 
     /* ============================================
        FOOTER
     ============================================ */
     footer {
-      background: var(--secondary);
-      color: white;
+      background: var(--bg-dark);
+      color: rgba(255,255,255,0.7);
       padding: 4rem 0 2rem;
     }
-
     .footer-grid {
       display: grid;
-      gap: 3rem;
+      gap: 2.5rem;
       margin-bottom: 3rem;
     }
-
-    @media (min-width: 768px) {
-      .footer-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .footer-brand .logo {
-      margin-bottom: 1rem;
-    }
-
-    .footer-brand .logo-text {
-      color: white;
-    }
-
+    @media (min-width: 768px) { .footer-grid { grid-template-columns: 1.5fr 1fr 1fr; } }
     .footer-brand p {
       font-size: 0.875rem;
-      color: rgba(255,255,255,0.7);
+      color: rgba(255,255,255,0.5);
+      margin-top: 1rem;
+      max-width: 24rem;
+      line-height: 1.7;
+    }
+    .footer-brand .btn {
+      margin-top: 1.25rem;
+      color: white;
+      border-color: rgba(255,255,255,0.2);
+    }
+    .footer-links h4, .footer-tech h4 {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: white;
       margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
-
-    .footer-links h4,
-    .footer-tech h4 {
-      font-weight: 600;
-      margin-bottom: 1rem;
-    }
-
-    .footer-links ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
+    .footer-links ul { list-style: none; }
+    .footer-links li { margin-bottom: 0.625rem; }
     .footer-links a {
       font-size: 0.875rem;
-      color: rgba(255,255,255,0.7);
-      transition: color 0.3s ease;
+      color: rgba(255,255,255,0.5);
+      transition: color 0.2s;
     }
-
-    .footer-links a:hover {
-      color: var(--primary-light);
-    }
-
-    .tech-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
+    .footer-links a:hover { color: var(--primary-light); }
+    .tech-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; }
     .tech-tag {
-      padding: 0.375rem 0.75rem;
-      background: rgba(255,255,255,0.1);
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.8);
-    }
-
-    .footer-bottom {
-      padding-top: 2rem;
-      border-top: 1px solid rgba(255,255,255,0.2);
-      text-align: center;
-    }
-
-    .footer-bottom p {
-      font-size: 0.875rem;
+      font-size: 0.6875rem;
+      padding: 0.25rem 0.625rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
       color: rgba(255,255,255,0.6);
+      border-radius: 4px;
+      font-weight: 500;
     }
-
-    .footer-bottom a {
-      color: var(--primary-light);
+    .footer-bottom {
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.35);
     }
-
-    .footer-bottom a:hover {
-      text-decoration: underline;
-    }
-
-    .heart {
-      color: var(--destructive);
-    }
+    .footer-bottom a { color: var(--primary-light); }
+    .heart { color: #ef4444; }
 
     /* ============================================
-       UTILITIES
+       RESPONSIVE TABLE WRAPPER
     ============================================ */
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border-width: 0;
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ============================================
+       LIVE DEMO BANNER
+    ============================================ */
+    .demo-banner {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      background-size: 200% 200%;
+      animation: gradient-shift 5s ease infinite;
+      padding: 3rem 0;
+      text-align: center;
+      color: white;
+    }
+    .demo-banner h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+    }
+    @media (min-width: 640px) { .demo-banner h2 { font-size: 2rem; } }
+    .demo-banner p {
+      font-size: 1rem;
+      opacity: 0.85;
+      margin-bottom: 1.5rem;
+    }
+    .demo-btns { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
+    .demo-btns .btn {
+      background: white;
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+    .demo-btns .btn:hover {
+      background: #f0f9ff;
+      transform: translateY(-1px);
+    }
+    .demo-btns .btn-ghost {
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .demo-btns .btn-ghost:hover {
+      background: rgba(255,255,255,0.25);
     }
   </style>
 </head>
@@ -1897,200 +1559,327 @@
         <div class="logo-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         </div>
-        <span class="logo-text">Exam Middleware</span>
+        <span class="logo-text">IESF-LMS</span>
       </a>
       <nav>
         <a href="#features">Features</a>
         <a href="#architecture">Architecture</a>
         <a href="#workflow">Workflow</a>
         <a href="#api">API</a>
-        <a href="#installation">Installation</a>
+        <a href="#deployment">Deployment</a>
+        <a href="#installation">Setup</a>
       </nav>
       <div class="header-actions">
-        <a href="https://github.com/d-kavinraja/Smart-answer-sheet-processor-for-LMS" target="_blank" class="github-link">
+        <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="github-link">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
           GitHub
         </a>
         <a href="#installation" class="btn btn-primary">Get Started</a>
+        <button class="hamburger" id="menuToggle" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
       </div>
     </div>
   </header>
 
-  <!-- Hero Section -->
+  <!-- Mobile Nav -->
+  <div class="mobile-nav" id="mobileNav">
+    <a href="#features" onclick="closeMenu()">Features</a>
+    <a href="#architecture" onclick="closeMenu()">Architecture</a>
+    <a href="#workflow" onclick="closeMenu()">Workflow</a>
+    <a href="#api" onclick="closeMenu()">API</a>
+    <a href="#deployment" onclick="closeMenu()">Deployment</a>
+    <a href="#installation" onclick="closeMenu()">Setup</a>
+    <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" onclick="closeMenu()">GitHub</a>
+  </div>
+
+  <!-- Hero -->
   <section class="hero">
     <div class="hero-bg"></div>
-    <div class="hero-overlay"></div>
+    <div class="hero-grid-bg"></div>
     <div class="container">
-      <div class="hero-content">
-        <div class="badges animate-fade-up delay-1">
-          <span class="badge">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-            Python 3.10+
-          </span>
-          <span class="badge">FastAPI</span>
-          <span class="badge">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-            PostgreSQL
-          </span>
-          <span class="badge">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            Moodle LMS
-          </span>
-        </div>
-
-        <h1 class="animate-fade-up delay-2">Examination <span>Middleware</span></h1>
-        <p class="hero-subtitle animate-fade-up delay-3">LMS-SAE Bridge</p>
-        <p class="hero-description animate-fade-up delay-4">
-          A robust, secure, and automated bridge designed to streamline the digitization
-          and submission of physical examination answer sheets to the Moodle Learning
-          Management System.
-        </p>
-
-        <div class="hero-buttons animate-fade-up delay-5">
-          <a href="#installation" class="btn btn-primary">
-            Quick Start
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </a>
-          <a href="#architecture" class="btn btn-secondary">View Architecture</a>
-        </div>
-
-        <div class="hero-stats animate-fade-up delay-6">
-          <div class="stat-item">
-            <div class="stat-value">3-Step</div>
-            <div class="stat-label">Upload-Verify-Push</div>
+      <div class="hero-layout">
+        <div class="hero-content">
+          <div class="badges anim-up d1">
+            <span class="badge">FastAPI</span>
+            <span class="badge">PostgreSQL</span>
+            <span class="badge purple">YOLO + CRNN</span>
+            <span class="badge green">Moodle LMS</span>
           </div>
-          <div class="stat-item">
-            <div class="stat-value">100%</div>
-            <div class="stat-label">Student Verification</div>
+
+          <h1 class="anim-up d2">Intelligent Examination <span class="gradient-text">Submission Framework</span></h1>
+          <p class="hero-subtitle anim-up d3">For Learning Management Systems</p>
+          <p class="hero-desc anim-up d4">
+            An AI-powered bridge between physical examination papers and Moodle LMS. Features Smart Scan using YOLO &amp; CRNN models, CIA exam management, attempt control, and automated email notifications.
+          </p>
+
+          <div class="hero-buttons anim-up d5">
+            <a href="#installation" class="btn btn-primary btn-lg">
+              Quick Start
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </a>
+            <a href="#architecture" class="btn btn-secondary btn-lg">View Architecture</a>
+            <a href="https://exam-middleware.onrender.com" target="_blank" class="btn btn-secondary btn-lg">
+              Live Demo
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>
           </div>
-          <div class="stat-item">
-            <div class="stat-value">Complete</div>
-            <div class="stat-label">Audit Trail</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">15+</div>
-            <div class="stat-label">API Endpoints</div>
+
+          <div class="hero-stats anim-up d6">
+            <div class="stat-item">
+              <div class="stat-value">AI-Powered</div>
+              <div class="stat-label">Smart Scan</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">20+</div>
+              <div class="stat-label">API Endpoints</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">CIA-1/2</div>
+              <div class="stat-label">Exam Support</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">100%</div>
+              <div class="stat-label">Audit Trail</div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="scroll-indicator animate-fade-up delay-8">
-      <div class="scroll-indicator-inner">
-        <div class="scroll-indicator-dot"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Problem Section -->
-  <section id="features" class="problems">
-    <div class="container">
-      <div class="section-header">
-        <h2>The <span class="destructive">Problem</span></h2>
-        <p>In academic institutions transitioning to digital grading, handling physical answer scripts presents significant challenges.</p>
-      </div>
-
-      <div class="problem-grid">
-        <div class="card problem-card animate-fade-up delay-1">
-          <div class="card-icon destructive">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-          <h3>Manual Labor</h3>
-          <p>Individually scanning, renaming, and uploading hundreds of answer scripts is time-consuming and inefficient.</p>
-        </div>
-
-        <div class="card problem-card animate-fade-up delay-2">
-          <div class="card-icon destructive">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          </div>
-          <h3>Human Error</h3>
-          <p>Manual processes are prone to uploading wrong files or mislabeling student submissions.</p>
-        </div>
-
-        <div class="card problem-card animate-fade-up delay-3">
-          <div class="card-icon destructive">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          </div>
-          <h3>Security & Integrity</h3>
-          <p>Direct database manipulation or unverified uploads can compromise the chain of custody.</p>
-        </div>
-
-        <div class="card problem-card animate-fade-up delay-4">
-          <div class="card-icon destructive">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-          </div>
-          <h3>Student Verification</h3>
-          <p>Students lack a mechanism to verify their physical paper was scanned correctly before grading.</p>
-        </div>
-      </div>
-
-      <!-- Solution -->
-      <div class="section-header" style="margin-top: 5rem;">
-        <h2>The <span>Solution</span></h2>
-        <p>Our 3-Step "Upload-Verify-Push" workflow decouples scanning from submission with a secure validation layer.</p>
-      </div>
-
-      <div class="solution-grid">
-        <div class="solution-line"></div>
-
-        <div class="solution-card animate-scale delay-4">
-          <div class="solution-number">1</div>
-          <h3>Bulk Ingestion</h3>
-          <p>Administrative staff upload bulk batches of scanned PDF/Images.</p>
-        </div>
-
-        <div class="solution-card animate-scale delay-5">
-          <div class="solution-number">2</div>
-          <h3>Intelligent Processing</h3>
-          <p>System parses filenames to extract Student Register Number and Subject Code automatically.</p>
-        </div>
-
-        <div class="solution-card animate-scale delay-6">
-          <div class="solution-number">3</div>
-          <h3>Student-Led Submission</h3>
-          <p>Students log in, view their scripts, and trigger final submission ensuring non-repudiation.</p>
-        </div>
-      </div>
-
-      <!-- Core Concept -->
-      <div class="core-concept animate-fade-up delay-7">
-        <div class="core-concept-inner">
-          <div class="core-concept-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          </div>
-          <div>
-            <h3>Core Concept</h3>
-            <p>The system acts as an intelligent intermediary between the physical examination hall and the digital grading environment, ensuring secure validation and student verification at every step.</p>
-            <div class="feature-list">
-              <span class="feature-item">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Non-repudiation
-              </span>
-              <span class="feature-item">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Audit Trail
-              </span>
-              <span class="feature-item">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Secure Tokens
-              </span>
+        <div class="hero-visual anim-right d4">
+          <div class="hero-card anim-float">
+            <div class="hero-card-title">Upload &rarr; Verify &rarr; Submit Pipeline</div>
+            <div class="hero-flow">
+              <div class="flow-step">
+                <div class="flow-num">1</div>
+                <div>
+                  <div class="flow-label">Staff Bulk Upload</div>
+                  <div class="flow-desc">Drag &amp; drop scanned answer sheets</div>
+                </div>
+              </div>
+              <div class="flow-arrow">&darr;</div>
+              <div class="flow-step">
+                <div class="flow-num">2</div>
+                <div>
+                  <div class="flow-label">Smart Scan AI</div>
+                  <div class="flow-desc">YOLO + CRNN extract register no. &amp; subject</div>
+                </div>
+              </div>
+              <div class="flow-arrow">&darr;</div>
+              <div class="flow-step">
+                <div class="flow-num">3</div>
+                <div>
+                  <div class="flow-label">Student Verification</div>
+                  <div class="flow-desc">Preview PDF &amp; confirm submission</div>
+                </div>
+              </div>
+              <div class="flow-arrow">&darr;</div>
+              <div class="flow-step">
+                <div class="flow-num">4</div>
+                <div>
+                  <div class="flow-label">Moodle Submission</div>
+                  <div class="flow-desc">Auto-submit to correct Moodle assignment</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <div class="scroll-down anim-up d8">
+      <div class="scroll-dot"></div>
+    </div>
   </section>
 
-  <!-- Architecture Section -->
-  <section id="architecture" class="architecture">
+  <!-- Problem / Solution -->
+  <section id="problems" class="problems-section">
     <div class="container">
-      <div class="section-header">
-        <h2>System <span>Architecture</span></h2>
+      <div class="section-head anim-up">
+        <span class="section-label">The Challenge</span>
+        <h2>The <span class="hl-red">Problem</span></h2>
+        <p>Academic institutions transitioning to digital grading face major logistical hurdles with physical answer scripts.</p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="card problem-card anim-up d1">
+          <div class="card-icon red">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h3>Manual Labor</h3>
+          <p>Individually scanning, renaming, and uploading hundreds of answer scripts is time-consuming and inefficient.</p>
+        </div>
+        <div class="card problem-card anim-up d2">
+          <div class="card-icon red">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <h3>Human Error</h3>
+          <p>Manual processes are prone to uploading wrong files or mislabeling student submissions.</p>
+        </div>
+        <div class="card problem-card anim-up d3">
+          <div class="card-icon red">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <h3>Security &amp; Integrity</h3>
+          <p>Unverified uploads can compromise the chain of custody for examination papers.</p>
+        </div>
+        <div class="card problem-card anim-up d4">
+          <div class="card-icon red">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <h3>No Verification</h3>
+          <p>Students lack a mechanism to verify their paper was scanned correctly before grading.</p>
+        </div>
+      </div>
+
+      <!-- Solution -->
+      <div class="section-head anim-up" style="margin-top: 4rem;">
+        <span class="section-label">Our Approach</span>
+        <h2>The <span class="hl">Solution</span></h2>
+        <p>A 3-Step &ldquo;Upload &rarr; Verify &rarr; Push&rdquo; workflow with AI-powered Smart Scan and secure student verification.</p>
+      </div>
+
+      <div class="solution-row">
+        <div class="sol-step anim-scale d3">
+          <div class="sol-num">1</div>
+          <h3>Bulk Ingestion</h3>
+          <p>Staff uploads scanned PDFs via drag &amp; drop. AI extracts metadata automatically.</p>
+        </div>
+        <div class="sol-step anim-scale d4">
+          <div class="sol-num">2</div>
+          <h3>Intelligent Processing</h3>
+          <p>YOLO detects regions, CRNN reads register numbers and subject codes from paper.</p>
+        </div>
+        <div class="sol-step anim-scale d5">
+          <div class="sol-num">3</div>
+          <h3>Student-Led Submission</h3>
+          <p>Students verify their papers and submit to Moodle, ensuring non-repudiation.</p>
+        </div>
+      </div>
+
+      <!-- Core Concept -->
+      <div class="core-box anim-up d6">
+        <div class="core-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        </div>
+        <div>
+          <h3>Core Concept</h3>
+          <p>An intelligent intermediary between the physical examination hall and the digital grading environment, ensuring secure validation and student verification at every step.</p>
+          <div class="core-tags">
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Non-repudiation</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Audit Trail</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Secure Tokens</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Extraction</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features">
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">Capabilities</span>
+        <h2>Key <span class="hl">Features</span></h2>
+        <p>A comprehensive feature set covering the entire examination submission lifecycle.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card anim-up d1">
+          <div class="card-icon blue">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h3>Smart Scan AI</h3>
+          <p>Scanner agent with YOLO object detection and CRNN text recognition extracts register numbers and subject codes from scanned answer sheets automatically.</p>
+          <span class="feature-tag">HuggingFace Spaces</span>
+        </div>
+
+        <div class="feature-card anim-up d2">
+          <div class="card-icon green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <h3>Bulk Upload</h3>
+          <p>Drag and drop hundreds of scanned files at once. Per-file savepoints ensure partial failures don't lose progress. Duplicate detection built-in.</p>
+          <span class="feature-tag">Staff Portal</span>
+        </div>
+
+        <div class="feature-card anim-up d3">
+          <div class="card-icon purple">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </div>
+          <h3>CIA-1 / CIA-2 Exams</h3>
+          <p>Full CIA exam type separation. Uniqueness constraints respect exam type. Students can submit CIA-1 and CIA-2 independently.</p>
+          <span class="feature-tag">Exam Management</span>
+        </div>
+
+        <div class="feature-card anim-up d4">
+          <div class="card-icon amber">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <h3>Attempt Management</h3>
+          <p>Admin-controlled lock/unlock per attempt. Attempt 2 requires Attempt 1 completed. Each attempt creates a separate artifact.</p>
+          <span class="feature-tag">Admin Control</span>
+        </div>
+
+        <div class="feature-card anim-up d5">
+          <div class="card-icon green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </div>
+          <h3>Email Notifications</h3>
+          <p>SendGrid/SMTP integration sends upload confirmation emails to students via Moodle email lookup. Fully async and non-blocking.</p>
+          <span class="feature-tag">SendGrid</span>
+        </div>
+
+        <div class="feature-card anim-up d6">
+          <div class="card-icon blue">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <h3>Student Portal</h3>
+          <p>Students verify their papers via secure PDF viewer, view dashboard stats, and submit to Moodle &mdash; all with real-time status updates.</p>
+          <span class="feature-tag">Moodle SSO</span>
+        </div>
+
+        <div class="feature-card anim-up d1">
+          <div class="card-icon purple">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </div>
+          <h3>Subject &amp; Student Mapping</h3>
+          <p>Admin maps subject codes to Moodle assignments and register numbers to Moodle usernames. Auto-discover from Moodle courses.</p>
+          <span class="feature-tag">Admin Panel</span>
+        </div>
+
+        <div class="feature-card anim-up d2">
+          <div class="card-icon green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          </div>
+          <h3>Database-Backed Storage</h3>
+          <p>Self-healing file persistence for cloud deployments. File content stored in PostgreSQL to survive Render&rsquo;s ephemeral filesystem.</p>
+          <span class="feature-tag">Cloud-Ready</span>
+        </div>
+
+        <div class="feature-card anim-up d3">
+          <div class="card-icon amber">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <h3>Security &amp; Audit</h3>
+          <p>bcrypt password hashing, AES-256 token encryption, JWT authentication, SHA-256 file hashing, and complete audit logging.</p>
+          <span class="feature-tag">Enterprise Grade</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture" class="arch-section">
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">System Design</span>
+        <h2>System <span class="hl">Architecture</span></h2>
         <p>Designed for data integrity, security, and complete auditability</p>
       </div>
 
-      <!-- Architecture Diagram -->
-      <div class="arch-diagram animate-fade-up delay-1">
+      <!-- 4-node architecture -->
+      <div class="arch-diagram anim-up d1">
         <div class="arch-flow">
           <div class="arch-node">
             <div class="arch-node-icon muted">
@@ -2098,157 +1887,152 @@
             </div>
             <h4>Physical Layer</h4>
             <p>Scanned Answer Sheets</p>
-            <div class="arch-node-tags">
-              <code class="arch-tag">611221104088_19AI405.pdf</code>
+            <div class="arch-tags">
+              <span class="arch-tag">PDF/JPG/PNG</span>
             </div>
           </div>
-
+          <div class="arch-arrow">&rarr;</div>
           <div class="arch-node">
-            <div class="arch-connector left"></div>
-            <div class="arch-connector right"></div>
             <div class="arch-node-icon primary">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
             </div>
-            <h4>Examination Middleware</h4>
-            <p>FastAPI + PostgreSQL</p>
-            <div class="arch-node-tags">
-              <div class="arch-tag">Authentication</div>
-              <div class="arch-tag">Validation</div>
-              <div class="arch-tag">Submission</div>
+            <h4>FastAPI Middleware</h4>
+            <p>PostgreSQL + JWT</p>
+            <div class="arch-tags">
+              <span class="arch-tag">Auth</span>
+              <span class="arch-tag">Upload</span>
+              <span class="arch-tag">Submit</span>
             </div>
           </div>
-
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node">
+            <div class="arch-node-icon green-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <h4>HuggingFace Spaces</h4>
+            <p>YOLO + CRNN Models</p>
+            <div class="arch-tags">
+              <span class="arch-tag">ML Inference</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
           <div class="arch-node">
             <div class="arch-node-icon secondary">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
             </div>
             <h4>Moodle LMS</h4>
-            <p>Learning Management System</p>
-            <div class="arch-node-tags">
-              <code class="arch-tag">Assignment Submissions</code>
+            <p>Assignment Submissions</p>
+            <div class="arch-tags">
+              <span class="arch-tag">Web Services</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Database Table -->
-      <div class="db-table animate-fade-up delay-2">
-        <div class="db-table-header">
+      <!-- Database Schema -->
+      <div class="db-card anim-up d2">
+        <div class="db-header">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-          <h3>Database Schema Overview</h3>
+          <h3>Database Schema</h3>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="model-name">ExaminationArtifact</td>
-              <td class="model-desc">Core entity storing UUID, file path, SHA-256 hash, extracted metadata, and workflow status.</td>
-            </tr>
-            <tr>
-              <td class="model-name">SubjectMapping</td>
-              <td class="model-desc">Configuration mapping Subject Code to Moodle Course ID and Assignment ID.</td>
-            </tr>
-            <tr>
-              <td class="model-name">StaffUser</td>
-              <td class="model-desc">Accounts for administrative staff authorized to perform bulk uploads.</td>
-            </tr>
-            <tr>
-              <td class="model-name">StudentSession</td>
-              <td class="model-desc">Manages ephemeral sessions with encrypted Moodle access tokens.</td>
-            </tr>
-            <tr>
-              <td class="model-name">AuditLog</td>
-              <td class="model-desc">Rigid ledger tracking every action with IP addresses and timestamps.</td>
-            </tr>
-            <tr>
-              <td class="model-name">SubmissionQueue</td>
-              <td class="model-desc">Buffer for handling Moodle API failures, ensuring no submission is lost.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Model</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td class="model-name">ExaminationArtifact</td><td class="model-desc">Core entity &mdash; UUID, file path, SHA-256 hash, metadata, workflow status, exam_type, attempt, file_content (binary)</td></tr>
+              <tr><td class="model-name">SubjectMapping</td><td class="model-desc">Maps Subject Code &rarr; Moodle Assignment ID + Course ID with exam_type support</td></tr>
+              <tr><td class="model-name">UsernameRegMapping</td><td class="model-desc">Maps Moodle username &rarr; Register Number for student lookup</td></tr>
+              <tr><td class="model-name">StaffUser</td><td class="model-desc">Admin/staff accounts with bcrypt-hashed passwords and role flags</td></tr>
+              <tr><td class="model-name">StudentSession</td><td class="model-desc">Ephemeral sessions with AES-256 encrypted Moodle access tokens</td></tr>
+              <tr><td class="model-name">AuditLog</td><td class="model-desc">Immutable ledger of all actions with IP addresses and timestamps</td></tr>
+              <tr><td class="model-name">SubmissionQueue</td><td class="model-desc">Retry buffer for Moodle API failures &mdash; no submission is lost</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Security Cards -->
+      <!-- Security -->
       <div class="security-grid">
-        <div class="security-card animate-scale delay-3">
-          <div class="security-card-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <div class="sec-card anim-scale d3">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           </div>
-          <div>
-            <h4>bcrypt Hashing</h4>
-            <p>Password hashing with 12 rounds</p>
-          </div>
+          <div><h4>bcrypt Hashing</h4><p>12-round password hashing</p></div>
         </div>
-
-        <div class="security-card animate-scale delay-4">
-          <div class="security-card-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <div class="sec-card anim-scale d4">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           </div>
-          <div>
-            <h4>AES-256 Encryption</h4>
-            <p>Fernet encryption for Moodle tokens</p>
-          </div>
+          <div><h4>AES-256 Encryption</h4><p>Fernet for Moodle tokens</p></div>
         </div>
-
-        <div class="security-card animate-scale delay-5">
-          <div class="security-card-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <div class="sec-card anim-scale d5">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
           </div>
-          <div>
-            <h4>Audit Logging</h4>
-            <p>Complete chain of custody tracking</p>
+          <div><h4>Audit Logging</h4><p>Complete chain of custody</p></div>
+        </div>
+        <div class="sec-card anim-scale d6">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
           </div>
+          <div><h4>JWT Tokens</h4><p>Short-lived access tokens</p></div>
+        </div>
+        <div class="sec-card anim-scale d7">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          </div>
+          <div><h4>SHA-256 Hashing</h4><p>File integrity verification</p></div>
+        </div>
+        <div class="sec-card anim-scale d8">
+          <div class="sec-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          </div>
+          <div><h4>CORS Protection</h4><p>Configurable origin whitelist</p></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Workflow Section -->
-  <section id="workflow" class="workflow">
+  <!-- Workflow -->
+  <section id="workflow">
     <div class="container">
-      <div class="section-header">
-        <h2>Platform <span>Workflow</span></h2>
+      <div class="section-head anim-up">
+        <span class="section-label">How It Works</span>
+        <h2>Platform <span class="hl">Workflow</span></h2>
         <p>A streamlined 3-phase process ensuring secure and verified submissions</p>
       </div>
 
       <!-- Phase 1 -->
-      <div class="phase-card animate-slide-left delay-1">
+      <div class="phase-card anim-left d1">
         <div class="phase-header">
           <div class="phase-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           </div>
           <div>
             <span class="phase-label">Phase 1</span>
-            <h3 class="phase-title">Administration & Setup</h3>
+            <h3 class="phase-title">Administration &amp; Setup</h3>
           </div>
         </div>
         <div class="phase-content">
-          <div class="steps-grid">
-            <div class="step-item">
-              <div class="step-number">1</div>
-              <div>
-                <h4>Mapping</h4>
-                <p>Admin configures SubjectMapping table (e.g., CS101 → Assignment ID: 55)</p>
-              </div>
+          <div class="steps-list">
+            <div class="step-box">
+              <div class="step-num">1</div>
+              <div><h4>Subject Mapping</h4><p>Map subject codes to Moodle Assignment IDs (auto-discover from Moodle)</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">2</div>
-              <div>
-                <h4>Scanning</h4>
-                <p>Examination cell scans answer sheets using naming convention: {R_N0}_{Sub_Code}.pdf</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">2</div>
+              <div><h4>Student Mapping</h4><p>Map register numbers to Moodle usernames</p></div>
+            </div>
+            <div class="step-box">
+              <div class="step-num">3</div>
+              <div><h4>Scanning</h4><p>Exam cell scans papers: {RegNo}_{SubCode}.pdf</p></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Phase 2 -->
-      <div class="phase-card animate-slide-left delay-2">
+      <div class="phase-card anim-left d2">
         <div class="phase-header">
           <div class="phase-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -2259,34 +2043,33 @@
           </div>
         </div>
         <div class="phase-content">
-          <div class="steps-grid">
-            <div class="step-item">
-              <div class="step-number">1</div>
-              <div>
-                <h4>Login</h4>
-                <p>Staff logs into the Staff Portal</p>
-              </div>
+          <div class="steps-list">
+            <div class="step-box">
+              <div class="step-num">1</div>
+              <div><h4>Login</h4><p>Staff authenticates via JWT</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">2</div>
-              <div>
-                <h4>Bulk Upload</h4>
-                <p>Staff drags and drops folders of scanned files</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">2</div>
+              <div><h4>Bulk Upload</h4><p>Drag &amp; drop scanned files with duplicate detection</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">3</div>
-              <div>
-                <h4>Validation</h4>
-                <p>System validates filenames; valid files are hashed and stored as ExaminationArtifacts</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">3</div>
+              <div><h4>Validation</h4><p>Filename validation, SHA-256 hashing, mapping check</p></div>
+            </div>
+            <div class="step-box">
+              <div class="step-num">4</div>
+              <div><h4>Smart Scan</h4><p>Optional AI extraction via scanner agent + HF Spaces</p></div>
+            </div>
+            <div class="step-box">
+              <div class="step-num">5</div>
+              <div><h4>Email</h4><p>SendGrid notifies students of uploaded papers</p></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Phase 3 -->
-      <div class="phase-card animate-slide-left delay-3">
+      <div class="phase-card anim-left d3">
         <div class="phase-header">
           <div class="phase-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
@@ -2297,556 +2080,473 @@
           </div>
         </div>
         <div class="phase-content">
-          <div class="steps-grid">
-            <div class="step-item">
-              <div class="step-number">1</div>
-              <div>
-                <h4>Login</h4>
-                <p>Student logs in with Moodle credentials</p>
-              </div>
+          <div class="steps-list">
+            <div class="step-box">
+              <div class="step-num">1</div>
+              <div><h4>Login</h4><p>Moodle credentials authentication</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">2</div>
-              <div>
-                <h4>Dashboard</h4>
-                <p>System displays all papers tagged with their Register Number</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">2</div>
+              <div><h4>Dashboard</h4><p>View papers tagged with register number</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">3</div>
-              <div>
-                <h4>Review</h4>
-                <p>Student previews the PDF to ensure it's their paper</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">3</div>
+              <div><h4>Review</h4><p>Secure PDF viewer to verify paper</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">4</div>
-              <div>
-                <h4>Submit</h4>
-                <p>Student clicks 'Submit' to finalize</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">4</div>
+              <div><h4>Submit</h4><p>One-click submission to Moodle LMS</p></div>
             </div>
-            <div class="step-item">
-              <div class="step-number">5</div>
-              <div>
-                <h4>Backend</h4>
-                <p>System authenticates with Moodle, uploads file, and finalizes submission</p>
-              </div>
-            </div>
-            <div class="step-item">
-              <div class="step-number">6</div>
-              <div>
-                <h4>Confirmation</h4>
-                <p>Status updates to SUBMITTED_TO_LMS</p>
-              </div>
+            <div class="step-box">
+              <div class="step-num">5</div>
+              <div><h4>Confirmation</h4><p>Status updates to SUBMITTED_TO_LMS</p></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- File Naming Convention -->
-      <div class="file-naming animate-fade-up delay-4">
+      <!-- File Naming -->
+      <div class="file-box anim-up d4">
         <h3>File Naming Convention</h3>
         <div class="file-pattern">
-          <span class="var">{RegNumber}</span><span class="sep">_</span><span class="var">{SubCode}</span><span class="sep">.</span><span class="var">{extension}</span>
+          <span class="var">{RegNumber}</span><span class="sep">_</span><span class="var">{SubCode}</span><span class="sep">.</span><span class="var">{ext}</span>
         </div>
         <div class="file-examples">
-          <div class="file-example">611221104088_19AI405.pdf</div>
-          <div class="file-example">611221104089_ML.jpg</div>
-          <div class="file-example">611221104090_19AI411.png</div>
+          <span class="file-ex">611221104088_19AI405.pdf</span>
+          <span class="file-ex">611221104089_ML.jpg</span>
+          <span class="file-ex">611221104090_19AI411.png</span>
         </div>
         <div class="file-rules">
-          <div class="file-rule">
+          <span class="file-rule">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
             Register Number: 12 digits
-          </div>
-          <div class="file-rule">
+          </span>
+          <span class="file-rule">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
             Subject Code: 2-10 alphanumeric
-          </div>
-          <div class="file-rule">
+          </span>
+          <span class="file-rule">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
             Extensions: pdf, jpg, jpeg, png
-          </div>
+          </span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- API Section -->
-  <section id="api" class="api">
+  <!-- API -->
+  <section id="api" class="api-section">
     <div class="container">
-      <div class="section-header">
-        <h2>API <span>Endpoints</span></h2>
-        <p>Complete RESTful API with authentication, file management, and submission handling</p>
+      <div class="section-head anim-up">
+        <span class="section-label">REST API</span>
+        <h2>API <span class="hl">Endpoints</span></h2>
+        <p>Complete RESTful API with authentication, file management, extraction, and submission handling</p>
       </div>
 
       <!-- Access Points -->
-      <div class="access-points animate-fade-up delay-1">
-        <h3>🔗 Access Points</h3>
-        <div class="access-grid">
-          <div class="access-item">
-            <h4>Staff Upload Portal</h4>
-            <code>http://localhost:8000/portal/staff</code>
-          </div>
-          <div class="access-item">
-            <h4>Student Portal</h4>
-            <code>http://localhost:8000/portal/student</code>
-          </div>
-          <div class="access-item">
-            <h4>API Documentation</h4>
-            <code>http://localhost:8000/docs</code>
-          </div>
-          <div class="access-item">
-            <h4>ReDoc</h4>
-            <code>http://localhost:8000/redoc</code>
-          </div>
-          <div class="access-item">
-            <h4>Health Check</h4>
-            <code>http://localhost:8000/health</code>
-          </div>
+      <div class="access-bar anim-up d1">
+        <div class="access-item">
+          <h4>Staff Portal</h4>
+          <code>/portal/staff</code>
+        </div>
+        <div class="access-item">
+          <h4>Student Portal</h4>
+          <code>/portal/student</code>
+        </div>
+        <div class="access-item">
+          <h4>API Documentation</h4>
+          <code>/docs</code>
+        </div>
+        <div class="access-item">
+          <h4>Health Check</h4>
+          <code>/health</code>
+        </div>
+        <div class="access-item">
+          <h4>Production URL</h4>
+          <code>https://exam-middleware.onrender.com</code>
+        </div>
+        <div class="access-item">
+          <h4>ML Service</h4>
+          <code>kavinraja-ml-service.hf.space</code>
         </div>
       </div>
 
-      <!-- API Tabs -->
-      <div class="tabs animate-fade-up delay-2">
-        <div class="tab-list">
-          <button class="tab-btn active" onclick="showTab('auth')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <!-- Tabs -->
+      <div class="tabs-wrap anim-up d2">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="showTab('tab-auth', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             Auth
           </button>
-          <button class="tab-btn" onclick="showTab('upload')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <button class="tab-btn" onclick="showTab('tab-upload', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
             Upload
           </button>
-          <button class="tab-btn" onclick="showTab('student')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <button class="tab-btn" onclick="showTab('tab-student', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             Student
           </button>
-          <button class="tab-btn" onclick="showTab('admin')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <button class="tab-btn" onclick="showTab('tab-admin', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06"></path></svg>
             Admin
+          </button>
+          <button class="tab-btn" onclick="showTab('tab-extract', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Extract
           </button>
         </div>
 
-        <div id="auth" class="tab-content active">
-          <div class="endpoint-list">
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/auth/staff/login</code>
-              <span class="endpoint-desc">Staff login</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/auth/student/login</code>
-              <span class="endpoint-desc">Student login with Moodle credentials</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/auth/student/logout</code>
-              <span class="endpoint-desc">Student logout</span>
-            </div>
+        <div id="tab-auth" class="tab-panel active">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/staff/login</span><span class="ep-desc">Staff login</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/staff/register</span><span class="ep-desc">Register staff (admin-only)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/student/login</span><span class="ep-desc">Student login with Moodle creds</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/student/logout</span><span class="ep-desc">Student logout</span></div>
           </div>
         </div>
 
-        <div id="upload" class="tab-content">
-          <div class="endpoint-list">
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/upload/single</code>
-              <span class="endpoint-desc">Upload single file</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/upload/bulk</code>
-              <span class="endpoint-desc">Upload multiple files</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/upload/validate</code>
-              <span class="endpoint-desc">Validate filename</span>
-            </div>
+        <div id="tab-upload" class="tab-panel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/single</span><span class="ep-desc">Upload single file</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/bulk</span><span class="ep-desc">Upload multiple files (with savepoints)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/validate</span><span class="ep-desc">Validate filename format</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/upload/auto-processed</span><span class="ep-desc">List auto-processed (ML) artifacts</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/scan-upload</span><span class="ep-desc">Smart Scan: AI process + upload</span></div>
           </div>
         </div>
 
-        <div id="student" class="tab-content">
-          <div class="endpoint-list">
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/student/dashboard</code>
-              <span class="endpoint-desc">Get assigned papers</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/student/paper/{id}/view</code>
-              <span class="endpoint-desc">View paper content</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/student/submit/{id}</code>
-              <span class="endpoint-desc">Submit paper to Moodle</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/student/submission/{id}/status</code>
-              <span class="endpoint-desc">Check submission status</span>
-            </div>
+        <div id="tab-student" class="tab-panel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/dashboard</span><span class="ep-desc">Get assigned papers &amp; stats</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/paper/{id}/view</span><span class="ep-desc">Secure PDF viewer</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/student/submit/{id}</span><span class="ep-desc">Submit paper to Moodle</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/submission/{id}/status</span><span class="ep-desc">Check submission status</span></div>
           </div>
         </div>
 
-        <div id="admin" class="tab-content">
-          <div class="endpoint-list">
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/admin/mappings</code>
-              <span class="endpoint-desc">List subject mappings</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge post">POST</span>
-              <code class="endpoint-path">/admin/mappings</code>
-              <span class="endpoint-desc">Create mapping</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/admin/queue</code>
-              <span class="endpoint-desc">View submission queue</span>
-            </div>
-            <div class="endpoint-item">
-              <span class="method-badge get">GET</span>
-              <code class="endpoint-path">/admin/stats</code>
-              <span class="endpoint-desc">System statistics</span>
-            </div>
+        <div id="tab-admin" class="tab-panel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/artifacts</span><span class="ep-desc">List all artifacts (with filters)</span></div>
+            <div class="ep-item"><span class="method delete">DELETE</span><span class="ep-path">/admin/artifacts/{id}</span><span class="ep-desc">Hard-delete artifact</span></div>
+            <div class="ep-item"><span class="method delete">DELETE</span><span class="ep-path">/admin/artifacts/purge-all</span><span class="ep-desc">Purge all artifacts</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/mappings</span><span class="ep-desc">Subject mappings (CRUD)</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/username-mappings</span><span class="ep-desc">Student mappings (CRUD)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/admin/attempt/{id}/lock</span><span class="ep-desc">Lock/unlock attempt</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/stats</span><span class="ep-desc">System statistics</span></div>
+          </div>
+        </div>
+
+        <div id="tab-extract" class="tab-panel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/extract/process</span><span class="ep-desc">Extract metadata from image via AI</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/extract/status</span><span class="ep-desc">HF Spaces health check</span></div>
           </div>
         </div>
       </div>
 
       <!-- cURL Example -->
-      <div class="curl-example animate-fade-up delay-3">
+      <div class="curl-box anim-up d3">
         <div class="curl-header">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-          <h3>API Testing with cURL</h3>
+          <h3>Quick API Test</h3>
         </div>
-        <div class="curl-code">
-          <pre># Staff Login
-curl -X POST http://localhost:8000/auth/staff/login \
+        <pre><span class="comment"># Staff Login</span>
+curl -X POST https://exam-middleware.onrender.com/auth/staff/login \
   -F "username=admin" \
   -F "password=admin123"
 
-# Upload File (use token from login)
-curl -X POST http://localhost:8000/upload/single \
+<span class="comment"># Upload File (with token)</span>
+curl -X POST https://exam-middleware.onrender.com/upload/single \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@611221104088_19AI405.pdf" \
-  -F "exam_session=2024SPRING"
+  -F "exam_type=CIA-1"
 
-# Health Check
-curl http://localhost:8000/health</pre>
+<span class="comment"># Health Check</span>
+curl https://exam-middleware.onrender.com/health</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Deployment Section -->
+  <section id="deployment" class="deploy-section">
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">Infrastructure</span>
+        <h2>Cloud <span class="hl">Deployment</span></h2>
+        <p>Production-ready on Render.com with ML inference on HuggingFace Spaces</p>
+      </div>
+
+      <div class="deploy-grid">
+        <div class="deploy-card anim-up d1">
+          <h3><span>&#128640;</span> Render.com</h3>
+          <p>FastAPI application deployed as a Docker web service with managed PostgreSQL. Auto-seeding admin user, database-backed file storage for ephemeral filesystem.</p>
+          <code>https://exam-middleware.onrender.com</code>
+          <div class="deploy-features">
+            <span class="deploy-feat">Docker</span>
+            <span class="deploy-feat">PostgreSQL</span>
+            <span class="deploy-feat">Auto-seed</span>
+            <span class="deploy-feat">CORS</span>
+            <span class="deploy-feat">Health Checks</span>
+          </div>
+        </div>
+        <div class="deploy-card anim-up d2">
+          <h3><span>&#129303;</span> HuggingFace Spaces</h3>
+          <p>ML models (YOLO object detection + CRNN text recognition) offloaded to HF Spaces. Eliminates heavy PyTorch/OpenCV packages from the server Dockerfile.</p>
+          <code>https://kavinraja-ml-service.hf.space</code>
+          <div class="deploy-features">
+            <span class="deploy-feat">YOLO</span>
+            <span class="deploy-feat">CRNN</span>
+            <span class="deploy-feat">GPU Inference</span>
+            <span class="deploy-feat">REST API</span>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Installation Section -->
-  <section id="installation" class="installation">
+  <!-- Installation -->
+  <section id="installation">
     <div class="container">
-      <div class="section-header">
-        <h2>Quick <span>Start</span></h2>
-        <p>Get up and running in minutes with our simple setup process</p>
+      <div class="section-head anim-up">
+        <span class="section-label">Getting Started</span>
+        <h2>Quick <span class="hl">Setup</span></h2>
+        <p>Get up and running locally in minutes</p>
       </div>
 
-      <!-- Prerequisites -->
-      <div class="prereq-card animate-fade-up delay-1">
+      <div class="prereq-box anim-up d1">
         <h3>Prerequisites</h3>
-        <div class="prereq-list">
-          <span class="prereq-badge">Python 3.10+</span>
-          <span class="prereq-badge">PostgreSQL 14+</span>
-          <span class="prereq-badge">Moodle LMS with Web Services</span>
-          <span class="prereq-badge optional">Redis (optional)</span>
+        <div class="prereq-tags">
+          <span class="prereq-tag">Python 3.10+</span>
+          <span class="prereq-tag">PostgreSQL 14+</span>
+          <span class="prereq-tag">Moodle LMS with Web Services</span>
+          <span class="prereq-tag">Git</span>
         </div>
       </div>
 
-      <!-- Installation Steps -->
       <div class="install-steps">
-        <div class="install-step animate-slide-right delay-2">
-          <div class="install-step-header">
-            <div class="install-step-number">1</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-              Clone and Setup
-            </div>
+        <div class="install-step anim-right d2">
+          <div class="install-step-head">
+            <div class="install-step-num">1</div>
+            <div class="install-step-title">Clone Repository</div>
           </div>
-          <div class="install-step-code">
-            <pre>cd exam_middleware</pre>
+          <div class="install-code">
+            <pre>git clone https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS.git
+cd Intelligent-Examination-Submission-Framework-for-LMS/exam_middleware</pre>
           </div>
         </div>
 
-        <div class="install-step animate-slide-right delay-3">
-          <div class="install-step-header">
-            <div class="install-step-number">2</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              Create Virtual Environment
-            </div>
+        <div class="install-step anim-right d3">
+          <div class="install-step-head">
+            <div class="install-step-num">2</div>
+            <div class="install-step-title">Create Virtual Environment</div>
           </div>
-          <div class="install-step-code">
+          <div class="install-code">
             <pre>python -m venv venv
 
 <span class="comment"># Windows</span>
 .\venv\Scripts\activate
 
-<span class="comment"># Linux/Mac</span>
+<span class="comment"># Linux / Mac</span>
 source venv/bin/activate</pre>
           </div>
         </div>
 
-        <div class="install-step animate-slide-right delay-4">
-          <div class="install-step-header">
-            <div class="install-step-number">3</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-              Install Dependencies
-            </div>
+        <div class="install-step anim-right d4">
+          <div class="install-step-head">
+            <div class="install-step-num">3</div>
+            <div class="install-step-title">Install Dependencies</div>
           </div>
-          <div class="install-step-code">
-            <pre>pip install -r requirements.txt</pre>
-          </div>
+          <div class="install-code"><pre>pip install -r requirements.txt</pre></div>
         </div>
 
-        <div class="install-step animate-slide-right delay-5">
-          <div class="install-step-header">
-            <div class="install-step-number">4</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              Configure Environment
-            </div>
+        <div class="install-step anim-right d5">
+          <div class="install-step-head">
+            <div class="install-step-num">4</div>
+            <div class="install-step-title">Configure Environment</div>
           </div>
-          <div class="install-step-code">
-            <pre>copy .env.example .env</pre>
-          </div>
-          <div class="install-step-note">Edit .env with your database and Moodle settings</div>
+          <div class="install-code"><pre>copy .env.example .env</pre></div>
+          <div class="install-note">Edit .env with your PostgreSQL credentials, Moodle URL, and HF Space URL</div>
         </div>
 
-        <div class="install-step animate-slide-right delay-6">
-          <div class="install-step-header">
-            <div class="install-step-number">5</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-              Setup PostgreSQL Database
-            </div>
+        <div class="install-step anim-right d6">
+          <div class="install-step-head">
+            <div class="install-step-num">5</div>
+            <div class="install-step-title">Setup Database</div>
           </div>
-          <div class="install-step-code">
-            <pre>psql -U postgres -c "CREATE DATABASE exam_middleware;"</pre>
-          </div>
+          <div class="install-code"><pre>psql -U postgres -c "CREATE DATABASE exam_middleware;"
+python init_db.py</pre></div>
+          <div class="install-note">Creates tables, default admin user (admin/admin123), and initial mappings</div>
         </div>
 
-        <div class="install-step animate-slide-right delay-7">
-          <div class="install-step-header">
-            <div class="install-step-number">6</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-              Initialize Database
-            </div>
+        <div class="install-step anim-right d7">
+          <div class="install-step-head">
+            <div class="install-step-num">6</div>
+            <div class="install-step-title">Run Application</div>
           </div>
-          <div class="install-step-code">
-            <pre>python init_db.py</pre>
-          </div>
-          <div class="install-step-note">Creates tables, default admin user (admin/admin123), and subject mappings</div>
-        </div>
-
-        <div class="install-step animate-slide-right delay-8">
-          <div class="install-step-header">
-            <div class="install-step-number">7</div>
-            <div class="install-step-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Run the Application
-            </div>
-          </div>
-          <div class="install-step-code">
-            <pre>python run.py</pre>
-          </div>
-          <div class="install-step-note">Server starts at http://localhost:8000</div>
+          <div class="install-code"><pre>python run.py</pre></div>
+          <div class="install-note">Server starts at http://localhost:8000 &mdash; Staff Portal at /portal/staff, Student Portal at /portal/student</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Project Structure Section -->
-  <section class="structure">
+  <!-- Project Structure -->
+  <section class="arch-section">
     <div class="container">
-      <div class="section-header">
-        <h2>Project <span>Structure</span></h2>
+      <div class="section-head anim-up">
+        <span class="section-label">Codebase</span>
+        <h2>Project <span class="hl">Structure</span></h2>
         <p>Clean, modular architecture following Python best practices</p>
       </div>
 
-      <div class="structure-card animate-fade-up delay-1">
-        <div class="structure-header">
+      <div class="structure-card anim-up d1">
+        <div class="structure-head">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          exam_middleware
+          exam_middleware/
         </div>
-        <div class="structure-tree">
-          <div class="tree-item" style="padding-left: 12px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">app/</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">api/routes/</span>
-          </div>
-          <div class="tree-item" style="padding-left: 52px;">
-            <svg class="file" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-            <span class="file-name">admin.py, auth.py, health.py, student.py, upload.py</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">core/</span>
-            <span class="desc">config.py, security.py</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">db/</span>
-            <span class="desc">database.py, models.py</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">schemas/</span>
-            <span class="desc">schemas.py</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">services/</span>
-            <span class="desc">artifact, file processor, moodle, submission</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">templates/</span>
-            <span class="desc">staff_upload.html, student_portal.html</span>
-          </div>
-          <div class="tree-item" style="padding-left: 32px;">
-            <svg class="file" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-            <span class="file-name">main.py</span>
-            <span class="desc">FastAPI application</span>
-          </div>
-          <div class="tree-item" style="padding-left: 12px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">uploads/</span>
-            <span class="desc">Temporary upload storage</span>
-          </div>
-          <div class="tree-item" style="padding-left: 12px;">
-            <svg class="folder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="folder-name">storage/</span>
-            <span class="desc">Permanent file storage</span>
-          </div>
-          <div class="tree-item" style="padding-left: 12px;">
-            <svg class="config" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-            <span class="file-name">.env, .env.example, init_db.py, run.py, requirements.txt</span>
-          </div>
+        <div class="tree">
+<span class="tree-folder">app/</span>
+  <span class="tree-folder">api/routes/</span>
+    <span class="tree-file">admin.py, auth.py, extract.py, health.py, student.py, upload.py</span>
+  <span class="tree-folder">core/</span>        <span class="tree-desc">config.py, security.py</span>
+  <span class="tree-folder">db/</span>          <span class="tree-desc">database.py, models.py</span>
+  <span class="tree-folder">schemas/</span>     <span class="tree-desc">schemas.py</span>
+  <span class="tree-folder">services/</span>
+    <span class="tree-file">artifact_service.py, extraction_service.py, remote_extraction_service.py</span>
+    <span class="tree-file">file_processor.py, mail_service.py, moodle_client.py</span>
+    <span class="tree-file">notification_service.py, submission_service.py</span>
+  <span class="tree-folder">templates/</span>   <span class="tree-desc">staff_upload.html, student_portal.html</span>
+  <span class="tree-folder">utils/</span>       <span class="tree-desc">encryption.py</span>
+  <span class="tree-file">main.py</span>        <span class="tree-desc">FastAPI application entry</span>
+<span class="tree-folder">models/</span>        <span class="tree-desc">YOLO + CRNN model weights</span>
+<span class="tree-file">scanner_agent.py</span> <span class="tree-desc">Smart Scan background agent</span>
+<span class="tree-file">init_db.py, run.py, requirements.txt, Dockerfile, render.yaml</span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Moodle Config Section -->
-  <section class="moodle-config">
+  <!-- Moodle Config -->
+  <section class="moodle-section">
     <div class="container">
-      <div class="section-header">
-        <h2>Moodle <span>Configuration</span></h2>
+      <div class="section-head anim-up">
+        <span class="section-label">Integration</span>
+        <h2>Moodle <span class="hl">Configuration</span></h2>
         <p>Required Moodle setup for Web Services integration</p>
       </div>
 
       <div class="config-steps">
-        <div class="config-step animate-slide-left delay-1">
-          <div class="config-step-header">
-            <div class="config-step-number">1</div>
+        <div class="config-card anim-left d1">
+          <div class="config-card-head">
+            <div class="config-num">1</div>
             <h3>Enable Web Services</h3>
           </div>
-          <div class="config-step-path">Site administration → Advanced features → Enable web services</div>
+          <div class="config-path">Site administration &rarr; Advanced features &rarr; Enable web services</div>
         </div>
 
-        <div class="config-step animate-slide-left delay-2">
-          <div class="config-step-header">
-            <div class="config-step-number">2</div>
+        <div class="config-card anim-left d2">
+          <div class="config-card-head">
+            <div class="config-num">2</div>
             <h3>Create External Service</h3>
           </div>
-          <div class="config-step-path">Site administration → Server → Web services → External services
-Create service: "FileUpload"</div>
-          <div class="config-step-functions">
-            <p>Add these functions:</p>
-            <div class="function-list">
-              <span class="function-badge">core_webservice_get_site_info</span>
-              <span class="function-badge">mod_assign_save_submission</span>
-              <span class="function-badge">mod_assign_submit_for_grading</span>
-            </div>
+          <div class="config-path">Site administration &rarr; Server &rarr; Web services &rarr; External services &rarr; Create "FileUpload"</div>
+          <div class="func-tags">
+            <span class="func-tag">core_webservice_get_site_info</span>
+            <span class="func-tag">mod_assign_save_submission</span>
+            <span class="func-tag">mod_assign_submit_for_grading</span>
           </div>
         </div>
 
-        <div class="config-step animate-slide-left delay-3">
-          <div class="config-step-header">
-            <div class="config-step-number">3</div>
+        <div class="config-card anim-left d3">
+          <div class="config-card-head">
+            <div class="config-num">3</div>
             <h3>Create Token</h3>
           </div>
-          <div class="config-step-path">Site administration → Server → Web services → Manage tokens
-Create token for admin user with "FileUpload" service</div>
+          <div class="config-path">Site administration &rarr; Server &rarr; Web services &rarr; Manage tokens &rarr; Create for admin user with "FileUpload" service</div>
         </div>
 
-        <div class="config-step animate-slide-left delay-4">
-          <div class="config-step-header">
-            <div class="config-step-number">4</div>
-            <h3>Enable Upload</h3>
+        <div class="config-card anim-left d4">
+          <div class="config-card-head">
+            <div class="config-num">4</div>
+            <h3>Enable Upload Protocol</h3>
           </div>
-          <div class="config-step-path">Ensure webservice/upload.php is accessible
-Configure max upload size in Moodle settings</div>
+          <div class="config-path">Ensure webservice/upload.php is accessible. Configure max upload size in Moodle settings.</div>
         </div>
       </div>
 
       <!-- Security Box -->
-      <div class="security-box animate-fade-up delay-5">
-        <h3>🛡️ Security Considerations</h3>
-        <div class="security-list">
-          <div class="security-item">
+      <div class="sec-box anim-up d5">
+        <h3>&#128737;&#65039; Security Considerations</h3>
+        <div class="sec-list">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>Password Hashing</h4>
-              <p>bcrypt with 12 rounds</p>
-            </div>
+            <div><h4>Password Hashing</h4><p>bcrypt with 12 rounds</p></div>
           </div>
-          <div class="security-item">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>Token Encryption</h4>
-              <p>AES-256 (Fernet)</p>
-            </div>
+            <div><h4>Token Encryption</h4><p>AES-256 (Fernet)</p></div>
           </div>
-          <div class="security-item">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>JWT Tokens</h4>
-              <p>Short-lived access tokens</p>
-            </div>
+            <div><h4>JWT Authentication</h4><p>Short-lived access tokens</p></div>
           </div>
-          <div class="security-item">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>File Validation</h4>
-              <p>Extension and size checks</p>
-            </div>
+            <div><h4>File Validation</h4><p>SHA-256 hash + format checks</p></div>
           </div>
-          <div class="security-item">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>Audit Logging</h4>
-              <p>All operations logged</p>
-            </div>
+            <div><h4>Audit Logging</h4><p>All operations tracked with IP</p></div>
           </div>
-          <div class="security-item">
+          <div class="sec-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <div>
-              <h4>CORS</h4>
-              <p>Configurable origin whitelist</p>
-            </div>
+            <div><h4>CORS Protection</h4><p>Configurable origin whitelist</p></div>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- Contributors -->
+  <section>
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">Team</span>
+        <h2><span class="hl">Contributors</span></h2>
+      </div>
+      <div class="contributors-grid">
+        <div class="contrib-card anim-up d1">
+          <div class="contrib-avatar">
+            <img src="https://github.com/d-kavinraja.png" alt="D. Kavinraja" loading="lazy">
+          </div>
+          <h3>D. Kavinraja</h3>
+          <div class="contrib-handle">@d-kavinraja</div>
+          <div class="contrib-role">Core features, Smart Scan AI, deployment, bug fixes</div>
+        </div>
+        <div class="contrib-card anim-up d2">
+          <div class="contrib-avatar">
+            <img src="https://github.com/SANTHAN-KUMAR.png" alt="Santhan Kumar" loading="lazy">
+          </div>
+          <h3>Santhan Kumar</h3>
+          <div class="contrib-handle">@SANTHAN-KUMAR</div>
+          <div class="contrib-role">Email notifications, SendGrid, Dockerfile</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Demo Banner -->
+  <div class="demo-banner">
+    <div class="container">
+      <h2 class="anim-up">Try the Live Demo</h2>
+      <p class="anim-up d1">Deployed on Render.com with MoodleCloud integration</p>
+      <div class="demo-btns anim-up d2">
+        <a href="https://exam-middleware.onrender.com/portal/staff" target="_blank" class="btn btn-lg">Staff Portal</a>
+        <a href="https://exam-middleware.onrender.com/portal/student" target="_blank" class="btn btn-lg">Student Portal</a>
+        <a href="https://exam-middleware.onrender.com/docs" target="_blank" class="btn btn-ghost btn-lg">API Docs</a>
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer>
@@ -2857,10 +2557,10 @@ Configure max upload size in Moodle settings</div>
             <div class="logo-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
-            <span class="logo-text">Exam Middleware</span>
+            <span class="logo-text" style="color: white;">IESF-LMS</span>
           </a>
-          <p>A robust, secure, and automated bridge designed to streamline the digitization and submission of physical examination answer sheets to Moodle LMS.</p>
-          <a href="https://github.com/d-kavinraja/Smart-answer-sheet-processor-for-LMS" target="_blank" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">
+          <p>An intelligent, AI-powered bridge for digitizing and submitting physical examination answer sheets to Moodle LMS.</p>
+          <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.2);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             View on GitHub
           </a>
@@ -2873,7 +2573,8 @@ Configure max upload size in Moodle settings</div>
             <li><a href="#architecture">Architecture</a></li>
             <li><a href="#workflow">Workflow</a></li>
             <li><a href="#api">API</a></li>
-            <li><a href="#installation">Installation</a></li>
+            <li><a href="#deployment">Deployment</a></li>
+            <li><a href="#installation">Setup</a></li>
           </ul>
         </div>
 
@@ -2883,74 +2584,70 @@ Configure max upload size in Moodle settings</div>
             <span class="tech-tag">Python 3.10+</span>
             <span class="tech-tag">FastAPI</span>
             <span class="tech-tag">PostgreSQL</span>
-            <span class="tech-tag">SQLAlchemy</span>
+            <span class="tech-tag">SQLAlchemy 2.0</span>
             <span class="tech-tag">Moodle LMS</span>
-            <span class="tech-tag">bcrypt</span>
+            <span class="tech-tag">YOLO</span>
+            <span class="tech-tag">CRNN</span>
+            <span class="tech-tag">HuggingFace</span>
+            <span class="tech-tag">SendGrid</span>
+            <span class="tech-tag">Docker</span>
+            <span class="tech-tag">Render</span>
             <span class="tech-tag">JWT</span>
+            <span class="tech-tag">bcrypt</span>
+            <span class="tech-tag">AES-256</span>
           </div>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <p>Made with <span class="heart"></span> by <a href="https://github.com/d-kavinraja" target="_blank">D. Kavinraja</a></p>
-        <p style="margin-top: 0.5rem; font-size: 0.75rem;">© 2026 Examination Middleware(TEAM). All rights reserved.</p>
+        <p>Made with <span class="heart">&hearts;</span> by <a href="https://github.com/d-kavinraja" target="_blank">D. Kavinraja</a> &amp; <a href="https://github.com/SANTHAN-KUMAR" target="_blank">Santhan Kumar</a></p>
+        <p style="margin-top: 0.5rem; font-size: 0.6875rem;">&copy; 2026 Intelligent Examination Submission Framework. All rights reserved.</p>
       </div>
     </div>
   </footer>
 
   <script>
-    // Header scroll effect
+    // Header scroll
     window.addEventListener('scroll', function() {
-      const header = document.getElementById('header');
-      if (window.scrollY > 20) {
-        header.classList.add('scrolled');
-      } else {
-        header.classList.remove('scrolled');
-      }
+      document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
     });
 
-    // Tab functionality
-    function showTab(tabId) {
-      // Hide all tab contents
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-      });
-      
-      // Remove active class from all buttons
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      
-      // Show selected tab content
-      document.getElementById(tabId).classList.add('active');
-      
-      // Add active class to clicked button
-      event.target.closest('.tab-btn').classList.add('active');
+    // Mobile menu
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileNav = document.getElementById('mobileNav');
+    menuToggle.addEventListener('click', function() {
+      this.classList.toggle('active');
+      mobileNav.classList.toggle('open');
+      document.body.style.overflow = mobileNav.classList.contains('open') ? 'hidden' : '';
+    });
+    function closeMenu() {
+      menuToggle.classList.remove('active');
+      mobileNav.classList.remove('open');
+      document.body.style.overflow = '';
     }
 
-    // Intersection Observer for animations
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
+    // Tabs
+    function showTab(tabId, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
 
+    // Intersection Observer for scroll animations
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.style.animationPlayState = 'running';
         }
       });
-    }, observerOptions);
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
 
-    // Observe all animated elements
-    document.querySelectorAll('[class*="animate-"]').forEach(el => {
-      el.style.animationPlayState = 'paused';
+    document.querySelectorAll('[class*="anim-"]').forEach(el => {
+      if (!el.closest('.hero')) {
+        el.style.animationPlayState = 'paused';
+      }
       observer.observe(el);
-    });
-
-    // Start hero animations immediately
-    document.querySelectorAll('.hero [class*="animate-"]').forEach(el => {
-      el.style.animationPlayState = 'running';
     });
   </script>
 </body>
