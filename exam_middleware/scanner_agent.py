@@ -25,11 +25,41 @@ import shutil
 import hashlib
 import logging
 import argparse
+import platform
 from pathlib import Path
 from datetime import datetime
 from collections import deque
 
 import requests
+
+
+def _disable_windows_quick_edit():
+    """
+    Disable Windows Console Quick Edit mode.
+
+    Quick Edit causes the process to FREEZE whenever the user clicks
+    inside the terminal window (enters "mark/selection" mode).  The
+    process only resumes after pressing Enter or Escape.  This is the
+    #1 reason the agent appears to "hang" until Enter is pressed.
+    """
+    if platform.system() != "Windows":
+        return
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        # STD_INPUT_HANDLE = -10
+        handle = kernel32.GetStdHandle(ctypes.c_ulong(-10 & 0xFFFFFFFF))
+        # Get current console mode
+        mode = ctypes.c_ulong()
+        kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+        # ENABLE_QUICK_EDIT_MODE = 0x0040
+        # ENABLE_EXTENDED_FLAGS   = 0x0080  (must be set when clearing quick-edit)
+        ENABLE_QUICK_EDIT_MODE = 0x0040
+        ENABLE_EXTENDED_FLAGS = 0x0080
+        new_mode = (mode.value | ENABLE_EXTENDED_FLAGS) & ~ENABLE_QUICK_EDIT_MODE
+        kernel32.SetConsoleMode(handle, ctypes.c_ulong(new_mode))
+    except Exception:
+        pass  # Non-fatal — just means Quick Edit stays enabled
 
 # ─────────────────────────────────────────────────────────────────
 # SETTINGS — Edit these to match your environment
@@ -53,7 +83,7 @@ POLL_INTERVAL = 3
 
 # Wait this long after detecting a file before processing
 # (ensures scanner has finished writing)
-FILE_STABLE_WAIT = 2
+FILE_STABLE_WAIT = 1
 
 # Delay between processing each file in the queue (seconds)
 # Prevents server overload and ensures DB commits complete
@@ -71,6 +101,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
+    stream=sys.stdout,   # explicit stdout so flush works reliably
 )
 log = logging.getLogger("ScannerAgent")
 
@@ -106,6 +137,8 @@ class ScannerAgent:
         self._seen_files: set[str] = set()
         # Track artifact UUIDs returned by server to detect overwrites
         self._uploaded_uuids: set[str] = set()
+        # Track file sizes from previous scan for stability checks
+        self._pending_sizes: dict[str, int] = {}
         # Stats
         self._stats = {"processed": 0, "failed": 0, "skipped": 0}
 
@@ -230,14 +263,34 @@ class ScannerAgent:
             return False
 
     def _is_file_stable(self, file_path: Path) -> bool:
-        """Check if a file has stopped being written to."""
+        """
+        Non-blocking stability check.
+
+        Instead of sleeping inside this method (which blocks the entire
+        agent for every single file), we compare the file's current size
+        to the size recorded on the *previous* poll cycle.  If the size
+        hasn't changed and is > 0, the file is stable.  First time we
+        see a file we just record its size and return False (will be
+        picked up on the next poll, ~POLL_INTERVAL seconds later).
+        """
+        key = str(file_path)
         try:
-            size1 = file_path.stat().st_size
-            time.sleep(FILE_STABLE_WAIT)
-            size2 = file_path.stat().st_size
-            return size1 == size2 and size2 > 0
+            current_size = file_path.stat().st_size
         except OSError:
+            self._pending_sizes.pop(key, None)
             return False
+
+        if current_size == 0:
+            return False
+
+        prev_size = self._pending_sizes.get(key)
+        self._pending_sizes[key] = current_size
+
+        if prev_size is None:
+            # First sighting — record size and wait for next poll
+            return False
+
+        return current_size == prev_size
 
     def _discover_new_files(self):
         """Scan the watch folder and add new files to the queue."""
@@ -245,7 +298,13 @@ class ScannerAgent:
             log.error(f"Watch folder does not exist: {self.watch_folder}")
             return
 
-        for entry in sorted(self.watch_folder.iterdir()):
+        try:
+            entries = sorted(self.watch_folder.iterdir())
+        except OSError as e:
+            log.error(f"Cannot read watch folder: {e}")
+            return
+
+        for entry in entries:
             if not entry.is_file():
                 continue
             if entry.suffix.lower() not in ALLOWED_EXTENSIONS:
@@ -253,14 +312,17 @@ class ScannerAgent:
             if str(entry) in self._seen_files:
                 continue
 
-            # Wait for file to finish writing
+            # Non-blocking stability check (compares size across poll cycles)
             if not self._is_file_stable(entry):
                 log.debug(f"File still writing: {entry.name}")
                 continue
 
+            # Clean up tracking dict
+            self._pending_sizes.pop(str(entry), None)
             self._seen_files.add(str(entry))
             self._queue.append(entry)
             log.info(f"   ⊕ Queued: {entry.name}  (queue size: {len(self._queue)})")
+            sys.stdout.flush()
 
     def _process_queue(self):
         """Process files from the queue ONE AT A TIME, sequentially."""
@@ -307,6 +369,7 @@ class ScannerAgent:
         log.info(f"\nWatching '{self.watch_folder}' for new scanned files...")
         log.info("Files will be uploaded ONE AT A TIME in sequence.")
         log.info("Press Ctrl+C to stop.\n")
+        sys.stdout.flush()
 
         try:
             while True:
@@ -316,11 +379,13 @@ class ScannerAgent:
                 # Step 2: Process queue sequentially (blocks until empty)
                 if self._queue:
                     log.info(f"── Queue has {len(self._queue)} file(s) — processing sequentially...")
+                    sys.stdout.flush()
                     self._process_queue()
                     log.info(f"── Queue empty. Stats: "
                              f"✓ {self._stats['processed']} processed | "
                              f"✗ {self._stats['failed']} failed | "
                              f"⊘ {self._stats['skipped']} skipped")
+                    sys.stdout.flush()
 
                 time.sleep(POLL_INTERVAL)
         except KeyboardInterrupt:
@@ -332,6 +397,10 @@ class ScannerAgent:
 
 def main():
     global QUEUE_DELAY
+
+    # ── Fix Windows terminal freeze-on-click ──
+    _disable_windows_quick_edit()
+
     parser = argparse.ArgumentParser(description="Scanner Agent — auto-upload scanned answer sheets")
     parser.add_argument("--server", default=SERVER_URL, help=f"Server URL (default: {SERVER_URL})")
     parser.add_argument("--username", default=STAFF_USERNAME, help=f"Staff username (default: {STAFF_USERNAME})")
