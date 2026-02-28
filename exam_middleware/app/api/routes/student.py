@@ -181,8 +181,8 @@ async def get_dashboard(
             if match:
                 extracted_reg = match.group(1)
 
-    # Only use the register_number when it looks like a 12-digit university register
-    register_number = extracted_reg if extracted_reg and re.fullmatch(r"\d{12}", extracted_reg) else None
+    # Only use the register_number when it looks like a 10-12 digit university register
+    register_number = extracted_reg if extracted_reg and re.fullmatch(r"\d{10,12}", extracted_reg) else None
 
     logger.info(f"Dashboard for register_number: {register_number or '(none)'} moodle_username: {session.moodle_username}")
 
@@ -202,12 +202,13 @@ async def get_dashboard(
     pending_papers = []
     for artifact in pending_artifacts:
         # Get subject mapping for additional info
+        exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
         mapping = None
         if artifact.parsed_subject_code:
-            mapping = await mapping_service.get_mapping(artifact.parsed_subject_code)
+            mapping = await mapping_service.get_mapping(artifact.parsed_subject_code, exam_type)
         
         # Check if we have a valid assignment mapping
-        assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code) if artifact.parsed_subject_code else None
+        assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type) if artifact.parsed_subject_code else None
         
         pending_papers.append(StudentPendingPaper(
             artifact_uuid=str(artifact.artifact_uuid),
@@ -217,16 +218,20 @@ async def get_dashboard(
             filename=artifact.original_filename,
             uploaded_at=artifact.uploaded_at,
             workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
+            exam_type=exam_type,
+            attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
+            attempt_2_locked=getattr(artifact, 'attempt_2_locked', True),
             can_submit=assignment_id is not None,
-            message=None if assignment_id else "Assignment mapping not found. Contact admin."
+            message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
         ))
     
     # Build submitted papers list (include subject_name from mapping if available)
     submitted_papers = []
     for a in submitted_artifacts:
+        a_exam_type = getattr(a, 'exam_type', 'CIA1') or 'CIA1'
         mapping = None
         if a.parsed_subject_code:
-            mapping = await mapping_service.get_mapping(a.parsed_subject_code)
+            mapping = await mapping_service.get_mapping(a.parsed_subject_code, a_exam_type)
 
         submitted_papers.append(
             ArtifactResponse(
@@ -237,6 +242,9 @@ async def get_dashboard(
                 subject_name=mapping.subject_name if mapping else None,
                 parsed_reg_no=a.parsed_reg_no,
                 parsed_subject_code=a.parsed_subject_code,
+                exam_type=a_exam_type,
+                attempt_number=getattr(a, 'attempt_number', 1) or 1,
+                attempt_2_locked=getattr(a, 'attempt_2_locked', True),
                 workflow_status=WorkflowStatusEnum(a.workflow_status.value),
                 moodle_assignment_id=a.moodle_assignment_id,
                 uploaded_at=a.uploaded_at,
@@ -348,9 +356,24 @@ async def view_paper_file(
         parsed_subject_code=artifact.parsed_subject_code,
     )
     if not resolved_path:
+        # Fallback: Serve from database if disk file is missing
+        if artifact.file_content:
+            from io import BytesIO
+            logger.info(f"File missing on disk, serving from DB for artifact {artifact_uuid}")
+            safe_name = (artifact.original_filename or "paper").replace('"', "")
+            media_type = artifact.mime_type or "application/pdf"
+            return StreamingResponse(
+                BytesIO(artifact.file_content),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f'inline; filename="{safe_name}"',
+                    "X-Source": "database"
+                }
+            )
+            
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found on server"
+            detail="File not found on server or database"
         )
 
     # Self-heal: update stored blob path if it was stale

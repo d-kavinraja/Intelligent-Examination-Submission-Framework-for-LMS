@@ -68,7 +68,7 @@ class MoodleClient:
                 timeout=self.timeout,
                 follow_redirects=True,
                 headers={
-                    "User-Agent": "ExamMiddleware/1.0",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "application/json",
                 }
             )
@@ -209,6 +209,57 @@ class MoodleClient:
             
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def get_users_by_field(
+        self,
+        field: str,
+        value: str,
+        token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch Moodle users by a specific field.
+
+        Function: core_user_get_users_by_field
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_user_get_users_by_field",
+            "moodlewsrestformat": "json",
+            "field": field,
+            "values[0]": value,
+        }
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "core_user_get_users_by_field")
+
+            if isinstance(result, list):
+                return result
+
+            return []
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def get_user_by_username(
+        self,
+        username: str,
+        token: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch a single Moodle user profile by username."""
+        users = await self.get_users_by_field(field="username", value=username, token=token)
+        if not users:
+            return None
+        return users[0]
     
     # =========================================
     # Course and Assignment Discovery
@@ -340,13 +391,58 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
+    async def get_course_module(
+        self,
+        cmid: int,
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get course module information by its ID
+        
+        Function: core_course_get_course_module
+        
+        This resolves the id= value from a Moodle assignment URL
+        to the underlying course ID, assignment instance ID, and name.
+        
+        Args:
+            cmid: Course module ID (the id= from the Moodle URL)
+            token: Web service token
+            
+        Returns:
+            Dict with 'cm' key containing: id, course, module, name, instance, etc.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+        
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_course_get_course_module",
+            "moodlewsrestformat": "json",
+            "cmid": str(cmid),
+        }
+        
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            self._check_error_response(result, "core_course_get_course_module")
+            
+            logger.info(f"Got course module info for cmid={cmid}: course={result.get('cm', {}).get('course')}")
+            return result
+            
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+    
     # =========================================
     # File Upload (Step 1 of Submission)
     # =========================================
     
     async def upload_file(
         self,
-        file_path: str,
+        file_path: Optional[str] = None,
+        file_content: Optional[bytes] = None,
         token: Optional[str] = None,
         filename: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -372,40 +468,64 @@ class MoodleClient:
         if not ws_token:
             raise MoodleAPIError("No token provided for file upload")
         
-        # Normalize file path for the current OS
-        normalized_path = os.path.normpath(file_path)
+        # Determine filename and MIME type
+        upload_filename = filename
+        mime_type = 'application/octet-stream'
         
-        if not os.path.exists(normalized_path):
-            raise MoodleAPIError(f"File not found: {file_path}")
+        if file_path:
+            normalized_path = os.path.normpath(file_path)
+            if upload_filename is None:
+                upload_filename = os.path.basename(normalized_path)
+            
+            ext = os.path.splitext(normalized_path)[1].lower()
+            mime_types = {
+                '.pdf': 'application/pdf',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+            }
+            if ext in mime_types:
+                mime_type = mime_types[ext]
+        elif filename:
+            # Try to get extension from filename if path is missing
+            ext = os.path.splitext(filename)[1].lower()
+            mime_types = {
+                '.pdf': 'application/pdf',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+            }
+            if ext in mime_types:
+                mime_type = mime_types[ext]
         
-        upload_filename = filename or os.path.basename(normalized_path)
-        
-        # Determine MIME type
-        ext = os.path.splitext(normalized_path)[1].lower()
-        mime_types = {
-            '.pdf': 'application/pdf',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-        }
-        mime_type = mime_types.get(ext, 'application/octet-stream')
-        
+        if upload_filename is None:
+            upload_filename = "upload.pdf" # Default
+            
         url = f"{self.base_url}/webservice/upload.php"
         
         try:
-            # Read file content
-            async with aiofiles.open(normalized_path, 'rb') as f:
-                file_content = await f.read()
+            # Use provided content or read from disk
+            content_to_upload = None
+            if file_content is not None:
+                content_to_upload = file_content
+            elif file_path:
+                normalized_path = os.path.normpath(file_path)
+                if not os.path.exists(normalized_path):
+                    raise MoodleAPIError(f"File not found on disk: {file_path}")
+                async with aiofiles.open(normalized_path, 'rb') as f:
+                    content_to_upload = await f.read()
+            else:
+                raise MoodleAPIError("Either file_path or file_content must be provided")
             
             # Prepare multipart form data
             files = {
-                'file_1': (upload_filename, file_content, mime_type)
+                'file_1': (upload_filename, content_to_upload, mime_type)
             }
             data = {
                 'token': ws_token
             }
             
-            logger.info(f"Uploading file: {upload_filename} ({len(file_content)} bytes)")
+            logger.info(f"Uploading file: {upload_filename} ({len(content_to_upload)} bytes)")
             
             response = await client.post(url, files=files, data=data)
             response.raise_for_status()

@@ -47,9 +47,12 @@ class ArtifactService:
         file_hash: str,
         parsed_reg_no: Optional[str] = None,
         parsed_subject_code: Optional[str] = None,
+        exam_type: str = "CIA1",
         file_size_bytes: Optional[int] = None,
         mime_type: Optional[str] = None,
-        uploaded_by_staff_id: Optional[int] = None
+        uploaded_by_staff_id: Optional[int] = None,
+        file_content: Optional[bytes] = None,
+        force_unique: bool = False,
     ) -> ExaminationArtifact:
         """
         Create a new examination artifact
@@ -61,20 +64,31 @@ class ArtifactService:
             file_hash: SHA-256 hash of file content
             parsed_reg_no: Extracted register number
             parsed_subject_code: Extracted subject code
+            exam_type: Exam type (CIA1 or CIA2)
             file_size_bytes: File size
             mime_type: MIME type
             uploaded_by_staff_id: Staff user who uploaded
+            file_content: Raw bytes of the file for persistent storage
+            force_unique: If True, include file_hash in transaction_id so
+                          physically different files always create separate
+                          artifacts even when ML extracts the same reg/subject.
+                          Used by the scan-upload pipeline.
             
         Returns:
             Created ExaminationArtifact
         """
-        # Generate transaction ID for idempotency
+        # Generate transaction ID for idempotency (include exam_type)
+        # When force_unique=True, also include the file_hash so each
+        # distinct physical file gets its own artifact row.
         transaction_id = None
         if parsed_reg_no and parsed_subject_code:
+            extra = f"{exam_type}_{datetime.utcnow().strftime('%Y%m')}"
+            if force_unique and file_hash:
+                extra = f"{extra}_{file_hash}"
             transaction_id = generate_transaction_id(
                 parsed_reg_no,
                 parsed_subject_code,
-                datetime.utcnow().strftime("%Y%m")
+                extra
             )
             
             # Check for existing artifact with same transaction ID
@@ -110,64 +124,130 @@ class ArtifactService:
                             f"Please verify the file metadata or contact an administrator."
                         )
 
-                # If metadata matches, treat as re-upload for idempotency
-                logger.warning(f"Duplicate artifact detected: {transaction_id}, updating with new file")
-                existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
-                existing.file_hash = file_hash
-                existing.file_size_bytes = file_size_bytes
-                existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
-                existing.error_message = None  # Clear any previous errors
-                try:
-                    existing.add_log_entry("re-uploaded", {
-                        "new_file_path": file_blob_path,
-                        "new_hash": file_hash
-                    })
-                except Exception:
-                    pass
-                await self.db.flush()
-                await self.db.refresh(existing)
-                return existing
+                # If the existing artifact is attempt 1 and attempt 2 is unlocked,
+                # this should create a NEW attempt 2, not re-upload attempt 1
+                if (getattr(existing, 'attempt_number', 1) == 1
+                        and getattr(existing, 'attempt_2_locked', True) is False
+                        and getattr(existing, 'workflow_status', None) != WorkflowStatus.DELETED):
+                    # Generate a distinct transaction_id for attempt 2 so it doesn't collide
+                    transaction_id = generate_transaction_id(
+                        parsed_reg_no,
+                        parsed_subject_code,
+                        f"{exam_type}_attempt2_{datetime.utcnow().strftime('%Y%m')}"
+                    )
+                    logger.info(
+                        "Attempt 2 unlocked for %s/%s/%s – bypassing re-upload of attempt 1 (id=%s), "
+                        "new transaction_id=%s",
+                        parsed_reg_no, parsed_subject_code, exam_type, existing.id, transaction_id
+                    )
+                    # Fall through to the attempt-number logic below
+                else:
+                    # If metadata matches, treat as re-upload for idempotency
+                    logger.warning(f"Duplicate artifact detected: {transaction_id}, updating with new file")
+                    existing.file_blob_path = file_blob_path.replace('\\', '/')  # Normalize path
+                    existing.file_hash = file_hash
+                    existing.file_size_bytes = file_size_bytes
+                    existing.file_content = file_content  # Update DB-backed content
+                    existing.workflow_status = WorkflowStatus.PENDING  # Reset to pending
+                    existing.error_message = None  # Clear any previous errors
+                    now = datetime.now(timezone.utc)
+                    existing.uploaded_at = now  # Refresh upload timestamp on re-upload
+                    existing.validated_at = None
+                    existing.submit_timestamp = None
+                    existing.completed_at = None
+                    try:
+                        existing.add_log_entry("re-uploaded", {
+                            "new_file_path": file_blob_path,
+                            "new_hash": file_hash
+                        })
+                    except Exception:
+                        pass
+                    await self.db.flush()
+                    await self.db.refresh(existing)
+                    return existing
 
-        # Pre-check uniqueness of parsed_reg_no + parsed_subject_code to avoid DB constraint failure
+        # Pre-check uniqueness of parsed_reg_no + parsed_subject_code + exam_type to avoid DB constraint failure
+        # Auto-calculate attempt_number (max 2)
+        attempt_number = 1
         if parsed_reg_no and parsed_subject_code:
+            # Find all existing artifacts for this (reg_no, subject_code, exam_type)
             result = await self.db.execute(
                 select(ExaminationArtifact).where(
                     ExaminationArtifact.parsed_reg_no == parsed_reg_no,
-                    ExaminationArtifact.parsed_subject_code == parsed_subject_code
-                )
+                    ExaminationArtifact.parsed_subject_code == parsed_subject_code,
+                    ExaminationArtifact.exam_type == exam_type
+                ).order_by(ExaminationArtifact.attempt_number.desc())
             )
-            existing_pair = result.scalar_one_or_none()
-            if existing_pair:
-                # If it's the same transaction id, update as a re-upload
-                if existing_pair.transaction_id and transaction_id and existing_pair.transaction_id == transaction_id:
+            existing_artifacts = result.scalars().all()
+            
+            if existing_artifacts:
+                latest = existing_artifacts[0]
+                
+                # If the existing artifact has the same transaction_id, re-upload it
+                if latest.transaction_id and transaction_id and latest.transaction_id == transaction_id:
                     logger.warning(f"Duplicate artifact detected by transaction id: {transaction_id}, updating with new file")
-                    # Use the provided file_blob_path (normalized) for re-uploads
-                    existing_pair.file_blob_path = (file_blob_path or '').replace('\\', '/')
-                    existing_pair.file_hash = file_hash
-                    existing_pair.file_size_bytes = file_size_bytes
-                    existing_pair.workflow_status = WorkflowStatus.PENDING
-                    existing_pair.error_message = None
+                    latest.file_blob_path = (file_blob_path or '').replace('\\', '/')
+                    latest.file_hash = file_hash
+                    latest.file_size_bytes = file_size_bytes
+                    latest.file_content = file_content
+                    latest.workflow_status = WorkflowStatus.PENDING
+                    latest.error_message = None
+                    now = datetime.now(timezone.utc)
+                    latest.uploaded_at = now
+                    latest.validated_at = None
+                    latest.submit_timestamp = None
+                    latest.completed_at = None
                     try:
-                        existing_pair.add_log_entry("re-uploaded", {"new_file_path": file_blob_path, "new_hash": file_hash})
+                        latest.add_log_entry("re-uploaded", {"new_file_path": file_blob_path, "new_hash": file_hash})
                     except Exception:
-                        # Don't let logging failures break the re-upload flow
                         pass
                     await self.db.flush()
-                    await self.db.refresh(existing_pair)
-                    return existing_pair
-
-                # If the conflicting artifact is deleted, clear its identifiers so we can reuse the pair
-                if getattr(existing_pair, 'workflow_status', None) == WorkflowStatus.DELETED:
-                    existing_pair.add_log_entry("cleared_identifiers_for_reuse", {
-                        "reason": "upload_reuse",
-                    })
-                    existing_pair.parsed_reg_no = None
-                    existing_pair.parsed_subject_code = None
-                    existing_pair.transaction_id = None
-                    await self.db.flush()
-                else:
-                    # Prevent accidental duplicate uploads
-                    raise Exception(f"An artifact for register {parsed_reg_no} and subject {parsed_subject_code} already exists (id={existing_pair.id}).")
+                    await self.db.refresh(latest)
+                    return latest
+                
+                # If only 1 attempt exists, create attempt 2
+                if latest.attempt_number == 1:
+                    # If existing attempt 1 is DELETED, clear its identifiers and reuse attempt 1
+                    if getattr(latest, 'workflow_status', None) == WorkflowStatus.DELETED:
+                        latest.parsed_reg_no = None
+                        latest.parsed_subject_code = None
+                        latest.transaction_id = None
+                        try:
+                            latest.add_log_entry("cleared_identifiers_for_reuse", {"reason": "upload_reuse"})
+                        except Exception:
+                            pass
+                        await self.db.flush()
+                        attempt_number = 1  # Reuse attempt 1 slot
+                    else:
+                        # Check if attempt 2 is locked (admin must unlock first)
+                        if getattr(latest, 'attempt_2_locked', True):
+                            raise Exception(
+                                f"Attempt 2 is locked for register {parsed_reg_no}, "
+                                f"subject {parsed_subject_code}, exam {exam_type}. "
+                                f"An admin must unlock attempt 2 before uploading."
+                            )
+                        # Mark attempt 1 as SUPERSEDED and create attempt 2
+                        attempt_number = 2
+                        latest.workflow_status = WorkflowStatus.SUPERSEDED
+                        try:
+                            latest.add_log_entry("superseded", {"reason": "replaced_by_attempt_2"})
+                        except Exception:
+                            pass
+                        await self.db.flush()
+                        logger.info(f"Marked attempt 1 (id={latest.id}) as SUPERSEDED for reg={parsed_reg_no}, subject={parsed_subject_code}, exam={exam_type}")
+                elif latest.attempt_number >= 2:
+                    # Max 2 attempts — cannot create more
+                    if getattr(latest, 'workflow_status', None) == WorkflowStatus.DELETED:
+                        latest.parsed_reg_no = None
+                        latest.parsed_subject_code = None
+                        latest.transaction_id = None
+                        await self.db.flush()
+                        attempt_number = 2  # Reuse attempt 2 slot
+                    else:
+                        raise Exception(
+                            f"Maximum 2 attempts allowed. Artifact for register {parsed_reg_no}, "
+                            f"subject {parsed_subject_code}, exam {exam_type} already has {latest.attempt_number} attempt(s)."
+                        )
         
         artifact = ExaminationArtifact(
             raw_filename=raw_filename,
@@ -176,8 +256,11 @@ class ArtifactService:
             file_hash=file_hash,
             parsed_reg_no=parsed_reg_no,
             parsed_subject_code=parsed_subject_code,
+            exam_type=exam_type,
+            attempt_number=attempt_number,
             file_size_bytes=file_size_bytes,
             mime_type=mime_type,
+            file_content=file_content,
             uploaded_by_staff_id=uploaded_by_staff_id,
             transaction_id=transaction_id,
             workflow_status=WorkflowStatus.PENDING if parsed_reg_no else WorkflowStatus.FAILED
@@ -263,6 +346,11 @@ class ArtifactService:
             WorkflowStatus.PENDING_REVIEW,
             WorkflowStatus.VALIDATED,
             WorkflowStatus.READY_FOR_REVIEW,
+            WorkflowStatus.FAILED,
+            WorkflowStatus.QUEUED,
+            WorkflowStatus.UPLOADING,
+            WorkflowStatus.SUBMITTING,
+            WorkflowStatus.SUPERSEDED,
         ]
 
         # Build identity conditions conservatively
@@ -589,29 +677,28 @@ class SubjectMappingService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def get_mapping(self, subject_code: str) -> Optional[SubjectMapping]:
-        """Get mapping for a subject code"""
+    async def get_mapping(self, subject_code: str, exam_type: str = "CIA1") -> Optional[SubjectMapping]:
+        """Get mapping for a subject code + exam type"""
         result = await self.db.execute(
             select(SubjectMapping)
             .where(
                 and_(
                     SubjectMapping.subject_code == subject_code.upper(),
+                    SubjectMapping.exam_type == exam_type,
                     SubjectMapping.is_active == True
                 )
             )
         )
         return result.scalar_one_or_none()
     
-    async def get_assignment_id(self, subject_code: str) -> Optional[int]:
-        """Get assignment ID for a subject code"""
-        # First check database
-        mapping = await self.get_mapping(subject_code)
+    async def get_assignment_id(self, subject_code: str, exam_type: str = "CIA1") -> Optional[int]:
+        """Get assignment ID for a subject code + exam type"""
+        # Strictly use database mappings
+        mapping = await self.get_mapping(subject_code, exam_type)
         if mapping:
             return mapping.moodle_assignment_id
         
-        # Fall back to config
-        config_mapping = settings.get_subject_assignment_mapping()
-        return config_mapping.get(subject_code.upper())
+        return None
     
     async def create_mapping(
         self,
@@ -620,12 +707,14 @@ class SubjectMappingService:
         moodle_assignment_id: int,
         subject_name: Optional[str] = None,
         moodle_assignment_name: Optional[str] = None,
-        exam_session: Optional[str] = None
+        exam_session: Optional[str] = None,
+        exam_type: str = "CIA1"
     ) -> SubjectMapping:
         """Create a new subject mapping"""
         mapping = SubjectMapping(
             subject_code=subject_code.upper(),
             subject_name=subject_name,
+            exam_type=exam_type,
             moodle_course_id=moodle_course_id,
             moodle_assignment_id=moodle_assignment_id,
             moodle_assignment_name=moodle_assignment_name,

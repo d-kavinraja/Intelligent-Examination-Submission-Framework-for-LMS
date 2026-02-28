@@ -26,6 +26,7 @@ class WorkflowStatusEnum(str, Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     QUEUED = "QUEUED"
+    SUPERSEDED = "SUPERSEDED"
 
 
 # ============================================
@@ -87,6 +88,9 @@ class FileUploadResponse(BaseModel):
     artifact_uuid: Optional[str] = None
     parsed_register_number: Optional[str] = None
     parsed_subject_code: Optional[str] = None
+    exam_type: Optional[str] = None
+    attempt_number: Optional[int] = None
+    attempt_2_locked: Optional[bool] = None
     workflow_status: Optional[str] = None
     errors: Optional[List[str]] = None
 
@@ -128,6 +132,8 @@ class ArtifactBase(BaseModel):
     raw_filename: str
     parsed_reg_no: Optional[str] = None
     parsed_subject_code: Optional[str] = None
+    exam_type: str = "CIA1"
+    attempt_number: int = 1
 
 
 class ArtifactCreate(ArtifactBase):
@@ -147,6 +153,9 @@ class ArtifactResponse(BaseModel):
     subject_name: Optional[str] = None
     parsed_reg_no: Optional[str]
     parsed_subject_code: Optional[str]
+    exam_type: str = "CIA1"
+    attempt_number: int = 1
+    attempt_2_locked: bool = True
     workflow_status: WorkflowStatusEnum
     moodle_assignment_id: Optional[int]
     uploaded_at: datetime
@@ -180,6 +189,9 @@ class StudentPendingPaper(BaseModel):
     filename: str
     uploaded_at: datetime
     workflow_status: Optional[str]
+    exam_type: str = "CIA1"
+    attempt_number: int = 1
+    attempt_2_locked: bool = True
     can_submit: bool
     message: Optional[str] = None
 
@@ -233,6 +245,7 @@ class SubjectMappingBase(BaseModel):
     """Base subject mapping schema"""
     subject_code: str
     subject_name: Optional[str] = None
+    exam_type: str = "CIA1"  # CIA1, CIA2
     moodle_course_id: int
     moodle_assignment_id: int
     moodle_assignment_name: Optional[str] = None

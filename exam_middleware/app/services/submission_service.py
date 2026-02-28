@@ -4,6 +4,7 @@ Orchestrates the complete submission workflow to Moodle
 """
 
 import logging
+import os
 from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,6 +133,34 @@ class SubmissionService:
                 lms_transaction_id=result.get("transaction_id")
             )
             
+            # If this is attempt 2, ensure attempt 1 is marked SUPERSEDED
+            if getattr(artifact, 'attempt_number', 1) == 2 and artifact.parsed_reg_no and artifact.parsed_subject_code:
+                from sqlalchemy import select, and_
+                attempt1_q = await self.db.execute(
+                    select(ExaminationArtifact).where(
+                        and_(
+                            ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                            ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                            ExaminationArtifact.exam_type == artifact.exam_type,
+                            ExaminationArtifact.attempt_number == 1,
+                            ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
+                            ExaminationArtifact.workflow_status != WorkflowStatus.SUPERSEDED,
+                        )
+                    )
+                )
+                attempt1 = attempt1_q.scalar_one_or_none()
+                if attempt1:
+                    attempt1.workflow_status = WorkflowStatus.SUPERSEDED
+                    try:
+                        attempt1.add_log_entry("superseded_on_attempt2_submit", {
+                            "reason": "attempt_2_submitted_to_lms",
+                            "attempt_2_artifact_id": artifact.id
+                        })
+                    except Exception:
+                        pass
+                    await self.db.flush()
+                    logger.info(f"Marked attempt 1 (id={attempt1.id}) as SUPERSEDED after attempt 2 submission")
+            
             # Log success
             await self.audit_service.log_action(
                 action="submission_completed",
@@ -195,13 +224,17 @@ class SubmissionService:
     
     async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Optional[int]:
         """Resolve the Moodle assignment ID for an artifact"""
-        if artifact.moodle_assignment_id:
-            return artifact.moodle_assignment_id
+        # Always try to get the latest mapping first to handle re-mappings/retries correctly
+        if artifact.parsed_subject_code:
+            exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
+            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type)
+            if mapping_id:
+                # Update the artifact's field to keep it in sync with the latest mapping
+                artifact.moodle_assignment_id = mapping_id
+                return mapping_id
         
-        if not artifact.parsed_subject_code:
-            return None
-        
-        return await self.mapping_service.get_assignment_id(artifact.parsed_subject_code)
+        # Fallback to what was previously stored (or None)
+        return artifact.moodle_assignment_id
     
     async def _execute_submission(
         self,
@@ -235,8 +268,25 @@ class SubmissionService:
                 artifact.workflow_status = WorkflowStatus.UPLOADING
                 await self.db.flush()
                 
+                # Check if file exists on disk (safely handling None paths)
+                file_content = None
+                file_on_disk = False
+                
+                if artifact.file_blob_path and os.path.exists(artifact.file_blob_path):
+                    file_on_disk = True
+                
+                if not file_on_disk:
+                    logger.warning(f"File {artifact.file_blob_path} missing on disk (or path is None) for artifact {artifact.artifact_uuid}")
+                    if artifact.file_content:
+                        logger.info(f"Using database content for artifact {artifact.artifact_uuid}")
+                        file_content = artifact.file_content
+                    else:
+                        logger.error(f"File missing on disk and no database content for artifact {artifact.artifact_uuid}")
+                        raise MoodleAPIError(f"File not found on disk or database for submission.")
+                
                 upload_result = await client.upload_file(
-                    file_path=artifact.file_blob_path,
+                    file_path=artifact.file_blob_path if file_on_disk else None,
+                    file_content=file_content,
                     token=moodle_token,
                     filename=artifact.original_filename
                 )
@@ -343,19 +393,46 @@ class SubmissionService:
                 logger.info(f"Verified files: {[f.get('filename') for f in submission_files]}")
                 result["verified_files"] = [f.get("filename") for f in submission_files]
             else:
-                # Treat this as a hard failure instead of silently continuing –
-                # if Moodle doesn't report any files in the submission, the
-                # teacher UI will also show “No submission”, so we should not
-                # mark the artifact as successfully submitted.
-                logger.error(
-                    "No files found in submission after save. "
-                    "Aborting submission and returning error to caller."
+                # Moodle can sometimes be slow to report files after save.
+                # Retry the status check once after a short delay before failing.
+                import asyncio
+                logger.warning(
+                    "No files found in submission immediately after save. "
+                    "Retrying status check after 2 seconds..."
                 )
-                raise MoodleAPIError(
-                    "Moodle did not attach any files to the submission. "
-                    "Please retry or contact the administrator.",
-                    response_data=status_result
+                await asyncio.sleep(2)
+                retry_status = await client.get_submission_status(
+                    assignment_id=assignment_id,
+                    token=moodle_token
                 )
+                # Re-parse the retry response
+                retry_files = []
+                if "lastattempt" in retry_status:
+                    retry_sub = retry_status["lastattempt"].get("submission", {})
+                    for plugin in retry_sub.get("plugins", []):
+                        if plugin.get("type") == "file":
+                            for area in plugin.get("fileareas", []):
+                                if area.get("area") == "submission_files":
+                                    retry_files = area.get("files", [])
+                                    break
+
+                if retry_files:
+                    logger.info(f"Retry succeeded - files found: {[f.get('filename') for f in retry_files]}")
+                    result["verified_files"] = [f.get("filename") for f in retry_files]
+                    submission_files = retry_files
+                else:
+                    # Treat this as a hard failure
+                    logger.error(
+                        f"No files found in submission after save AND retry for "
+                        f"assignment_id={assignment_id}. "
+                        f"This may indicate the Moodle assignment does not accept file submissions, "
+                        f"or the assignment configuration needs to be checked."
+                    )
+                    raise MoodleAPIError(
+                        f"Moodle did not attach any files to the submission (assignment_id={assignment_id}). "
+                        f"Please verify the assignment accepts file submissions in Moodle, then retry.",
+                        response_data=retry_status
+                    )
             
             # Step 3: Submit for grading (lock), but ONLY if Moodle reports that
             # this user can actually perform an explicit submit action.
@@ -403,8 +480,10 @@ class SubmissionService:
                 "connection",
                 "unavailable"
             ]
+            errorcode = getattr(error.error, "errorcode", None) or ""
+            errormsg = getattr(error.error, "message", None) or ""
             return any(
-                te in error.error.errorcode.lower() or te in error.error.message.lower()
+                te in errorcode.lower() or te in errormsg.lower()
                 for te in transient_errors
             )
         

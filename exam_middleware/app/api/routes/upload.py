@@ -3,13 +3,14 @@ Upload API Routes
 Handles file uploads from staff
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from sqlalchemy import select, and_
+from typing import List, Optional, Dict
 import logging
 
-from app.db.database import get_db
+from app.db.database import get_db, async_session_maker
 from app.db.models import StaffUser
 from app.schemas import (
     FileUploadResponse,
@@ -17,19 +18,49 @@ from app.schemas import (
     ErrorResponse,
 )
 from app.services.file_processor import file_processor
-from app.services.artifact_service import ArtifactService, AuditService
+from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
+from app.services.notification_service import NotificationService
 from app.api.routes.auth import get_current_staff
-from app.db.models import WorkflowStatus
+from app.db.models import WorkflowStatus, ExaminationArtifact, SubjectMapping, StudentUsernameRegister
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
+async def _bg_notify_student(
+    artifact_id: int,
+    uploaded_by_username: str,
+    actor_ip: Optional[str],
+) -> None:
+    """Run student notification in the background with its own DB session."""
+    try:
+        async with async_session_maker() as session:
+            from app.db.models import ExaminationArtifact
+            result = await session.execute(
+                select(ExaminationArtifact).where(ExaminationArtifact.id == artifact_id)
+            )
+            artifact = result.scalar_one_or_none()
+            if artifact:
+                notification_service = NotificationService(session)
+                await notification_service.notify_student_on_upload(
+                    artifact=artifact,
+                    uploaded_by_username=uploaded_by_username,
+                    actor_ip=actor_ip,
+                )
+                await session.commit()
+    except Exception as exc:
+        logging.getLogger(__name__).error(
+            "Background notification failed for artifact %s: %s", artifact_id, exc
+        )
+
+
 @router.post("/single", response_model=FileUploadResponse)
 async def upload_single_file(
     file: UploadFile = File(...),
+    exam_type: str = Form("CIA1"),
     request: Request = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
@@ -92,9 +123,11 @@ async def upload_single_file(
             file_hash=file_hash,
             parsed_reg_no=metadata.get("parsed_register_no"),
             parsed_subject_code=metadata.get("parsed_subject_code"),
+            exam_type=exam_type,
             file_size_bytes=metadata.get("size_bytes"),
             mime_type=metadata.get("mime_type"),
-            uploaded_by_staff_id=current_staff.id
+            uploaded_by_staff_id=current_staff.id,
+            file_content=content
         )
         
         # Log the upload
@@ -111,6 +144,14 @@ async def upload_single_file(
         )
         
         await db.commit()
+
+        # Schedule non-blocking student notification in background
+        background_tasks.add_task(
+            _bg_notify_student,
+            artifact_id=artifact.id,
+            uploaded_by_username=current_staff.username,
+            actor_ip=request.client.host if request and request.client else None,
+        )
         
         return FileUploadResponse(
             success=True,
@@ -118,6 +159,9 @@ async def upload_single_file(
             artifact_uuid=str(artifact.artifact_uuid),
             parsed_register_number=artifact.parsed_reg_no,
             parsed_subject_code=artifact.parsed_subject_code,
+            exam_type=artifact.exam_type,
+            attempt_number=artifact.attempt_number,
+            attempt_2_locked=artifact.attempt_2_locked,
             workflow_status=artifact.workflow_status.value
         )
         
@@ -138,7 +182,9 @@ async def upload_single_file(
 @router.post("/bulk", response_model=BulkUploadResponse)
 async def upload_bulk_files(
     files: List[UploadFile] = File(...),
+    exam_type: str = Form("CIA1"),
     request: Request = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
@@ -165,8 +211,11 @@ async def upload_bulk_files(
         # Read file content
         content = await file.read()
         
-        # Validate file
-        is_valid, message, metadata = file_processor.validate_file(content, file.filename)
+        # Validate file (skip filename validation - allow ANY format)
+        # Files will be extracted and renamed if extraction is available
+        is_valid, message, metadata = file_processor.validate_file(
+            content, file.filename, skip_filename_validation=True
+        )
         
         if not is_valid:
             results.append(FileUploadResponse(
@@ -178,7 +227,8 @@ async def upload_bulk_files(
             failed += 1
             continue
         
-        # Save file
+        # Save file and create artifact inside a savepoint so a single
+        # file failure does not poison the DB session for later files.
         try:
             file_path, file_hash = await file_processor.save_file(
                 file_content=content,
@@ -186,18 +236,29 @@ async def upload_bulk_files(
                 subfolder="pending"
             )
             
-            # Create artifact
-            artifact_service = ArtifactService(db)
-            artifact = await artifact_service.create_artifact(
-                raw_filename=file.filename,
-                original_filename=metadata.get("original_filename", file.filename),
-                file_blob_path=file_path,
-                file_hash=file_hash,
-                parsed_reg_no=metadata.get("parsed_register_no"),
-                parsed_subject_code=metadata.get("parsed_subject_code"),
-                file_size_bytes=metadata.get("size_bytes"),
-                mime_type=metadata.get("mime_type"),
-                uploaded_by_staff_id=current_staff.id
+            # Use a nested transaction (savepoint) per file
+            async with db.begin_nested():
+                artifact_service = ArtifactService(db)
+                artifact = await artifact_service.create_artifact(
+                    raw_filename=file.filename,
+                    original_filename=metadata.get("original_filename", file.filename),
+                    file_blob_path=file_path,
+                    file_hash=file_hash,
+                    parsed_reg_no=metadata.get("parsed_register_no"),
+                    parsed_subject_code=metadata.get("parsed_subject_code"),
+                    exam_type=exam_type,
+                    file_size_bytes=metadata.get("size_bytes"),
+                    mime_type=metadata.get("mime_type"),
+                    uploaded_by_staff_id=current_staff.id,
+                    file_content=content
+                )
+
+            # Schedule non-blocking student notification in background
+            background_tasks.add_task(
+                _bg_notify_student,
+                artifact_id=artifact.id,
+                uploaded_by_username=current_staff.username,
+                actor_ip=request.client.host if request and request.client else None,
             )
             
             results.append(FileUploadResponse(
@@ -207,12 +268,17 @@ async def upload_bulk_files(
                 artifact_uuid=str(artifact.artifact_uuid),
                 parsed_register_number=artifact.parsed_reg_no,
                 parsed_subject_code=artifact.parsed_subject_code,
+                exam_type=artifact.exam_type,
+                attempt_number=artifact.attempt_number,
+                attempt_2_locked=artifact.attempt_2_locked,
                 workflow_status=artifact.workflow_status.value
             ))
             successful += 1
             
         except Exception as e:
             logger.error(f"Failed to process file {file.filename}: {e}")
+            # The savepoint rollback already happened via the context manager,
+            # so the session is clean for the next iteration.
             results.append(FileUploadResponse(
                 success=False,
                 filename=file.filename,
@@ -244,26 +310,167 @@ async def upload_bulk_files(
     )
 
 
-@router.get("/all")
-async def get_all_uploads(
-    limit: int = 50,
-    offset: int = 0,
-    include_deleted: bool = Query(default=False, description="Include artifacts marked as DELETED"),
+@router.post("/check-duplicates")
+async def check_duplicates(
+    payload: Dict,
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Get list of all uploaded files (staff view)
+    Check if artifacts with the same register number + subject code already exist for the given exam type.
+    Body: { "items": [{"reg_no": "...", "subject_code": "...", "exam_type": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exam_type": "...", "exists": bool, "status": "...", "uploaded_at": "..."}] }
+    """
+    items = payload.get("items", [])
+    if not items:
+        return {"results": []}
+
+    results = []
+    for item in items:
+        reg_no = (item.get("reg_no") or "").strip()
+        subject_code = (item.get("subject_code") or "").strip().upper()
+        exam_type = (item.get("exam_type") or "CIA1").strip().upper()
+
+        if not reg_no or not subject_code:
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exists": False,
+                "status": None,
+                "uploaded_at": None
+            })
+            continue
+
+        result = await db.execute(
+            select(ExaminationArtifact).where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == reg_no,
+                    ExaminationArtifact.parsed_subject_code == subject_code,
+                    ExaminationArtifact.exam_type == exam_type,
+                    ExaminationArtifact.workflow_status != WorkflowStatus.DELETED
+                )
+            ).order_by(ExaminationArtifact.attempt_number.desc())
+        )
+        existing_all = result.scalars().all()
+
+        if existing_all:
+            latest = existing_all[0]
+            max_attempt = latest.attempt_number
+            attempt_2_locked = getattr(latest, 'attempt_2_locked', True)
+            # If attempt 2 is unlocked AND only attempt 1 exists, the file can be
+            # uploaded as attempt 2 — so it's not a blocking duplicate.
+            can_upload_as_attempt_2 = (not attempt_2_locked and max_attempt == 1)
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exam_type": exam_type,
+                "exists": True,
+                "status": latest.workflow_status.value,
+                "uploaded_at": latest.uploaded_at.isoformat() if latest.uploaded_at else None,
+                "attempt_2_locked": attempt_2_locked,
+                "max_attempt": max_attempt,
+                "can_upload_as_attempt_2": can_upload_as_attempt_2
+            })
+        else:
+            results.append({
+                "reg_no": reg_no,
+                "subject_code": subject_code,
+                "exam_type": exam_type,
+                "exists": False,
+                "status": None,
+                "uploaded_at": None,
+                "attempt_2_locked": True,
+                "max_attempt": 0,
+                "can_upload_as_attempt_2": False
+            })
+
+    return {"results": results}
+
+
+@router.post("/validate-mappings")
+async def validate_mappings(
+    payload: Dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Validate that subject codes are mapped and register numbers have student mappings for the given exam type.
+    Body: { "items": [{"reg_no": "...", "subject_code": "...", "exam_type": "..."}] }
+    Returns: { "results": [{"reg_no": "...", "subject_code": "...", "exam_type": "...", "subject_mapped": bool, "student_mapped": bool}] }
+    """
+    items = payload.get("items", [])
+    if not items:
+        return {"results": []}
+
+    # Batch-load all active subject mappings for these codes and types
+    criteria = []
+    for item in items:
+        sc = (item.get("subject_code") or "").strip().upper()
+        et = (item.get("exam_type") or "CIA1").strip().upper()
+        if sc:
+            criteria.append(and_(SubjectMapping.subject_code == sc, SubjectMapping.exam_type == et))
+    
+    mapped_keys = set()
+    if criteria:
+        from sqlalchemy import or_
+        sm_result = await db.execute(
+            select(SubjectMapping.subject_code, SubjectMapping.exam_type).where(
+                and_(
+                    or_(*criteria),
+                    SubjectMapping.is_active == True
+                )
+            )
+        )
+        mapped_keys = set((row[0], row[1]) for row in sm_result.all())
+
+    # Batch-load all student username/register mappings
+    reg_nos = list(set((item.get("reg_no") or "").strip() for item in items if item.get("reg_no")))
+    mapped_registers = set()
+    if reg_nos:
+        sr_result = await db.execute(
+            select(StudentUsernameRegister.register_number).where(
+                StudentUsernameRegister.register_number.in_(reg_nos)
+            )
+        )
+        mapped_registers = set(row[0] for row in sr_result.all())
+
+    results = []
+    for item in items:
+        reg_no = (item.get("reg_no") or "").strip()
+        subject_code = (item.get("subject_code") or "").strip().upper()
+        exam_type = (item.get("exam_type") or "CIA1").strip().upper()
+        
+        # Check if subject is mapped for this exam type
+        subject_mapped = (subject_code, exam_type) in mapped_keys
+        
+        results.append({
+            "reg_no": reg_no,
+            "subject_code": subject_code,
+            "exam_type": exam_type,
+            "subject_mapped": subject_mapped,
+            "student_mapped": reg_no in mapped_registers
+        })
+
+    return {"results": results}
+
+
+@router.get("/all")
+async def get_all_uploads(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Get list of all uploaded files (staff view).
+    Deleted artifacts are hard-deleted and won't appear here.
     """
     artifact_service = ArtifactService(db)
     artifacts, total = await artifact_service.get_all_artifacts(limit=limit, offset=offset)
     audit_service = AuditService(db)
-    
-    # Filter out DELETED artifacts by default
-    filtered = [a for a in artifacts if not (a.workflow_status == WorkflowStatus.DELETED and not include_deleted)]
 
     artifacts_list = []
-    for a in filtered:
+    for a in artifacts:
         logs = await audit_service.get_for_artifact(a.id)
         deleted_targets = {str(l.target_id) for l in logs if l.action == 'report_deleted'}
         resolved_targets = {str(l.target_id) for l in logs if l.action == 'report_resolved'}
@@ -274,6 +481,9 @@ async def get_all_uploads(
             "filename": a.original_filename,
             "register_number": a.parsed_reg_no,
             "subject_code": a.parsed_subject_code,
+            "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
+            "attempt_number": getattr(a, 'attempt_number', 1) or 1,
+            "attempt_2_locked": getattr(a, 'attempt_2_locked', True),
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count
@@ -313,6 +523,9 @@ async def get_pending_uploads(
             "filename": a.original_filename,
             "register_number": a.parsed_reg_no,
             "subject_code": a.parsed_subject_code,
+            "exam_type": getattr(a, 'exam_type', 'CIA1') or 'CIA1',
+            "attempt_number": getattr(a, 'attempt_number', 1) or 1,
+            "attempt_2_locked": getattr(a, 'attempt_2_locked', True),
             "status": a.workflow_status.value,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else None,
             "report_count": report_count
@@ -324,6 +537,49 @@ async def get_pending_uploads(
         "offset": offset,
         "artifacts": artifacts_list
     }
+
+
+@router.get("/auto-processed")
+async def get_auto_processed_uploads(
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Get all auto-processed uploads (extracted and renamed via ML models)
+    
+    These are files uploaded via /scan-upload that were automatically
+    renamed to REGISTER_SUBJECT format based on ML extraction.
+    """
+    try:
+        stmt = select(ExaminationArtifact).where(
+            ExaminationArtifact.auto_processed == True
+        ).order_by(ExaminationArtifact.uploaded_at.desc())
+        
+        result = await db.execute(stmt)
+        artifacts = result.scalars().all()
+        
+        return {
+            "success": True,
+            "count": len(artifacts),
+            "auto_processed": [
+                {
+                    "id": art.id,
+                    "artifact_uuid": str(art.artifact_uuid),
+                    "original_filename": art.original_filename,
+                    "raw_filename": art.raw_filename,
+                    "parsed_reg_no": art.parsed_reg_no,
+                    "parsed_subject_code": art.parsed_subject_code,
+                    "exam_type": art.exam_type,
+                    "workflow_status": art.workflow_status.value,
+                    "uploaded_at": art.uploaded_at.isoformat() if art.uploaded_at else None,
+                    "file_size_bytes": art.file_size_bytes,
+                }
+                for art in artifacts
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching auto-processed uploads: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch auto-processed uploads")
 
 
 @router.get("/stats")

@@ -50,11 +50,28 @@ python-dotenv
 email-validator
 
 # ==============================
+# Email Services (uses httpx - already included above)
+# ==============================
+
+# ==============================
 # File Processing
 # ==============================
-python-magic-bin
+python-magic
 pillow
 pypdf
+
+# ==============================
+# ML / Extraction (OPTIONAL - Local fallback only)
+# Primary inference via HF Spaces API (HF_SPACE_URL env var)
+# Uncomment below to enable local extraction as fallback
+# ==============================
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# torch
+# torchvision
+# opencv-python-headless
+# ultralytics
+# pdf2image
+# numpy
 
 # ==============================
 # Logging and Monitoring

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60)
     
     # Server
-    host: str = Field(default="127.0.0.1")
+    host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     reload: bool = Field(default=True)
     
@@ -42,33 +42,45 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     
     # Moodle
-    moodle_base_url: str = Field(default="https://1844fdb23815.ngrok-free.app")
+    moodle_base_url: str = Field(default="https://saveetha-exam-middleware.moodlecloud.com")
     moodle_ws_endpoint: str = Field(default="/webservice/rest/server.php")
     moodle_upload_endpoint: str = Field(default="/webservice/upload.php")
     moodle_token_endpoint: str = Field(default="/login/token.php")
     moodle_service: str = Field(default="moodle_mobile_app")
     moodle_admin_token: Optional[str] = None
+
+    # Email Notifications (SendGrid preferred, SMTP fallback)
+    sendgrid_api_key: str = Field(default="")
+    email_from_email: str = Field(default="")
+    email_from_name: str = Field(default="Examination Middleware")
+    
+    # SMTP Mail (fallback for local dev)
+    smtp_enabled: bool = Field(default=False)
+    smtp_host: str = Field(default="")
+    smtp_port: int = Field(default=587)
+    smtp_username: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_use_tls: bool = Field(default=True)
+    smtp_use_ssl: bool = Field(default=False)
+    smtp_from_email: str = Field(default="")
+    smtp_from_name: str = Field(default="Examination Middleware")
     
     # File Storage
     upload_dir: str = Field(default="./uploads")
     max_file_size_mb: int = Field(default=50)
     allowed_extensions: str = Field(default=".pdf,.jpg,.jpeg,.png")
     
-    # ML Service
-    ml_service_url: str = Field(default="http://localhost:8501")
+    # ML Service - HuggingFace Spaces for extraction
+    hf_space_url: str = Field(default="https://kavinraja-ml-service.hf.space")
+    ml_service_url: str = Field(default="http://localhost:8501")  # Local fallback
     ml_service_enabled: bool = Field(default=False)
-    
-    # Subject Mapping (Default values from your setup)
-    subject_19ai405_assignment_id: int = Field(default=4)
-    subject_19ai411_assignment_id: int = Field(default=6)
-    subject_ml_assignment_id: int = Field(default=2)
     
     # Logging
     log_level: str = Field(default="INFO")
     log_file: str = Field(default="./logs/app.log")
     
     # CORS
-    cors_origins: str = Field(default='["http://localhost:8000"]')
+    cors_origins: str = Field(default='["*"]')
     
     class Config:
         env_file = ".env"
@@ -79,7 +91,14 @@ class Settings(BaseSettings):
     def database_url_computed(self) -> str:
         """Compute database URL if not provided"""
         if self.database_url:
-            return self.database_url
+            url = self.database_url
+            # Render provides postgres:// but asyncpg needs postgresql+asyncpg://
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            # If already has +asyncpg, leave it
+            return url
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
     
     @property
@@ -122,7 +141,7 @@ class Settings(BaseSettings):
         try:
             return json.loads(self.cors_origins)
         except json.JSONDecodeError:
-            return ["http://localhost:8000"]
+            return ["*"]
     
     @property
     def max_file_size_bytes(self) -> int:
@@ -131,12 +150,17 @@ class Settings(BaseSettings):
     
     def get_subject_assignment_mapping(self) -> dict:
         """Return subject code to assignment ID mapping"""
-        return {
-            "19AI405": self.subject_19ai405_assignment_id,
-            "19AI411": self.subject_19ai411_assignment_id,
-            "ML": self.subject_ml_assignment_id,
-            "MACHINELEARNING": self.subject_ml_assignment_id,
-        }
+        return {}
+
+    @property
+    def smtp_sender_email(self) -> str:
+        """Resolved sender email address for outgoing notifications"""
+        return self.smtp_from_email or self.smtp_username
+    
+    @property
+    def email_sender_email(self) -> str:
+        """Primary sender email (for SendGrid or SMTP)"""
+        return self.email_from_email or self.smtp_sender_email
 
 
 @lru_cache()

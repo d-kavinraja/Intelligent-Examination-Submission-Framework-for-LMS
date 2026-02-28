@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 
 from sqlalchemy import (
     Column, String, Integer, BigInteger, DateTime, Text, 
-    Boolean, Enum, ForeignKey, Index, UniqueConstraint, JSON
+    Boolean, Enum, ForeignKey, Index, UniqueConstraint, JSON, LargeBinary
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -33,6 +33,7 @@ class WorkflowStatus(str, PyEnum):
     FAILED = "FAILED"
     DELETED = "DELETED"
     QUEUED = "QUEUED"  # For Moodle maintenance mode
+    SUPERSEDED = "SUPERSEDED"  # Replaced by a newer attempt
 
 
 class ExaminationArtifact(Base):
@@ -54,11 +55,17 @@ class ExaminationArtifact(Base):
     parsed_reg_no = Column(String(20), index=True, nullable=True)
     parsed_subject_code = Column(String(20), index=True, nullable=True)
     
+    # Exam type and attempt tracking
+    exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
+    attempt_number = Column(Integer, nullable=False, default=1, server_default="1")  # Max 2 attempts
+    attempt_2_locked = Column(Boolean, nullable=False, default=True, server_default="true")  # Admin controls attempt 2 unlock
+    
     # File Storage
     file_blob_path = Column(String(512), nullable=False)
     file_hash = Column(String(64), nullable=False)  # SHA-256
     file_size_bytes = Column(BigInteger, nullable=True)
     mime_type = Column(String(100), nullable=True)
+    file_content = Column(LargeBinary, nullable=True)
     
     # Moodle Resolution (populated during validation)
     moodle_user_id = Column(BigInteger, nullable=True)
@@ -72,6 +79,9 @@ class ExaminationArtifact(Base):
         default=WorkflowStatus.PENDING,
         nullable=False
     )
+    
+    # Auto-Processing Tracking
+    auto_processed = Column(Boolean, nullable=False, default=False, server_default="false")  # Set to True if extracted and renamed via ML
     
     # Moodle Submission Tracking
     moodle_draft_item_id = Column(BigInteger, nullable=True)  # For retry logic
@@ -97,13 +107,14 @@ class ExaminationArtifact(Base):
     retry_count = Column(Integer, default=0)
     
     # Relationships
-    audit_logs = relationship("AuditLog", back_populates="artifact")
+    audit_logs = relationship("AuditLog", back_populates="artifact", cascade="all, delete-orphan", passive_deletes=True)
     
     # Indexes for performance
     __table_args__ = (
         Index('ix_artifacts_reg_subject', 'parsed_reg_no', 'parsed_subject_code'),
         Index('ix_artifacts_status', 'workflow_status'),
-        UniqueConstraint('parsed_reg_no', 'parsed_subject_code', name='uq_paper_submission'),
+        Index('ix_artifacts_exam_type', 'exam_type'),
+        UniqueConstraint('parsed_reg_no', 'parsed_subject_code', 'exam_type', 'attempt_number', name='uq_paper_submission'),
     )
     
     def add_log_entry(self, action: str, details: Dict[str, Any]) -> None:
@@ -129,8 +140,11 @@ class SubjectMapping(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Subject Information
-    subject_code = Column(String(20), unique=True, nullable=False, index=True)
+    subject_code = Column(String(20), nullable=False, index=True)  # Not unique alone — unique with exam_type
     subject_name = Column(String(255), nullable=True)
+    
+    # Exam type
+    exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
     
     # Moodle Mapping
     moodle_course_id = Column(Integer, nullable=False)
@@ -150,6 +164,10 @@ class SubjectMapping(Base):
     
     # Cache invalidation
     last_verified_at = Column(DateTime(timezone=True), nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint('subject_code', 'exam_type', name='uq_subject_exam_type'),
+    )
 
 
 class StaffUser(Base):
@@ -236,7 +254,7 @@ class AuditLog(Base):
     actor_ip = Column(String(45), nullable=True)
     
     # Target
-    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id"), nullable=True)
+    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="CASCADE"), nullable=True)
     target_type = Column(String(50), nullable=True)
     target_id = Column(String(100), nullable=True)
     
@@ -272,7 +290,7 @@ class SubmissionQueue(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Reference to artifact
-    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id"), nullable=False)
+    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="CASCADE"), nullable=False)
     
     # Queue State
     status = Column(String(20), default="QUEUED")  # QUEUED, PROCESSING, COMPLETED, FAILED

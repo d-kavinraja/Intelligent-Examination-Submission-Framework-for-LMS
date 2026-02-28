@@ -4,15 +4,16 @@ Administrative functions for system management
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy import text
+from sqlalchemy import select, delete, text
 from typing import Optional
 from sqlalchemy.exc import IntegrityError
 import logging
+import os
 
 from app.db.database import get_db
-from app.db.models import StaffUser, SubjectMapping, ExaminationArtifact
+from app.db.models import StaffUser, SubjectMapping, ExaminationArtifact, StudentUsernameRegister
 from app.schemas import (
     SubjectMappingCreate,
     SubjectMappingResponse,
@@ -22,6 +23,7 @@ from app.schemas import (
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
 from app.services.submission_service import SubmissionService
 from app.services.moodle_client import MoodleClient, MoodleAPIError
+from app.services.notification_service import NotificationService
 from app.api.routes.auth import get_current_staff
 from app.core.config import settings
 from app.core.security import generate_transaction_id
@@ -30,6 +32,57 @@ from app.db.models import AuditLog
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.post("/notifications/test-upload-email")
+async def send_test_upload_notification_email(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff),
+):
+    """
+    Send a test upload-notification email to a student.
+
+    Body:
+    {
+      "register_number": "212222240047",
+      "subject_code": "19AI405",
+      "exam_type": "CIA1",
+      "filename": "212222240047_19AI405.pdf"
+    }
+    """
+    register_number = (payload.get("register_number") or "").strip()
+    subject_code = (payload.get("subject_code") or "").strip().upper()
+    exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
+    filename = (payload.get("filename") or f"{register_number}_{subject_code}.pdf").strip()
+
+    if not register_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="register_number is required",
+        )
+    if not subject_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="subject_code is required",
+        )
+
+    notification_service = NotificationService(db)
+    result = await notification_service.send_test_upload_notification(
+        register_number=register_number,
+        subject_code=subject_code,
+        exam_type=exam_type,
+        filename=filename,
+        uploaded_by_username=current_staff.username,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("message") or "Failed to send test notification",
+        )
+
+    return result
 
 
 # ============================================
@@ -52,6 +105,7 @@ async def list_subject_mappings(
             id=m.id,
             subject_code=m.subject_code,
             subject_name=m.subject_name,
+            exam_type=getattr(m, 'exam_type', 'CIA1') or 'CIA1',
             moodle_course_id=m.moodle_course_id,
             moodle_assignment_id=m.moodle_assignment_id,
             moodle_assignment_name=m.moodle_assignment_name,
@@ -126,40 +180,166 @@ async def sync_mappings_from_config(
     }
 
 
-@router.post("/mappings/discover")
-async def discover_assignments_from_moodle(
+@router.post("/mappings/auto")
+async def auto_create_subject_mapping(
+    payload: dict,
     db: AsyncSession = Depends(get_db),
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Discover assignments from Moodle using admin token
+    Auto-discover assignments from Moodle and create subject mapping.
     
-    This uses the configured admin token to fetch course and assignment information
+    Accepts either:
+      - "cmid": the id= value from the Moodle assignment page URL (preferred, resolves everything automatically)
+      - "moodle_course_id": legacy course ID (backwards compatible)
+    
+    Body: {
+        "subject_code": "19AI411",
+        "cmid": 123,                           # id= from assignment URL (preferred)
+        "moodle_course_id": 2,                  # optional if cmid is provided
+        "subject_name": "Machine Learning"      # optional
+        "exam_session": "2025-2026"             # optional
+    }
     """
     if not settings.moodle_admin_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Admin token not configured"
+            detail="MOODLE_ADMIN_TOKEN not configured on server"
         )
-    
+
+    subject_code = (payload.get("subject_code") or "").strip().upper()
+    cmid = payload.get("cmid")  # The id= from the Moodle assignment URL
+    course_id = payload.get("moodle_course_id")
+    subject_name = (payload.get("subject_name") or "").strip() or None
+    exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
+    exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
+
+    if not subject_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="subject_code is required"
+        )
+
+    if not cmid and not course_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="cmid (assignment URL id=) is required"
+        )
+
     client = MoodleClient(token=settings.moodle_admin_token)
-    
+
     try:
-        # Get site info to verify token works
-        site_info = await client.get_site_info()
-        
-        # This is a simplified example - in production you would:
-        # 1. Get all courses the admin can see
-        # 2. For each course, get assignments
-        # 3. Create or update mappings
-        
+        # If cmid is provided, resolve the course ID and assignment info from it
+        if cmid:
+            cm_data = await client.get_course_module(int(cmid))
+            cm = cm_data.get("cm", {})
+            if not cm:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No course module found for id={cmid} on Moodle"
+                )
+            course_id = cm.get("course")
+            # The instance field is the assignment ID in the mod_assign table
+            resolved_assignment_id = cm.get("instance")
+            resolved_assignment_name = cm.get("name", "Unknown")
+
+            if not course_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Could not resolve course for module id={cmid}"
+                )
+
+        # Fetch assignments for this course from Moodle
+        assignments_data = await client.get_assignments([int(course_id)])
+        courses = assignments_data.get("courses", [])
+
+        if not courses:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No course found with ID {course_id} on Moodle, or admin token lacks access"
+            )
+
+        assignments = courses[0].get("assignments", [])
+        if not assignments:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No assignments found in course {course_id}"
+            )
+
+        # Find the right assignment
+        if cmid:
+            # Match by cmid (the id= from the Moodle assignment URL)
+            assignment = next((a for a in assignments if a.get("cmid") == int(cmid)), None)
+            if not assignment:
+                # Fallback: match by the resolved instance ID
+                assignment = next((a for a in assignments if a.get("id") == resolved_assignment_id), None)
+            if not assignment:
+                names = ", ".join([f"{a.get('name','')} (cmid={a.get('cmid')})" for a in assignments])
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No assignment with module ID {cmid} found. Available: {names}"
+                )
+        else:
+            # Auto-select: use the first (only works well for single-assignment courses)
+            assignment = assignments[0]
+
+        assignment_id = assignment["id"]
+        assignment_name = assignment.get("name", "Unknown")
+
+        # Upsert: update existing or create new (unique by subject_code + exam_type)
+        result = await db.execute(
+            select(SubjectMapping).where(
+                SubjectMapping.subject_code == subject_code,
+                SubjectMapping.exam_type == exam_type
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.moodle_course_id = int(course_id)
+            existing.moodle_assignment_id = assignment_id
+            existing.moodle_assignment_name = assignment_name
+            existing.subject_name = subject_name or assignment_name
+            existing.exam_session = exam_session
+            existing.is_active = True
+            await db.commit()
+            action = "Updated"
+            mapping = existing
+        else:
+            mapping = SubjectMapping(
+                subject_code=subject_code,
+                subject_name=subject_name or assignment_name,
+                exam_type=exam_type,
+                moodle_course_id=int(course_id),
+                moodle_assignment_id=assignment_id,
+                moodle_assignment_name=assignment_name,
+                exam_session=exam_session,
+                is_active=True,
+            )
+            db.add(mapping)
+            await db.commit()
+            await db.refresh(mapping)
+            action = "Created"
+
         return {
-            "message": "Discovery successful",
-            "site": site_info.get("sitename"),
-            "user": site_info.get("fullname"),
-            "note": "Use the Moodle admin panel to find course and assignment IDs"
+            "message": f"{action} mapping: {subject_code} ({exam_type}) → Assignment '{assignment_name}' (ID: {cmid or assignment.get('cmid', 'N/A')})",
+            "mapping": {
+                "id": mapping.id,
+                "subject_code": mapping.subject_code,
+                "subject_name": mapping.subject_name,
+                "exam_type": mapping.exam_type,
+                "moodle_course_id": mapping.moodle_course_id,
+                "moodle_assignment_id": mapping.moodle_assignment_id,
+                "moodle_assignment_name": mapping.moodle_assignment_name,
+                "exam_session": mapping.exam_session,
+                "cmid": int(cmid) if cmid else assignment.get("cmid"),
+            },
+            "all_assignments": [
+                {"id": a["id"], "name": a.get("name", ""), "cmid": a.get("cmid")}
+                for a in assignments
+            ],
         }
-        
+
     except MoodleAPIError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -169,6 +349,7 @@ async def discover_assignments_from_moodle(
         await client.close()
 
 
+
 @router.delete("/mappings/{mapping_id}")
 async def delete_subject_mapping(
     mapping_id: int,
@@ -176,7 +357,7 @@ async def delete_subject_mapping(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Delete (deactivate) a subject mapping
+    Delete a subject mapping (hard delete - removes from database)
     """
     result = await db.execute(
         select(SubjectMapping).where(SubjectMapping.id == mapping_id)
@@ -189,10 +370,11 @@ async def delete_subject_mapping(
             detail="Mapping not found"
         )
     
-    mapping.is_active = False
+    subject_code = mapping.subject_code
+    await db.delete(mapping)
     await db.commit()
     
-    return {"message": f"Mapping {mapping.subject_code} deactivated"}
+    return {"message": f"Mapping {subject_code} deleted"}
 
 
 # ============================================
@@ -505,7 +687,8 @@ async def edit_artifact_metadata(
             parsed_subject_code=target_sub,
             file_size_bytes=artifact.file_size_bytes,
             mime_type=artifact.mime_type,
-            uploaded_by_staff_id=current_staff.id
+            uploaded_by_staff_id=current_staff.id,
+            file_content=artifact.file_content # Preserve the database-backed file content
         )
 
         # Mark the old artifact as deleted/superseded
@@ -629,6 +812,65 @@ async def edit_artifact_metadata(
 
 
 
+@router.delete("/artifacts/purge-all")
+async def purge_all_artifacts(
+    confirm: str = Query(..., description="Must be 'yes' to confirm"),
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Permanently delete ALL artifacts, related audit logs, submission queue entries,
+    and physical files. Also resets the auto-increment ID sequence to 1.
+    Requires confirm='yes' query parameter.
+    """
+    import shutil
+    from app.db.models import AuditLog, SubmissionQueue
+
+    if confirm.lower() != "yes":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pass ?confirm=yes to confirm purge of all artifacts"
+        )
+
+    # Count before purge
+    count_result = await db.execute(
+        select(ExaminationArtifact.id)
+    )
+    total = len(count_result.scalars().all())
+
+    # Delete all related rows
+    await db.execute(delete(AuditLog))
+    await db.execute(delete(SubmissionQueue))
+    await db.execute(delete(ExaminationArtifact))
+    await db.commit()
+
+    # Reset the auto-increment sequences
+    try:
+        await db.execute(text("ALTER SEQUENCE examination_artifacts_id_seq RESTART WITH 1"))
+        await db.execute(text("ALTER SEQUENCE audit_logs_id_seq RESTART WITH 1"))
+        await db.execute(text("ALTER SEQUENCE submission_queue_id_seq RESTART WITH 1"))
+        await db.commit()
+        logger.info("Reset ID sequences to 1")
+    except Exception as e:
+        logger.warning("Could not reset sequences: %s", e)
+
+    # Clean up physical upload directories
+    for folder in ["uploads/processed", "uploads/pending", "uploads/failed", "uploads/temp"]:
+        try:
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                os.makedirs(folder, exist_ok=True)
+                logger.info("Cleared upload folder: %s", folder)
+        except Exception as e:
+            logger.warning("Could not clear folder %s: %s", folder, e)
+
+    logger.info("Staff %s purged all %d artifacts", current_staff.username, total)
+    return {
+        "message": f"All {total} artifacts permanently deleted and IDs reset to 1",
+        "deleted_count": total
+    }
+
+
 @router.delete("/artifacts/{artifact_uuid}")
 async def delete_artifact(
     artifact_uuid: str,
@@ -637,18 +879,20 @@ async def delete_artifact(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Delete an artifact: remove physical file (if present) and mark artifact as failed/removed.
-    This keeps an audit trail while removing it from student/staff listings.
+    Hard-delete an artifact: remove physical file and permanently delete the DB row
+    along with all related audit logs and submission queue entries (CASCADE).
     """
     import os
-    from app.db.models import WorkflowStatus
+    from app.db.models import AuditLog, SubmissionQueue
 
     artifact_service = ArtifactService(db)
-    audit_service = AuditService(db)
 
     artifact = await artifact_service.get_by_uuid(artifact_uuid)
     if not artifact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    artifact_id = artifact.id
+    artifact_filename = artifact.original_filename or artifact.raw_filename or str(artifact_uuid)
 
     # Attempt to delete physical file
     try:
@@ -657,43 +901,31 @@ async def delete_artifact(
             if os.path.exists(path):
                 try:
                     os.remove(path)
-                except Exception:
-                    # Log but continue to allow DB update
-                    pass
+                    logger.info("Deleted physical file: %s", path)
+                except Exception as e:
+                    logger.warning("Could not delete physical file %s: %s", path, e)
     except Exception:
         pass
 
-    # Ensure the DB enum contains the DELETED value (Postgres enum types must be altered)
-    # Try to set the workflow status to DELETED. If the DB enum doesn't support it
-    # (e.g. the enum type wasn't migrated), fall back to annotating the artifact
-    # error_message and leaving the status unchanged so we don't run DDL here.
+    # Delete related rows first (in case CASCADE isn't set up at DB level yet)
     try:
-        artifact.workflow_status = WorkflowStatus.DELETED
-        artifact.error_message = f"Deleted by staff {current_staff.username}" + (f": {reason}" if reason else "")
-        artifact.add_log_entry("admin_delete", {"deleted_by": current_staff.username, "reason": reason})
-        await db.flush()
+        await db.execute(
+            delete(AuditLog).where(AuditLog.artifact_id == artifact_id)
+        )
+        await db.execute(
+            delete(SubmissionQueue).where(SubmissionQueue.artifact_id == artifact_id)
+        )
     except Exception as e:
-        logger.debug("Could not assign WorkflowStatus.DELETED (possibly DB enum missing): %s", e)
-        artifact.error_message = (artifact.error_message or "") + f"; Deleted by staff {current_staff.username}" + (f": {reason}" if reason else "")
-        artifact.add_log_entry("admin_delete", {"deleted_by": current_staff.username, "reason": reason, "note": "enum assignment failed"})
-        # Do not attempt DDL here; leave status as-is and continue
+        logger.warning("Error cleaning up related rows for artifact %s: %s", artifact_id, e)
 
+    # Hard-delete the artifact row
+    await db.delete(artifact)
     await db.commit()
 
-    # Log audit entry
-    await audit_service.log_action(
-        action="admin_delete",
-        action_category="admin",
-        actor_type="staff",
-        actor_id=str(current_staff.id),
-        actor_username=current_staff.username,
-        artifact_id=artifact.id,
-        description=f"Artifact deleted by staff: {current_staff.username}",
-        request_data={"reason": reason}
-    )
-    await db.commit()
+    logger.info("Hard-deleted artifact id=%s uuid=%s by staff=%s reason=%s",
+                artifact_id, artifact_uuid, current_staff.username, reason)
 
-    return {"message": "Artifact removed"}
+    return {"message": f"Artifact '{artifact_filename}' permanently deleted"}
 
 
 @router.post("/artifacts/{artifact_uuid}/reports/{report_id}/resolve")
@@ -804,3 +1036,373 @@ async def clear_artifact_transaction_id(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not clear transaction_id")
 
     return {"message": "transaction_id cleared", "old_transaction_id": old_tid}
+
+
+# ============================================
+# Attempt Lock / Unlock Management
+# ============================================
+
+@router.post("/artifacts/{artifact_uuid}/toggle-attempt-lock")
+async def toggle_attempt_lock(
+    artifact_uuid: str,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Toggle the attempt_2_locked flag for the artifact group
+    (same reg_no + subject_code + exam_type).
+    Only admin/staff can unlock attempt 2 for students.
+    """
+    from app.db.models import WorkflowStatus
+
+    artifact_service = ArtifactService(db)
+    audit_service = AuditService(db)
+
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+    if not artifact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    # Determine new lock state (toggle)
+    new_locked = not artifact.attempt_2_locked
+
+    # Validation: Only allow UNLOCKING if attempt 1 is COMPLETED or SUBMITTED_TO_LMS
+    if not new_locked:  # unlocking
+        from sqlalchemy import select as sa_select, and_ as sa_and
+        # Find the attempt 1 artifact for this group
+        a1_result = await db.execute(
+            sa_select(ExaminationArtifact).where(
+                sa_and(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                    ExaminationArtifact.attempt_number == 1,
+                    ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
+                )
+            )
+        )
+        attempt1 = a1_result.scalar_one_or_none()
+        if not attempt1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No attempt 1 found for this group. Upload attempt 1 first."
+            )
+        completed_statuses = [WorkflowStatus.COMPLETED, WorkflowStatus.SUBMITTED_TO_LMS]
+        if attempt1.workflow_status not in completed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot unlock attempt 2: Attempt 1 is still {attempt1.workflow_status.value}. "
+                       f"Attempt 1 must be COMPLETED or SUBMITTED before unlocking attempt 2."
+            )
+
+    # Update ALL artifacts in the same group (reg_no + subject_code + exam_type)
+    if artifact.parsed_reg_no and artifact.parsed_subject_code:
+        from sqlalchemy import update, and_
+        stmt = (
+            update(ExaminationArtifact)
+            .where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                )
+            )
+            .values(attempt_2_locked=new_locked)
+        )
+        await db.execute(stmt)
+    else:
+        # Single artifact without parsed metadata
+        artifact.attempt_2_locked = new_locked
+
+    action_desc = "locked" if new_locked else "unlocked"
+    artifact.add_log_entry(f"attempt_2_{action_desc}", {
+        "toggled_by": current_staff.username,
+        "new_state": "locked" if new_locked else "unlocked"
+    })
+
+    await audit_service.log_action(
+        action=f"attempt_2_{action_desc}",
+        action_category="admin",
+        actor_type="staff",
+        actor_id=str(current_staff.id),
+        actor_username=current_staff.username,
+        artifact_id=artifact.id,
+        description=f"Attempt 2 {action_desc} for {artifact.parsed_reg_no}/{artifact.parsed_subject_code}/{artifact.exam_type}",
+        request_data={
+            "reg_no": artifact.parsed_reg_no,
+            "subject_code": artifact.parsed_subject_code,
+            "exam_type": artifact.exam_type,
+            "new_locked": new_locked
+        }
+    )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not toggle attempt lock"
+        )
+
+    return {
+        "message": f"Attempt 2 {action_desc} for {artifact.parsed_reg_no}/{artifact.parsed_subject_code}/{artifact.exam_type}",
+        "attempt_2_locked": new_locked,
+        "reg_no": artifact.parsed_reg_no,
+        "subject_code": artifact.parsed_subject_code,
+        "exam_type": artifact.exam_type
+    }
+
+
+@router.post("/bulk-toggle-attempt-lock")
+async def bulk_toggle_attempt_lock(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Bulk lock/unlock attempt 2 for multiple artifact groups.
+    Body: { "artifact_uuids": ["uuid1", "uuid2", ...], "locked": true/false }
+    """
+    from sqlalchemy import update, and_
+    from app.db.models import WorkflowStatus
+
+    artifact_uuids = payload.get("artifact_uuids", [])
+    target_locked = payload.get("locked", True)
+
+    if not artifact_uuids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No artifact UUIDs provided")
+
+    artifact_service = ArtifactService(db)
+    audit_service = AuditService(db)
+    updated_count = 0
+
+    for uuid_str in artifact_uuids:
+        artifact = await artifact_service.get_by_uuid(uuid_str)
+        if not artifact:
+            continue
+
+        if artifact.parsed_reg_no and artifact.parsed_subject_code:
+            stmt = (
+                update(ExaminationArtifact)
+                .where(
+                    and_(
+                        ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                        ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                        ExaminationArtifact.exam_type == artifact.exam_type,
+                    )
+                )
+                .values(attempt_2_locked=target_locked)
+            )
+            await db.execute(stmt)
+            updated_count += 1
+
+    action_desc = "locked" if target_locked else "unlocked"
+    await audit_service.log_action(
+        action=f"bulk_attempt_2_{action_desc}",
+        action_category="admin",
+        actor_type="staff",
+        actor_id=str(current_staff.id),
+        actor_username=current_staff.username,
+        description=f"Bulk attempt 2 {action_desc}: {updated_count} groups",
+        request_data={"artifact_uuids": artifact_uuids, "locked": target_locked}
+    )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not bulk toggle attempt lock"
+        )
+
+    return {
+        "message": f"Attempt 2 {action_desc} for {updated_count} artifact group(s)",
+        "updated_count": updated_count,
+        "attempt_2_locked": target_locked
+    }
+
+
+# ============================================
+# Student Username → Register Number Mappings
+# ============================================
+
+@router.get("/username-mappings")
+async def list_username_mappings(
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """List all Moodle username → register number mappings."""
+    result = await db.execute(
+        select(StudentUsernameRegister).order_by(StudentUsernameRegister.created_at.desc())
+    )
+    mappings = result.scalars().all()
+    return [
+        {
+            "id": m.id,
+            "moodle_username": m.moodle_username,
+            "register_number": m.register_number,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "updated_at": m.updated_at.isoformat() if m.updated_at else None,
+        }
+        for m in mappings
+    ]
+
+
+@router.post("/username-mappings")
+async def create_username_mapping(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Create or update a Moodle username → register number mapping.
+    Body: { "moodle_username": "22007928", "register_number": "212222240047" }
+    """
+    username = (payload.get("moodle_username") or "").strip()
+    register = (payload.get("register_number") or "").strip()
+
+    if not username or not register:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both moodle_username and register_number are required"
+        )
+
+    # Upsert: update if username exists, else create
+    result = await db.execute(
+        select(StudentUsernameRegister).where(
+            StudentUsernameRegister.moodle_username == username
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.register_number = register
+        await db.commit()
+        return {
+            "message": f"Updated mapping: {username} → {register}",
+            "id": existing.id,
+            "moodle_username": existing.moodle_username,
+            "register_number": existing.register_number,
+        }
+    else:
+        new_mapping = StudentUsernameRegister(
+            moodle_username=username,
+            register_number=register
+        )
+        db.add(new_mapping)
+        await db.commit()
+        await db.refresh(new_mapping)
+        return {
+            "message": f"Created mapping: {username} → {register}",
+            "id": new_mapping.id,
+            "moodle_username": new_mapping.moodle_username,
+            "register_number": new_mapping.register_number,
+        }
+
+
+@router.delete("/username-mappings/{mapping_id}")
+async def delete_username_mapping(
+    mapping_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """Delete a username → register number mapping."""
+    result = await db.execute(
+        select(StudentUsernameRegister).where(StudentUsernameRegister.id == mapping_id)
+    )
+    mapping = result.scalar_one_or_none()
+
+    if not mapping:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mapping not found"
+        )
+
+    await db.delete(mapping)
+    await db.commit()
+    return {"message": f"Deleted mapping for {mapping.moodle_username}"}
+
+
+# ============================================
+# Artifact File Preview (for staff)
+# ============================================
+
+@router.get("/artifact-file/{artifact_uuid}")
+async def serve_artifact_file(
+    artifact_uuid: str,
+    token: Optional[str] = Query(None, description="JWT token for iframe auth"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Serve the artifact file for staff preview (e.g. inside the reports modal).
+    Accepts JWT via query param (for iframes) or Authorization header.
+    """
+    from app.core.security import decode_access_token
+
+    # Try query-param token first, then fall back to header-based auth
+    staff = None
+    if token:
+        payload = decode_access_token(token)
+        if payload and payload.get("type") == "staff":
+            staff_id = payload.get("sub")
+            if staff_id:
+                result = await db.execute(
+                    select(StaffUser).where(StaffUser.id == int(staff_id))
+                )
+                staff = result.scalar_one_or_none()
+
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Staff authentication required"
+        )
+
+    artifact_service = ArtifactService(db)
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found"
+        )
+
+    # Try to resolve the file on disk
+    resolved_path = None
+    if artifact.file_blob_path:
+        # Handle relative paths
+        candidate = artifact.file_blob_path
+        if not os.path.isabs(candidate):
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            candidate = os.path.join(base_dir, candidate.lstrip('./'))
+        if os.path.exists(candidate):
+            resolved_path = candidate
+
+    if resolved_path:
+        media_type = artifact.mime_type or "application/pdf"
+        safe_name = (artifact.original_filename or "paper").replace('"', '')
+        return FileResponse(
+            path=resolved_path,
+            media_type=media_type,
+            filename=safe_name,
+            headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+        )
+
+    # Fallback: serve from database blob
+    if artifact.file_content:
+        from io import BytesIO
+        safe_name = (artifact.original_filename or "paper").replace('"', '')
+        media_type = artifact.mime_type or "application/pdf"
+        return StreamingResponse(
+            BytesIO(artifact.file_content),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{safe_name}"',
+            }
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="File not found on server or database"
+    )
+

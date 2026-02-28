@@ -12,6 +12,9 @@
         rel="stylesheet">
     <style>
         :root {
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-display: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
             --primary-color: #2563eb;
             --secondary-color: #1d4ed8;
             --accent-color: #3b82f6;
@@ -27,29 +30,73 @@
             box-sizing: border-box;
         }
 
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes softPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.22);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(37, 99, 235, 0.08);
+            }
+        }
+
         body {
-            background: var(--bg-color);
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
             min-height: 100vh;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: var(--font-body);
             color: var(--text-primary);
+            position: relative;
+            font-size: 0.98rem;
+            letter-spacing: 0.005em;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(1200px 420px at 10% -10%, rgba(59, 130, 246, 0.14), transparent 55%),
+                radial-gradient(900px 360px at 90% -20%, rgba(14, 165, 233, 0.12), transparent 55%),
+                radial-gradient(700px 260px at 50% 110%, rgba(99, 102, 241, 0.10), transparent 55%);
+            z-index: 0;
+            pointer-events: none;
         }
 
         .main-container {
             max-width: 1280px;
-            padding: 2rem 1.5rem;
+            padding: 2.5rem 1.5rem 2rem;
+            position: relative;
+            z-index: 1;
         }
 
         /* Cards */
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 14px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            transition: border-color 0.2s ease;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            animation: fadeUp 280ms ease-out both;
         }
 
         .card:hover {
             border-color: var(--primary-color);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+            transform: translateY(-2px);
         }
 
         .login-card {
@@ -58,7 +105,7 @@
         }
 
         .card-header {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color), #4f46e5);
             color: white;
             border-radius: 12px 12px 0 0 !important;
             padding: 2rem;
@@ -74,33 +121,57 @@
 
         /* Navbar */
         .navbar {
-            background: var(--card-bg) !important;
+            background: rgba(255, 255, 255, 0.92) !important;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.85);
             padding: 1rem 0;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .navbar-brand {
-            font-family: 'Poppins', sans-serif;
+            font-family: var(--font-display);
             font-weight: 600;
             font-size: 1.3rem;
             color: var(--primary-color) !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .navbar-brand .brand-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary-color), #4f46e5);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+            font-size: 1.1rem;
         }
 
         /* Stats cards */
         .stats-card {
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 2rem 1.5rem;
             text-align: center;
             color: white;
             margin-bottom: 1.5rem;
-            transition: border-color 0.2s ease;
+            transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+            animation: fadeUp 300ms ease-out both;
         }
 
         .stats-card:hover {
             border-color: currentColor;
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
         }
 
         .stats-card.total {
@@ -126,7 +197,7 @@
         .stats-number {
             font-size: 2.5rem;
             font-weight: 700;
-            font-family: 'Poppins', sans-serif;
+            font-family: var(--font-display);
             line-height: 1;
             margin-bottom: 0.5rem;
         }
@@ -140,18 +211,33 @@
         /* Upload zone */
         .upload-zone {
             border: 2px dashed var(--border-color);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 3.5rem 2rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            background: #f8fafc;
+            background: linear-gradient(135deg, #f8fafc, #eef2ff);
+            animation: fadeUp 320ms ease-out both, softPulse 2.2s ease-in-out 1.2s infinite;
         }
 
         .upload-zone:hover,
         .upload-zone.dragover {
-            border-color: var(--primary-color);
-            background: #eff6ff;
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary,
+        .btn-outline-secondary,
+        .btn-outline-primary {
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+        }
+
+        .btn-primary:hover,
+        .btn-outline-secondary:hover,
+        .btn-outline-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
         }
 
         .upload-zone i {
@@ -164,6 +250,14 @@
             font-family: 'Poppins', sans-serif;
             font-weight: 600;
             color: var(--text-primary);
+        }
+
+        /* Browse Folder button inside upload zone - compact styling */
+        .upload-zone .btn-outline-primary {
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            border-width: 1.5px;
         }
 
         /* File items */
@@ -212,10 +306,10 @@
         .btn-primary {
             background: var(--primary-color);
             border: none;
-            padding: 0.875rem 2rem;
-            border-radius: 8px;
+            padding: 0.9rem 2rem;
+            border-radius: 10px;
             font-weight: 600;
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-body);
             transition: all 0.2s ease;
         }
 
@@ -233,8 +327,8 @@
             border: 2px solid var(--border-color);
             color: var(--text-secondary);
             font-weight: 600;
-            border-radius: 8px;
-            padding: 0.875rem 2rem;
+            border-radius: 10px;
+            padding: 0.9rem 2rem;
             transition: all 0.2s ease;
         }
 
@@ -256,14 +350,41 @@
             border-color: #dc2626;
         }
 
+        .btn-reports {
+            border: 2px solid #f59e0b;
+            color: #b45309;
+            background: #fff7ed;
+        }
+
+        .btn-reports:hover {
+            background: #f59e0b;
+            color: #fff;
+            border-color: #f59e0b;
+        }
+
+        .report-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.5rem;
+            height: 1.25rem;
+            padding: 0 0.4rem;
+            font-size: 0.75rem;
+            line-height: 1;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-weight: 700;
+        }
+
         /* Add for btn-outline-primary (refresh) */
         .btn-outline-primary {
             border: 2px solid var(--accent-color);
             color: var(--accent-color);
             background: #fff;
             font-weight: 600;
-            border-radius: 8px;
-            padding: 0.875rem 2rem;
+            border-radius: 10px;
+            padding: 0.9rem 2rem;
             transition: all 0.2s ease;
         }
 
@@ -275,8 +396,8 @@
 
         /* Form styles */
         .form-control {
-            border-radius: 8px;
-            padding: 0.875rem 1rem;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
             border: 1px solid var(--border-color);
             font-size: 1rem;
             transition: all 0.2s ease;
@@ -285,6 +406,26 @@
         .form-control:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 1rem 0 1.5rem;
+        }
+
+        .section-header h5 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-header p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
         }
 
         .input-group-text {
@@ -304,6 +445,16 @@
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: var(--font-display);
+            letter-spacing: -0.02em;
         }
 
         /* Progress bar */
@@ -591,8 +742,8 @@
     <nav class="navbar navbar-expand-lg navbar-light mb-4">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <img src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png" alt="Saveetha Logo"
-                    style="height:80px;" />
+                <span class="brand-icon" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span>
+                <span>Staff Portal</span>
             </a>
             <div class="navbar-nav ms-auto align-items-center">
                 <span class="navbar-text me-3" id="userInfo" style="display: none;">
@@ -645,7 +796,31 @@
             </div>
         </div>
 
-        <!-- Upload Section -->
+        <!-- Admin Tab Navigation (shown after login) -->
+        <ul class="nav nav-tabs mb-4" id="adminTabs" style="display: none;">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" onclick="switchTab('upload', event)">
+                    <i class="bi bi-cloud-upload-fill me-1"></i> Upload
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('subjectMappings', event)">
+                    <i class="bi bi-book-fill me-1"></i> Subject Mappings
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('studentMappings', event)">
+                    <i class="bi bi-people-fill me-1"></i> Student Mappings
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('smartScan', event)">
+                    <i class="bi bi-cpu me-1"></i> Smart Scan
+                </a>
+            </li>
+        </ul>
+
+        <!-- Upload Section (Tab 1) -->
         <div id="uploadSection">
             <div class="row mb-4">
                 <div class="col-md-3 col-6">
@@ -674,6 +849,13 @@
                 </div>
             </div>
 
+            <div class="section-header">
+                <div>
+                    <h5>Upload & Validate Papers</h5>
+                    <p>Ensure filenames follow the required format before submission.</p>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
@@ -691,9 +873,14 @@
 
                     <div class="upload-zone" id="uploadZone">
                         <i class="bi bi-cloud-arrow-up-fill"></i>
-                        <h5 class="mt-2">Drag & Drop Files Here</h5>
-                        <p class="text-muted mb-0">or click to browse your files</p>
+                        <h5 class="mt-2">Drag & Drop Files or Folders Here</h5>
+                        <p class="text-muted mb-2">or click to browse your files</p>
                         <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+                        <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="browseFolderBtn"
+                            onclick="document.getElementById('folderInput').click()">
+                            <i class="bi bi-folder2-open me-1"></i> Browse Folder
+                        </button>
                     </div>
 
                     <div class="progress-container mt-4" id="progressContainer">
@@ -708,7 +895,17 @@
 
                     <div class="file-list mt-4" id="fileList"></div>
 
-                    <div class="d-flex gap-3 mt-4">
+                    <div class="row mt-4 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Exam Type</label>
+                            <select class="form-select" id="uploadExamType">
+                                <option value="CIA1" selected>CIA-1</option>
+                                <option value="CIA2">CIA-2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 mt-3">
                         <button class="btn btn-primary flex-grow-1" id="uploadBtn" disabled onclick="uploadFiles()">
                             <i class="bi bi-cloud-upload-fill me-2"></i>
                             Upload Valid Files
@@ -741,10 +938,32 @@
                         <i class="bi bi-file-earmark-pdf-fill me-2"></i>
                         Previously Uploaded Files
                     </h5>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
-                        <i class="bi bi-arrow-clockwise me-1"></i>
-                        Refresh
-                    </button>
+                    <div class="d-flex gap-2">
+                        <div class="btn-group btn-group-sm" id="pendingFilterGroup">
+                            <button type="button" class="btn btn-outline-primary active"
+                                onclick="setPendingFilter('all')">All</button>
+                            <button type="button" class="btn btn-outline-primary"
+                                onclick="setPendingFilter('CIA1')">CIA-1</button>
+                            <button type="button" class="btn btn-outline-primary"
+                                onclick="setPendingFilter('CIA2')">CIA-2</button>
+                        </div>
+                        <div class="btn-group btn-group-sm" id="attemptFilterGroup">
+                            <button type="button" class="btn btn-outline-light active"
+                                onclick="setAttemptFilter('all')">All Attempts</button>
+                            <button type="button" class="btn btn-outline-light"
+                                onclick="setAttemptFilter(1)">Attempt 1</button>
+                            <button type="button" class="btn btn-outline-light"
+                                onclick="setAttemptFilter(2)">Attempt 2</button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Refresh
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="purgeAllArtifacts()">
+                            <i class="bi bi-trash me-1"></i>
+                            Purge All
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-4">
                     <div class="mb-3">
@@ -759,6 +978,282 @@
                         <div class="text-center text-muted py-4">
                             <i class="bi bi-hourglass-split fs-1"></i>
                             <p class="mt-2">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Mappings Section (Tab 2) -->
+        <div id="subjectMappingsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle-fill me-2"></i>
+                        Add Subject Mapping
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <strong>Auto-discover:</strong> Enter Subject Code + the <code>id=</code> value from the
+                        Moodle assignment page URL. The system will resolve the course and assignment automatically.
+                    </div>
+                    <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label">Subject Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="sm_subject_code" required
+                                    placeholder="e.g. 19AI411">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Subject Name</label>
+                                <input type="text" class="form-control" id="sm_subject_name"
+                                    placeholder="e.g. Machine Learning">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Exam Type</label>
+                                <select class="form-select" id="sm_exam_type">
+                                    <option value="CIA1" selected>CIA-1</option>
+                                    <option value="CIA2">CIA-2</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Assignment URL ID <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="sm_cmid" required placeholder="e.g. 123">
+                                <small class="text-muted">The <code>id=</code> value from the assignment page
+                                    URL</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Exam Session</label>
+                                <input type="text" class="form-control" id="sm_exam_session"
+                                    placeholder="e.g. 2025-2026" value="2025-2026">
+                            </div>
+                        </div>
+                        <div id="smAlert" class="alert mt-3" style="display: none;"></div>
+                        <button type="submit" class="btn btn-primary mt-3" id="smSubmitBtn">
+                            <i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book-fill me-2"></i>
+                        Existing Subject Mappings
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadSubjectMappings()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div id="subjectMappingsList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split fs-1"></i>
+                            <p class="mt-2">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Mappings Section (Tab 3) -->
+        <div id="studentMappingsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle-fill me-2"></i>
+                        Add Student Username → Register Number
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form id="studentMappingForm" onsubmit="return addStudentMapping(event)">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label">Moodle Username <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="um_username" required
+                                    placeholder="e.g. 22007928">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Register Number <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="um_register" required
+                                    placeholder="e.g. 212222240047">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-plus-circle me-1"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                        <div id="umAlert" class="alert mt-3" style="display: none;"></div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people-fill me-2"></i>
+                        Existing Student Mappings
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadStudentMappings()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div id="studentMappingsList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split fs-1"></i>
+                            <p class="mt-2">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Smart Scan Section (Tab 4) -->
+        <div id="smartScanSection" style="display: none;">
+            <!-- Status Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cpu me-2"></i>
+                        Smart Scan — Automated Scanner Pipeline
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info mb-3" id="extractionStatusAlert">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <span id="extractionStatusText">Checking model availability…</span>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="stats-card total">
+                                <div class="stats-number" id="scanProcessed">0</div>
+                                <small><i class="bi bi-check-circle me-1"></i>Auto-Processed</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stats-card valid">
+                                <div class="stats-number" id="scanSuccess">0</div>
+                                <small><i class="bi bi-cloud-upload me-1"></i>Uploaded</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stats-card invalid">
+                                <div class="stats-number" id="scanFailed">0</div>
+                                <small><i class="bi bi-x-circle me-1"></i>Failed</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- How it works -->
+                    <div class="alert alert-light border mb-3">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-diagram-3 me-1"></i> How It Works</h6>
+                        <div class="d-flex align-items-center flex-wrap gap-2" style="font-size: 0.85rem;">
+                            <span class="badge bg-secondary px-3 py-2">
+                                <i class="bi bi-printer me-1"></i> Ricoh Scanner
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <span class="badge bg-primary px-3 py-2">
+                                <i class="bi bi-folder me-1"></i> Scan Folder
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <span class="badge bg-info text-dark px-3 py-2">
+                                <i class="bi bi-robot me-1"></i> Scanner Agent
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <span class="badge bg-warning text-dark px-3 py-2">
+                                <i class="bi bi-cpu me-1"></i> AI Extract
+                            </span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <span class="badge bg-success px-3 py-2">
+                                <i class="bi bi-cloud-upload me-1"></i> Auto Upload
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Scanner Agent Setup -->
+                    <div class="card border mb-3">
+                        <div class="card-body">
+                            <h6 class="fw-bold"><i class="bi bi-terminal me-1"></i> Scanner Agent Setup (Run on Scanner PC)</h6>
+                            <p class="text-muted small mb-2">
+                                Run this Python script on the PC connected to your Ricoh scanner.
+                                It watches the scan folder and auto-uploads processed papers.
+                            </p>
+                            <div class="bg-dark text-light p-3 rounded" style="font-family: 'Consolas', monospace; font-size: 0.82rem; overflow-x: auto;">
+                                <div class="text-success mb-1"># Step 1: Install dependencies (one time)</div>
+                                <div>pip install requests watchdog</div>
+                                <br>
+                                <div class="text-success mb-1"># Step 2: Configure Ricoh to scan to folder</div>
+                                <div class="text-muted"># Scanner → Scan to Folder → C:\ScanInbox\ → PDF, 300 DPI</div>
+                                <br>
+                                <div class="text-success mb-1"># Step 3: Run the scanner agent</div>
+                                <div>python scanner_agent.py \</div>
+                                <div>&nbsp;&nbsp;--server <span id="agentServerUrl" class="text-warning">https://exam-middleware.onrender.com</span> \</div>
+                                <div>&nbsp;&nbsp;--username <span class="text-info">admin</span> \</div>
+                                <div>&nbsp;&nbsp;--password <span class="text-info">your_password</span> \</div>
+                                <div>&nbsp;&nbsp;--folder <span class="text-info">C:\ScanInbox</span> \</div>
+                                <div>&nbsp;&nbsp;--exam-type <span class="text-info">CIA1</span></div>
+                            </div>
+                            <div class="mt-2">
+                                <a href="/extract/status" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-heart-pulse me-1"></i> Check Server Status
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual single-file test -->
+                    <div class="card border">
+                        <div class="card-body">
+                            <h6 class="fw-bold"><i class="bi bi-upload me-1"></i> Manual Test (Single File)</h6>
+                            <p class="text-muted small mb-2">
+                                Test the extraction + upload pipeline manually with a single scanned file.
+                            </p>
+                            <div class="input-group mb-2">
+                                <input type="file" class="form-control" id="smartScanFile"
+                                    accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff">
+                                <select class="form-select" id="smartScanExamType" style="max-width: 120px;">
+                                    <option value="CIA1" selected>CIA-1</option>
+                                    <option value="CIA2">CIA-2</option>
+                                </select>
+                                <button class="btn btn-primary" id="smartScanBtn" onclick="smartScanOneShot()">
+                                    <i class="bi bi-cpu me-1"></i> Scan &amp; Upload
+                                </button>
+                            </div>
+                            <div id="smartScanSpinner" style="display: none;" class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">Running AI extraction + upload… (10–30s)</p>
+                            </div>
+                            <div id="smartScanResult" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Auto-Processed Log -->
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Recent Auto-Processed Files
+                    </h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input type="text" id="scanLogSearch" class="form-control form-control-sm" placeholder="Search by filename, reg no, subject..." style="width: 260px;">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadScanLog()">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <div id="scanLogList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i>
+                            <p class="mt-2">No auto-processed files yet. Start the Scanner Agent to begin.</p>
                         </div>
                     </div>
                 </div>
@@ -847,14 +1342,23 @@
 
     <!-- Reports Modal -->
     <div class="modal fade" id="reportsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="reportsModalTitle">Reports</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="reportsModalBody">
-                    <!-- Reports will be loaded here -->
+                <div class="modal-body">
+                    <!-- PDF Preview -->
+                    <div id="reportsPreviewSection" style="display:none; margin-bottom: 1rem;">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-pdf me-1"></i> Paper Preview</h6>
+                        <iframe id="reportsPdfFrame" src=""
+                            style="width:100%; height:50vh; border:1px solid #dee2e6; border-radius:8px; background:#f8f9fa;"></iframe>
+                    </div>
+                    <!-- Report entries -->
+                    <div id="reportsModalBody">
+                        <!-- Reports will be loaded here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -978,6 +1482,7 @@
         function showUploadSection(user) {
             loginSection.classList.remove('active');
             uploadSection.classList.add('active');
+            document.getElementById('adminTabs').style.display = 'flex';
             userInfo.style.display = 'block';
             userName.textContent = user;
             logoutBtn.style.display = 'block';
@@ -985,6 +1490,47 @@
             if (document.getElementById('pendingFilesList').innerHTML.includes('Loading...')) {
                 loadPendingFiles();
             }
+        }
+
+        // Filtering state
+        let pendingFilter = 'all';
+        let pendingAttemptFilter = 'all';
+
+        function setPendingFilter(filter) {
+            pendingFilter = filter;
+            document.querySelectorAll('#pendingFilterGroup .btn').forEach(b => b.classList.remove('active'));
+            // Set active class on clicked button
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // Find button by filter text if called programmatically
+                const buttons = document.querySelectorAll('#pendingFilterGroup .btn');
+                buttons.forEach(b => {
+                    if (b.textContent === (filter === 'all' ? 'All' : filter.replace('CIA', 'CIA-'))) {
+                        b.classList.add('active');
+                    }
+                });
+            }
+            renderPendingFiles(document.getElementById('pendingFilesSearch').value);
+        }
+
+        function setAttemptFilter(filter) {
+            pendingAttemptFilter = filter;
+            document.querySelectorAll('#attemptFilterGroup .btn').forEach(b => b.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                const buttons = document.querySelectorAll('#attemptFilterGroup .btn');
+                buttons.forEach(b => {
+                    const text = b.textContent.trim();
+                    if ((filter === 'all' && text === 'All Attempts') ||
+                        (filter === 1 && text === 'Attempt 1') ||
+                        (filter === 2 && text === 'Attempt 2')) {
+                        b.classList.add('active');
+                    }
+                });
+            }
+            renderPendingFiles(document.getElementById('pendingFilesSearch').value);
         }
 
         async function loadPendingFiles() {
@@ -1091,17 +1637,8 @@
                     total = data.total || data.results.length;
                 }
 
-                // Compute visible artifacts (exclude items marked deleted by staff)
-                let visibleArtifacts = [];
-                if (Array.isArray(artifacts)) {
-                    visibleArtifacts = artifacts.filter(a => {
-                        const err = (a.error_message || a.error || a.errorMessage || '').toString();
-                        if (err && err.includes('Deleted by staff')) return false;
-                        const ws = (a.workflow_status || a.status || '').toString().toLowerCase();
-                        if (ws === 'deleted') return false;
-                        return true;
-                    });
-                }
+                // Artifacts are already filtered server-side (hard-deleted rows don't exist)
+                let visibleArtifacts = Array.isArray(artifacts) ? artifacts : [];
 
                 // Update server uploaded count and refresh stats using visible artifacts
                 serverUploadedCount = (visibleArtifacts && visibleArtifacts.length) || total || (artifacts ? artifacts.length : 0);
@@ -1149,7 +1686,8 @@
                 'submitted': { class: 'bg-success', icon: 'check-circle', text: 'Submitted' },
                 'failed': { class: 'bg-danger', icon: 'x-circle', text: 'Failed' },
                 'deleted': { class: 'bg-secondary text-white', icon: 'trash', text: 'Deleted' },
-                'completed': { class: 'bg-success', icon: 'check2-all', text: 'Completed' }
+                'completed': { class: 'bg-success', icon: 'check2-all', text: 'Completed' },
+                'superseded': { class: 'bg-secondary text-white', icon: 'arrow-counterclockwise', text: 'Replaced by Attempt 2' }
             };
             const s = statusMap[status?.toLowerCase()] || { class: 'bg-secondary', icon: 'question-circle', text: status || 'Unknown' };
             return `<span class="badge ${s.class}"><i class="bi bi-${s.icon} me-1"></i>${s.text}</span>`;
@@ -1161,6 +1699,10 @@
             localStorage.removeItem('authToken');
             localStorage.removeItem('userName');
             uploadSection.classList.remove('active');
+            document.getElementById('subjectMappingsSection').style.display = 'none';
+            document.getElementById('studentMappingsSection').style.display = 'none';
+            document.getElementById('smartScanSection').style.display = 'none';
+            document.getElementById('adminTabs').style.display = 'none';
             loginSection.classList.add('active');
             userInfo.style.display = 'none';
             logoutBtn.style.display = 'none';
@@ -1187,18 +1729,28 @@
                 return;
             }
 
-            const filtered = pendingArtifacts.filter(a => {
-                // Hide artifacts that were explicitly deleted by staff
-                const err = (a.error_message || a.error || a.errorMessage || '').toString();
-                if (err && err.includes('Deleted by staff')) return false;
-                const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
-                const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '').toString().toLowerCase();
-                const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '').toString().toLowerCase();
-                const status = (a.status || '').toString().toLowerCase();
+            let filtered = pendingArtifacts.slice(); // All artifacts (deleted rows are hard-deleted from DB)
 
-                if (!q) return true;
-                return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q);
-            });
+            // Apply CIA Filter
+            if (pendingFilter !== 'all') {
+                filtered = filtered.filter(a => (a.exam_type || 'CIA1').toUpperCase() === pendingFilter.toUpperCase());
+            }
+
+            // Apply Attempt Filter
+            if (pendingAttemptFilter !== 'all') {
+                filtered = filtered.filter(a => (a.attempt_number || 1) === pendingAttemptFilter);
+            }
+
+            if (q) {
+                filtered = filtered.filter(a => {
+                    const filename = (a.filename || a.file_name || a.name || a.original_filename || '').toString().toLowerCase();
+                    const regNo = (a.register_number || a.reg_no || a.registration_number || a.student_id || '').toString().toLowerCase();
+                    const sub = (a.subject_code || a.sub_code || a.subject || a.course_code || '').toString().toLowerCase();
+                    const status = (a.status || '').toString().toLowerCase();
+                    const et = (a.exam_type || '').toString().toLowerCase();
+                    return filename.includes(q) || regNo.includes(q) || sub.includes(q) || status.includes(q) || et.includes(q);
+                });
+            }
 
             if (filtered.length === 0) {
                 pendingFilesList.innerHTML = `
@@ -1210,15 +1762,17 @@
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+            let html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">';
             html += `<thead>
                         <tr>
-                            <th>Filename</th>
-                            <th>Register No.</th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th>Uploaded</th>
-                            <th>Actions</th>
+                            <th class="text-nowrap">Filename</th>
+                            <th class="text-nowrap">Register No.</th>
+                            <th class="text-nowrap">Subject</th>
+                            <th class="text-nowrap">Exam Type</th>
+                            <th class="text-nowrap text-center">Attempt</th>
+                            <th class="text-nowrap">Status</th>
+                            <th class="text-nowrap">Uploaded</th>
+                            <th class="text-nowrap text-center">Actions</th>
                         </tr>
                     </thead><tbody>`;
 
@@ -1230,28 +1784,56 @@
                 const filename = a.filename || a.file_name || a.name || a.original_filename || '-';
                 const regNo = a.register_number || a.reg_no || a.registration_number || a.student_id || '-';
                 const subCode = a.subject_code || a.sub_code || a.subject || a.course_code || '-';
+                const examType = a.exam_type || '-';
+                const attemptNum = a.attempt_number || 1;
+                const isLocked = a.attempt_2_locked !== false; // default true
 
                 // Try to resolve artifact identifier (prefer id, then artifact_uuid)
                 const artifactIdVal = a.id || a.artifact_id || a._id || '';
                 const artifactUuidVal = a.artifact_uuid || a.uuid || a.file_uuid || '';
 
+                // Attempt badge: green for active attempt, orange for attempt 2, with lock indicator
+                let attemptBadgeClass = attemptNum === 1 ? 'bg-success text-white' : 'bg-warning text-dark';
+                let attemptLabel = `#${attemptNum}`;
+                let lockIcon = '';
+                if (attemptNum === 1 && !isLocked) {
+                    lockIcon = `<i class="bi bi-unlock-fill text-success ms-1" title="Attempt 2 unlocked"></i>`;
+                } else if (attemptNum === 1 && isLocked) {
+                    lockIcon = `<i class="bi bi-lock-fill text-muted ms-1" title="Attempt 2 locked"></i>`;
+                }
+                const statusLower = (a.status || '').toLowerCase();
+                if (statusLower === 'superseded') {
+                    attemptBadgeClass = 'bg-secondary text-white';
+                }
+
                 html += `
                     <tr>
-                        <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${filename}</td>
-                        <td><span class="badge bg-secondary">${regNo}</span></td>
-                        <td><span class="badge bg-primary">${subCode}</span></td>
-                        <td>${statusBadge}</td>
-                        <td><small class="text-muted">${uploadDate}</small></td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-2 btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-eye"></i> Details
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-flag-fill"></i> Reports <span class="badge bg-danger ms-2">${a.report_count || 0}</span>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger btn-delete ms-2 action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
+                        <td class="text-nowrap text-truncate" style="max-width: 200px;" title="${filename}">
+                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>${filename}
+                        </td>
+                        <td class="text-nowrap"><span class="badge bg-secondary">${regNo}</span></td>
+                        <td class="text-nowrap"><span class="badge bg-primary">${subCode}</span></td>
+                        <td class="text-nowrap"><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
+                        <td class="text-nowrap text-center">
+                            <span class="badge ${attemptBadgeClass}">${attemptLabel}</span>${lockIcon}
+                        </td>
+                        <td class="text-nowrap">${statusBadge}</td>
+                        <td class="text-nowrap"><small class="text-muted">${uploadDate}</small></td>
+                        <td class="text-nowrap">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button class="btn btn-sm btn-outline-primary btn-details action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-eye"></i> Details
+                                </button>
+                                ${attemptNum === 1 ? `<button class="btn btn-sm ${isLocked ? 'btn-outline-warning' : 'btn-warning'} btn-toggle-lock action-btn" data-artifact-uuid="${artifactUuidVal || ''}" title="${isLocked ? 'Unlock Attempt 2' : 'Lock Attempt 2'}">
+                                    <i class="bi ${isLocked ? 'bi-unlock' : 'bi-lock'}"></i> ${isLocked ? 'Unlock' : 'Lock'}
+                                </button>` : ''}
+                                <button class="btn btn-sm btn-reports action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-flag-fill"></i> Reports <span class="report-badge ms-1">${a.report_count || 0}</span>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger btn-delete action-btn" data-artifact-uuid="${artifactUuidVal || ''}" data-artifact-id="${artifactIdVal || ''}">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1272,8 +1854,59 @@
             }
         });
 
+        // Toggle attempt 2 lock/unlock handler (delegated)
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-toggle-lock');
+            if (!btn) return;
+            const uuid = btn.getAttribute('data-artifact-uuid');
+            if (!uuid) return;
+
+            btn.disabled = true;
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const resp = await fetch(`/admin/artifacts/${uuid}/toggle-attempt-lock`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    // Update local data and re-render
+                    const newLocked = data.attempt_2_locked;
+                    pendingArtifacts.forEach(a => {
+                        if (a.artifact_uuid === uuid ||
+                            (a.register_number === data.reg_no && a.subject_code === data.subject_code && a.exam_type === data.exam_type) ||
+                            (a.reg_no === data.reg_no && a.subject_code === data.subject_code && a.exam_type === data.exam_type)) {
+                            a.attempt_2_locked = newLocked;
+                        }
+                    });
+                    renderPendingFiles();
+                    showToast(data.message || 'Lock state updated', 'success');
+                } else {
+                    showToast(data.detail || 'Failed to toggle lock', 'error');
+                    btn.innerHTML = origHtml;
+                }
+            } catch (err) {
+                showToast('Network error toggling lock', 'error');
+                btn.innerHTML = origHtml;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
         // File upload zone handlers
-        uploadZone.addEventListener('click', () => fileInput.click());
+        const folderInput = document.getElementById('folderInput');
+        const browseFolderBtn = document.getElementById('browseFolderBtn');
+
+        uploadZone.addEventListener('click', (e) => {
+            // Don't trigger file browse if click was on the Browse Folder button
+            if (e.target === browseFolderBtn || browseFolderBtn.contains(e.target)) return;
+            fileInput.click();
+        });
 
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -1284,9 +1917,76 @@
             uploadZone.classList.remove('dragover');
         });
 
-        uploadZone.addEventListener('drop', (e) => {
+        // Helper: recursively read entries from a dropped folder
+        function readEntryAsFile(entry) {
+            return new Promise((resolve) => {
+                entry.file(f => resolve(f), () => resolve(null));
+            });
+        }
+
+        function readEntriesFromReader(reader) {
+            return new Promise((resolve) => {
+                reader.readEntries(entries => resolve(entries), () => resolve([]));
+            });
+        }
+
+        async function getAllFilesFromEntry(entry) {
+            const files = [];
+            if (entry.isFile) {
+                const file = await readEntryAsFile(entry);
+                if (file) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+                        files.push(file);
+                    }
+                }
+            } else if (entry.isDirectory) {
+                const reader = entry.createReader();
+                let batch;
+                do {
+                    batch = await readEntriesFromReader(reader);
+                    for (const child of batch) {
+                        const childFiles = await getAllFilesFromEntry(child);
+                        files.push(...childFiles);
+                    }
+                } while (batch.length > 0);
+            }
+            return files;
+        }
+
+        uploadZone.addEventListener('drop', async (e) => {
             e.preventDefault();
             uploadZone.classList.remove('dragover');
+
+            // Check if any dropped items are directories
+            const items = e.dataTransfer.items;
+            let hasDirectories = false;
+            const collectedFiles = [];
+
+            if (items && items.length > 0) {
+                const entries = [];
+                for (let i = 0; i < items.length; i++) {
+                    const entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+                    if (entry) {
+                        entries.push(entry);
+                        if (entry.isDirectory) hasDirectories = true;
+                    }
+                }
+
+                if (hasDirectories) {
+                    // Recursively collect files from directories
+                    for (const entry of entries) {
+                        const files = await getAllFilesFromEntry(entry);
+                        collectedFiles.push(...files);
+                    }
+                    if (collectedFiles.length > 0) {
+                        handleFiles(collectedFiles);
+                    }
+                    return;
+                }
+            }
+
+            // Normal file drop
             handleFiles(e.dataTransfer.files);
         });
 
@@ -1294,7 +1994,17 @@
             handleFiles(e.target.files);
         });
 
-        function handleFiles(files) {
+        folderInput.addEventListener('change', (e) => {
+            // Filter to only allowed extensions from folder selection
+            const allowedExt = ['pdf', 'jpg', 'jpeg', 'png'];
+            const filtered = Array.from(e.target.files).filter(f => {
+                const ext = f.name.split('.').pop().toLowerCase();
+                return allowedExt.includes(ext);
+            });
+            if (filtered.length > 0) handleFiles(filtered);
+        });
+
+        async function handleFiles(files) {
             for (const file of files) {
                 const validation = validateFilename(file.name);
                 const fileObj = {
@@ -1304,13 +2014,101 @@
                     valid: validation.valid,
                     registerNumber: validation.registerNumber,
                     subjectCode: validation.subjectCode,
-                    error: validation.error
+                    error: validation.error,
+                    duplicate: false,
+                    duplicateStatus: null,
+                    duplicateUploadedAt: null,
+                    subjectMapped: null,
+                    studentMapped: null
                 };
                 selectedFiles.push(fileObj);
+                if (validation.valid) {
+                    // newFiles logic removed as we now use revalidateFiles which checks selectedFiles
+                }
             }
             renderFileList();
             updateStats();
+            revalidateFiles();
         }
+
+        async function revalidateFiles() {
+            const validFiles = selectedFiles.filter(f => f.valid);
+            if (validFiles.length === 0 || !authToken) return;
+
+            // Reset flags before re-checking
+            validFiles.forEach(f => {
+                f.duplicate = false;
+                f.isAttempt2 = false;
+                f.duplicateStatus = null;
+                f.duplicateUploadedAt = null;
+                f.subjectMapped = null;
+                f.studentMapped = null;
+            });
+            renderFileList();
+
+            const currentType = document.getElementById('uploadExamType').value;
+            const items = validFiles.map(f => ({
+                reg_no: f.registerNumber,
+                subject_code: f.subjectCode,
+                exam_type: currentType
+            }));
+
+            // Check duplicates
+            try {
+                const dupRes = await fetch('/upload/check-duplicates', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+                if (dupRes.ok) {
+                    const dupData = await dupRes.json();
+                    (dupData.results || []).forEach((r, i) => {
+                        if (r.exists && validFiles[i]) {
+                            if (r.can_upload_as_attempt_2) {
+                                // Attempt 2 is unlocked — this will upload as attempt 2, not a duplicate
+                                validFiles[i].duplicate = false;
+                                validFiles[i].isAttempt2 = true;
+                                validFiles[i].duplicateStatus = null;
+                                validFiles[i].duplicateUploadedAt = null;
+                            } else {
+                                validFiles[i].duplicate = true;
+                                validFiles[i].isAttempt2 = false;
+                                validFiles[i].duplicateStatus = r.status;
+                                validFiles[i].duplicateUploadedAt = r.uploaded_at;
+                            }
+                        }
+                    });
+                }
+            } catch (e) { console.warn('Duplicate check failed:', e); }
+
+            // Validate mappings
+            try {
+                const mapRes = await fetch('/upload/validate-mappings', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+                if (mapRes.ok) {
+                    const mapData = await mapRes.json();
+                    (mapData.results || []).forEach((r, i) => {
+                        if (validFiles[i]) {
+                            validFiles[i].subjectMapped = r.subject_mapped;
+                            validFiles[i].studentMapped = r.student_mapped;
+                        }
+                    });
+                }
+            } catch (e) { console.warn('Mapping validation failed:', e); }
+
+            renderFileList();
+            updateStats();
+        }
+
+        // Add listener for exam type change to re-validate
+        document.getElementById('uploadExamType').addEventListener('change', () => {
+            if (selectedFiles.length > 0) {
+                revalidateFiles();
+            }
+        });
 
         function validateFilename(filename) {
             const match = filename.match(FILENAME_PATTERN);
@@ -1336,27 +2134,69 @@
         }
 
         function renderFileList() {
-            fileList.innerHTML = selectedFiles.map((f, index) => `
-                <div class="file-item ${f.valid ? 'valid' : 'invalid'}">
-                    <div class="file-info">
-                        <i class="bi ${f.valid ? 'bi-file-earmark-check-fill text-success' : 'bi-file-earmark-x-fill text-danger'}"></i>
-                        <div>
-                            <strong>${f.name}</strong>
-                            <br>
-                            <small class="text-muted">${f.size}</small>
-                            ${f.valid ? `<br><small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Reg: ${f.registerNumber} | Subject: ${f.subjectCode}</small>` : `<br><small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>${f.error}</small>`}
+            fileList.innerHTML = selectedFiles.map((f, index) => {
+                // Determine file item class
+                let itemClass = f.valid ? 'valid' : 'invalid';
+                if (f.duplicate) itemClass = 'invalid';
+                // Files with unmapped subject or student are also invalid
+                if (f.valid && !f.duplicate && (f.subjectMapped === false || f.studentMapped === false)) itemClass = 'invalid';
+
+                // Build status line
+                let statusHtml = '';
+                if (!f.valid) {
+                    statusHtml = `<br><small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>${f.error}</small>`;
+                } else {
+                    statusHtml = `<br><small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Reg: ${f.registerNumber} | Subject: ${f.subjectCode}</small>`;
+
+                    // Duplicate warning or Attempt 2 notice
+                    if (f.duplicate) {
+                        const dupDate = f.duplicateUploadedAt ? new Date(f.duplicateUploadedAt).toLocaleDateString() : '';
+                        statusHtml += `<br><small class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Already uploaded (Status: ${f.duplicateStatus || 'unknown'}${dupDate ? ', on ' + dupDate : ''})</small>`;
+                    } else if (f.isAttempt2) {
+                        statusHtml += `<br><small class="text-info fw-semibold"><i class="bi bi-arrow-repeat me-1"></i>Will be uploaded as Attempt 2 (Attempt 1 completed)</small>`;
+                    }
+
+                    // Mapping status
+                    if (f.subjectMapped !== null || f.studentMapped !== null) {
+                        let mappingParts = [];
+                        if (f.subjectMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Subject mapped</span>');
+                        else if (f.subjectMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Subject NOT mapped</span>');
+                        if (f.studentMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Student mapped</span>');
+                        else if (f.studentMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Student NOT mapped</span>');
+                        if (mappingParts.length > 0) {
+                            statusHtml += `<br><small>${mappingParts.join(' &nbsp;|&nbsp; ')}</small>`;
+                        }
+                    }
+                }
+
+                // Icon
+                let iconClass = f.valid ? 'bi-file-earmark-check-fill text-success' : 'bi-file-earmark-x-fill text-danger';
+                if (f.duplicate) iconClass = 'bi-file-earmark-excel-fill text-warning';
+
+                return `
+                    <div class="file-item ${itemClass}">
+                        <div class="file-info">
+                            <i class="bi ${iconClass}"></i>
+                            <div>
+                                <strong>${f.name}</strong>
+                                <br>
+                                <small class="text-muted">${f.size}</small>
+                                ${statusHtml}
+                            </div>
                         </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
-                    <button class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function updateStats() {
             const total = selectedFiles.length;
-            const valid = selectedFiles.filter(f => f.valid).length;
+            // Valid = filename-valid AND not duplicate AND both mappings confirmed
+            const isUploadReady = f => f.valid && !f.duplicate && f.subjectMapped !== false && f.studentMapped !== false;
+            const valid = selectedFiles.filter(isUploadReady).length;
             const invalid = total - valid;
 
             // Animate the number changes
@@ -1366,7 +2206,8 @@
             animateNumber('uploadedFiles', serverUploadedCount);
 
             uploadBtn.disabled = valid === 0;
-            validatedFiles = selectedFiles.filter(f => f.valid);
+            // Exclude duplicates and unmapped files from validated files sent to upload
+            validatedFiles = selectedFiles.filter(isUploadReady);
         }
 
         function animateNumber(elementId, targetValue) {
@@ -1400,6 +2241,43 @@
             document.getElementById('resultsCard').style.display = 'none';
         }
 
+        let staffLoadingTimer = null;
+        let staffFailSafeBound = false;
+
+        function showStaffLoading() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) loadingOverlay.classList.add('active');
+            if (staffLoadingTimer) clearTimeout(staffLoadingTimer);
+            staffLoadingTimer = setTimeout(() => {
+                if (loadingOverlay) loadingOverlay.classList.remove('active');
+            }, 15000);
+
+            if (!staffFailSafeBound && loadingOverlay) {
+                staffFailSafeBound = true;
+                loadingOverlay.addEventListener('click', hideStaffLoading);
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') hideStaffLoading();
+                });
+            }
+        }
+
+        function hideStaffLoading() {
+            if (staffLoadingTimer) {
+                clearTimeout(staffLoadingTimer);
+                staffLoadingTimer = null;
+            }
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) loadingOverlay.classList.remove('active');
+        }
+
+        window.addEventListener('error', () => {
+            hideStaffLoading();
+        });
+
+        window.addEventListener('unhandledrejection', () => {
+            hideStaffLoading();
+        });
+
         async function uploadFiles() {
             if (validatedFiles.length === 0) return;
 
@@ -1414,11 +2292,12 @@
             try {
                 progressContainer.classList.add('active');
                 uploadBtn.disabled = true;
-                loadingOverlay.classList.add('active');
+                showStaffLoading();
 
                 const formData = new FormData();
                 validatedFiles.forEach(f => formData.append('files', f.file));
                 formData.append('exam_session', new Date().toISOString().split('T')[0].replace(/-/g, ''));
+                formData.append('exam_type', document.getElementById('uploadExamType').value);
 
                 let response;
                 try {
@@ -1488,11 +2367,17 @@
                         data.results.forEach(r => {
                             const icon = r.success ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
                             const singleError = r.error || (r.errors && r.errors.length ? r.errors[0] : null) || r.message || 'Unknown error';
+                            const attemptBadge = (r.attempt_number && r.attempt_number > 1)
+                                ? `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-arrow-repeat me-1"></i>Attempt ${r.attempt_number} (previous superseded)</span>`
+                                : `<span class="badge bg-success text-white ms-2">Attempt 1</span>`;
+                            const lockBadge = r.attempt_2_locked === false
+                                ? `<span class="badge bg-info text-white ms-1"><i class="bi bi-unlock-fill"></i> Att.2 Open</span>`
+                                : `<span class="badge bg-secondary text-white ms-1"><i class="bi bi-lock-fill"></i> Att.2 Locked</span>`;
                             resultsHtml += `
                                 <div class="list-group-item d-flex align-items-center">
                                     <i class="${icon} me-3" style="font-size: 1.25rem;"></i>
-                                    <strong class="flex-grow-1">${r.filename}</strong>
-                                    ${r.success ? '<span class="badge bg-success px-3 py-2">Uploaded</span>' : `<span class="badge bg-danger px-3 py-2">Failed: ${singleError}</span>`}
+                                    <strong class="flex-grow-1">${r.filename}${attemptBadge}${lockBadge}</strong>
+                                    ${r.success ? `<span class="badge bg-success px-3 py-2">Uploaded${r.exam_type ? ' (' + r.exam_type + ')' : ''}</span>` : `<span class="badge bg-danger px-3 py-2">Failed: ${singleError}</span>`}
                                 </div>
                             `;
                         });
@@ -1500,6 +2385,13 @@
                     }
 
                     uploadResults.innerHTML = resultsHtml;
+                    resultsCard.style.display = 'block';
+
+                    // Clear file list after successful upload
+                    selectedFiles = [];
+                    validatedFiles = [];
+                    fileList.innerHTML = '';
+
                     // Reload pending files after successful upload
                     loadPendingFiles();
                 } else {
@@ -1538,7 +2430,7 @@
                 }
                 try {
                     progressContainer.classList.remove('active');
-                    loadingOverlay.classList.remove('active');
+                    hideStaffLoading();
                 } catch (e) { }
                 try {
                     // Recompute stats and enable button only if there are still valid files
@@ -1550,29 +2442,26 @@
             }
         }
     </script>
-    <!-- Loader Overlay -->
-    <div class="loader-overlay" id="loaderOverlay">
-        <div class="spinner">
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-        </div>
-    </div>
     <script>
         // Reports & Edit Modals
         async function viewReports(artifactUuid, artifactId) {
             const modalEl = document.getElementById('reportsModal');
             const bodyEl = document.getElementById('reportsModalBody');
             const titleEl = document.getElementById('reportsModalTitle');
+            const previewSection = document.getElementById('reportsPreviewSection');
+            const pdfFrame = document.getElementById('reportsPdfFrame');
             bodyEl.innerHTML = '<div class="text-center py-4">Loading...</div>';
             titleEl.textContent = 'Reports';
+
+            // Load PDF preview for staff
+            if (artifactUuid) {
+                pdfFrame.src = `/admin/artifact-file/${encodeURIComponent(artifactUuid)}?token=${encodeURIComponent(authToken)}#toolbar=0&navpanes=0&scrollbar=1`;
+                previewSection.style.display = 'block';
+            } else {
+                pdfFrame.src = '';
+                previewSection.style.display = 'none';
+            }
+
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
 
@@ -1719,7 +2608,11 @@
                         </div>`;
                     } else {
                         // Normal active report entry
-                        const applyBtn = (req.suggested_reg_no || req.suggested_subject_code) ? `<button class="btn btn-sm btn-outline-secondary me-2" onclick="applySuggestion('${artifactUuid}','${id}','${(req.suggested_reg_no || '')}', '${(req.suggested_subject_code || '')}')">Apply Suggestion</button>` : '';
+                        const applyBtn = (req.suggested_reg_no || req.suggested_subject_code)
+                            ? (resolvedEntry
+                                ? `<button class="btn btn-sm btn-outline-secondary me-2" disabled><i class="bi bi-check2-circle me-1"></i>Applied</button>`
+                                : `<button class="btn btn-sm btn-outline-secondary me-2" onclick="applySuggestion(this,'${artifactUuid}','${id}','${(req.suggested_reg_no || '')}', '${(req.suggested_subject_code || '')}')">Apply Suggestion</button>`)
+                            : '';
 
                         html += `<div class="list-group-item">
                             <div class="d-flex justify-content-between align-items-start">
@@ -1864,7 +2757,7 @@
         }
 
         // Apply suggestion from a report directly to the artifact metadata
-        async function applySuggestion(artifactUuid, artifactId, suggestedReg, suggestedSub) {
+        async function applySuggestion(buttonEl, artifactUuid, artifactId, suggestedReg, suggestedSub) {
             if (!suggestedReg && !suggestedSub) {
                 showToast('No suggestion provided', 'warning');
                 return;
@@ -1873,11 +2766,45 @@
             const confirmMsg = `Apply suggested values and resolve reports?\n${suggestedReg ? 'Reg: ' + suggestedReg + '\n' : ''}${suggestedSub ? 'Subject: ' + suggestedSub : ''}`;
             if (!(await showConfirm(confirmMsg, 'Apply Suggestion & Resolve'))) return;
 
+            const btn = buttonEl || null;
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('disabled');
+                btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Applying...';
+            }
+
             try {
+                let currentFilename = '';
+                let currentParsedReg = '';
+                let currentParsedSub = '';
+                try {
+                    const detailRes = await fetch(`/admin/artifacts/${encodeURIComponent(artifactUuid)}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+                    if (detailRes.ok) {
+                        const artifact = await detailRes.json();
+                        currentFilename = artifact.original_filename || artifact.raw_filename || artifact.filename || '';
+                        currentParsedReg = artifact.parsed_reg_no || '';
+                        currentParsedSub = artifact.parsed_subject_code || '';
+                    }
+                } catch (e) {
+                    console.warn('Could not load artifact details for filename update', e);
+                }
+
+                const filenameMatch = currentFilename.match(/\.(pdf|jpg|jpeg|png)$/i);
+                const ext = filenameMatch ? filenameMatch[1].toLowerCase() : '';
+                const fallbackParts = currentFilename.replace(/\.(pdf|jpg|jpeg|png)$/i, '').split('_');
+                const fallbackReg = fallbackParts[0] || '';
+                const fallbackSub = fallbackParts[1] || '';
+
+                const nextReg = suggestedReg || currentParsedReg || fallbackReg;
+                const nextSub = suggestedSub || currentParsedSub || fallbackSub;
+
+                const nextFilename = (nextReg && nextSub && ext) ? `${nextReg}_${nextSub}.${ext}` : null;
+
                 const payload = {
                     parsed_reg_no: suggestedReg || null,
                     parsed_subject_code: suggestedSub || null,
-                    original_filename: null,
+                    original_filename: nextFilename,
                     resolve_reports: true  // Auto-resolve reports when applying suggestion
                 };
 
@@ -1893,15 +2820,30 @@
                 const data = await res.json();
                 if (res.ok) {
                     showToast(data.message || 'Suggestion applied', 'success');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                        btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Applied';
+                    }
                     // Refresh reports and listing
                     viewReports(artifactUuid, artifactId);
                     loadPendingFiles();
                 } else {
                     showToast(data.detail || data.message || 'Failed to apply suggestion', 'danger');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
+                        btn.innerHTML = originalText;
+                    }
                 }
             } catch (err) {
                 console.error('Error applying suggestion', err);
                 showToast('Error applying suggestion', 'danger');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('disabled');
+                    btn.innerHTML = originalText;
+                }
             }
         }
 
@@ -1981,7 +2923,7 @@
         }
 
         async function deleteArtifact(artifactUuid, artifactId) {
-            if (!(await showConfirm('Delete this artifact? This will remove it from student and staff listings.', 'Delete Artifact'))) return;
+            if (!(await showConfirm('Permanently delete this artifact? This will remove the file and all related data from the database. This action cannot be undone.', 'Delete Artifact'))) return;
             try {
                 const res = await fetch(`/admin/artifacts/${encodeURIComponent(artifactUuid)}`, {
                     method: 'DELETE',
@@ -1991,14 +2933,38 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    showToast(data.message || 'Artifact removed', 'success');
+                    showToast(data.message || 'Artifact permanently deleted', 'success');
                     loadPendingFiles();
+                    loadScanLog();
                 } else {
                     showToast(data.detail || data.message || 'Failed to delete artifact', 'danger');
                 }
             } catch (err) {
                 console.error(err);
                 showToast('Error deleting artifact', 'danger');
+            }
+        }
+
+        async function purgeAllArtifacts() {
+            if (!(await showConfirm('⚠️ DANGER: This will permanently delete ALL artifacts, files, and audit logs, and reset IDs to 1. This action cannot be undone. Are you sure?', 'Purge All Artifacts'))) return;
+            try {
+                const res = await fetch('/admin/artifacts/purge-all?confirm=yes', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'All artifacts purged', 'success');
+                    loadPendingFiles();
+                    loadScanLog();
+                } else {
+                    showToast(data.detail || data.message || 'Failed to purge artifacts', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error purging artifacts', 'danger');
             }
         }
 
@@ -2120,6 +3086,402 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // ============================================
+        // Admin Tab Switching
+        // ============================================
+        function switchTab(tab, event) {
+            if (event) event.preventDefault();
+            const tabs = document.querySelectorAll('#adminTabs .nav-link');
+            tabs.forEach(t => t.classList.remove('active'));
+            event.target.closest('.nav-link').classList.add('active');
+
+            document.getElementById('uploadSection').style.display = tab === 'upload' ? 'block' : 'none';
+            document.getElementById('uploadSection').classList.toggle('active', tab === 'upload');
+            document.getElementById('subjectMappingsSection').style.display = tab === 'subjectMappings' ? 'block' : 'none';
+            document.getElementById('studentMappingsSection').style.display = tab === 'studentMappings' ? 'block' : 'none';
+            document.getElementById('smartScanSection').style.display = tab === 'smartScan' ? 'block' : 'none';
+
+            if (tab === 'subjectMappings') loadSubjectMappings();
+            if (tab === 'studentMappings') loadStudentMappings();
+            if (tab === 'smartScan') checkExtractionStatus();
+        }
+
+        // ============================================
+        // Subject Mappings CRUD
+        // ============================================
+        async function loadSubjectMappings() {
+            const container = document.getElementById('subjectMappingsList');
+            container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Loading...</p></div>';
+            try {
+                const res = await fetch('/admin/mappings', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) { logout(); return; }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>URL ID</th><th>Assignment</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                data.forEach(m => {
+                    html += `<tr>
+                        <td><span class="badge bg-primary">${m.subject_code}</span></td>
+                        <td>${m.subject_name || '-'}</td>
+                        <td><span class="badge ${m.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${m.exam_type || 'CIA1'}</span></td>
+                        <td><span class="badge bg-secondary">${m.cmid || m.moodle_assignment_id || '-'}</span></td>
+                        <td>${m.moodle_assignment_name || '-'}</td>
+                        <td>${m.exam_session || '-'}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteSubjectMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div>';
+                html += `<div class="text-muted small mt-3">Total: ${data.length} mapping(s)</div>`;
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${e.message}</div>`;
+            }
+        }
+
+        async function addSubjectMapping(event) {
+            event.preventDefault();
+            const alertEl = document.getElementById('smAlert');
+            const submitBtn = document.getElementById('smSubmitBtn');
+            alertEl.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Discovering assignments...';
+            const cmidVal = document.getElementById('sm_cmid').value.trim();
+            const body = {
+                subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
+                subject_name: document.getElementById('sm_subject_name').value.trim() || null,
+                exam_type: document.getElementById('sm_exam_type').value,
+                cmid: parseInt(cmidVal),
+                exam_session: document.getElementById('sm_exam_session').value.trim() || null,
+            };
+            try {
+                const res = await fetch('/admin/mappings/auto', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alertEl.className = 'alert mt-3 alert-success';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${data.message}`;
+                    alertEl.style.display = 'block';
+                    document.getElementById('subjectMappingForm').reset();
+                    document.getElementById('sm_exam_session').value = '2025-2026';
+                    loadSubjectMappings();
+                } else {
+                    alertEl.className = 'alert mt-3 alert-danger';
+                    alertEl.textContent = data.detail || 'Failed to create mapping';
+                    alertEl.style.display = 'block';
+                }
+            } catch (e) {
+                alertEl.className = 'alert mt-3 alert-danger';
+                alertEl.textContent = `Error: ${e.message}`;
+                alertEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping';
+            }
+            return false;
+        }
+
+        async function deleteSubjectMapping(id) {
+            if (!confirm('Are you sure you want to delete this subject mapping?')) return;
+            try {
+                const res = await fetch(`/admin/mappings/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) loadSubjectMappings();
+                else alert('Failed to delete mapping');
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // ============================================
+        // Student Username-Register Mappings CRUD
+        // ============================================
+        async function loadStudentMappings() {
+            const container = document.getElementById('studentMappingsList');
+            container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Loading...</p></div>';
+            try {
+                const res = await fetch('/admin/username-mappings', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) { logout(); return; }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No student mappings yet</p></div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Moodle Username</th><th>Register Number</th><th>Created</th><th>Actions</th></tr></thead><tbody>';
+                data.forEach(m => {
+                    const created = m.created_at ? new Date(m.created_at).toLocaleString() : '-';
+                    html += `<tr>
+                        <td><span class="badge bg-info text-dark">${m.moodle_username}</span></td>
+                        <td><span class="badge bg-secondary">${m.register_number}</span></td>
+                        <td><small class="text-muted">${created}</small></td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteStudentMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div>';
+                html += `<div class="text-muted small mt-3">Total: ${data.length} mapping(s)</div>`;
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${e.message}</div>`;
+            }
+        }
+
+        async function addStudentMapping(event) {
+            event.preventDefault();
+            const alertEl = document.getElementById('umAlert');
+            alertEl.style.display = 'none';
+            const body = {
+                moodle_username: document.getElementById('um_username').value.trim(),
+                register_number: document.getElementById('um_register').value.trim(),
+            };
+            try {
+                const res = await fetch('/admin/username-mappings', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alertEl.className = 'alert mt-3 alert-success';
+                    alertEl.textContent = data.message || 'Mapping created!';
+                    alertEl.style.display = 'block';
+                    document.getElementById('studentMappingForm').reset();
+                    loadStudentMappings();
+                } else {
+                    alertEl.className = 'alert mt-3 alert-danger';
+                    alertEl.textContent = data.detail || 'Failed to create mapping';
+                    alertEl.style.display = 'block';
+                }
+            } catch (e) {
+                alertEl.className = 'alert mt-3 alert-danger';
+                alertEl.textContent = `Error: ${e.message}`;
+                alertEl.style.display = 'block';
+            }
+            return false;
+        }
+
+        async function deleteStudentMapping(id) {
+            if (!confirm('Are you sure you want to delete this student mapping?')) return;
+            try {
+                const res = await fetch(`/admin/username-mappings/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) loadStudentMappings();
+                else alert('Failed to delete mapping');
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // ============================================
+        // Smart Scan — Monitoring + One-Shot Test
+        // ============================================
+
+        async function checkExtractionStatus() {
+            const statusAlert = document.getElementById('extractionStatusAlert');
+            const statusText = document.getElementById('extractionStatusText');
+            try {
+                const res = await fetch('/extract/status');
+                const data = await res.json();
+                if (data.extraction_available) {
+                    statusAlert.className = 'alert alert-success mb-3';
+                    statusText.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> AI extraction models are loaded and ready on server.';
+                } else {
+                    statusAlert.className = 'alert alert-warning mb-3';
+                    statusText.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Extraction models not found on server. Deploy model weight files in the <code>models/</code> directory.';
+                }
+            } catch (e) {
+                statusAlert.className = 'alert alert-danger mb-3';
+                statusText.textContent = 'Could not reach server: ' + e.message;
+            }
+            // Set server URL in the setup instructions
+            const urlEl = document.getElementById('agentServerUrl');
+            if (urlEl) urlEl.textContent = window.location.origin;
+            loadScanLog();
+        }
+
+        // One-shot manual test: Scan + Extract + Upload in one call
+        async function smartScanOneShot() {
+            const fileInput = document.getElementById('smartScanFile');
+            const examType = document.getElementById('smartScanExamType').value;
+            const file = fileInput.files[0];
+            if (!file) { alert('Select a scanned file first'); return; }
+
+            const spinner = document.getElementById('smartScanSpinner');
+            const resultDiv = document.getElementById('smartScanResult');
+            const btn = document.getElementById('smartScanBtn');
+            spinner.style.display = 'block';
+            resultDiv.style.display = 'none';
+            btn.disabled = true;
+
+            try {
+                const form = new FormData();
+                form.append('file', file);
+                form.append('exam_type', examType);
+
+                const res = await fetch('/extract/scan-upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: form,
+                });
+                const data = await res.json();
+                spinner.style.display = 'none';
+                btn.disabled = false;
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success small">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            <strong>Success!</strong> Extracted &amp; uploaded automatically.<br>
+                            <div class="mt-2">
+                                <span class="badge bg-dark me-1">Reg: ${data.register_number}</span>
+                                <span class="badge ${data.register_confidence >= 80 ? 'bg-success' : 'bg-warning text-dark'}">${data.register_confidence}%</span>
+                                &nbsp;
+                                <span class="badge bg-dark me-1">Subject: ${data.subject_code}</span>
+                                <span class="badge ${data.subject_confidence >= 80 ? 'bg-success' : 'bg-warning text-dark'}">${data.subject_confidence}%</span>
+                            </div>
+                            <div class="mt-1">
+                                <small>Renamed: <strong>${data.renamed_filename}</strong> | Attempt #${data.attempt_number}</small>
+                            </div>
+                        </div>`;
+                    fileInput.value = '';
+                    loadPendingFiles();
+                    loadScanLog();
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger small">
+                            <i class="bi bi-x-circle-fill me-1"></i>
+                            <strong>Failed:</strong> ${data.error || 'Unknown error'}
+                            ${data.register_number ? `<br>Partial: Reg=${data.register_number} (${data.register_confidence}%), Subject=${data.subject_code} (${data.subject_confidence}%)` : ''}
+                        </div>`;
+                }
+                resultDiv.style.display = 'block';
+            } catch (e) {
+                spinner.style.display = 'none';
+                btn.disabled = false;
+                resultDiv.innerHTML = `<div class="alert alert-danger small"><i class="bi bi-wifi-off me-1"></i> Network error: ${e.message}</div>`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        // Cache scan log entries for client-side filtering
+        let scanLogEntries = [];
+
+        async function loadScanLog() {
+            const container = document.getElementById('scanLogList');
+            try {
+                // Fetch DB-backed auto-processed artifacts (persists across restarts)
+                const dbRes = await fetch('/upload/auto-processed', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const dbData = await dbRes.json();
+                const dbEntries = (dbData.auto_processed || []).map(a => ({
+                    original_filename: a.original_filename,
+                    renamed_filename: a.raw_filename || a.original_filename,
+                    register_number: a.parsed_reg_no,
+                    subject_code: a.parsed_subject_code,
+                    exam_type: a.exam_type,
+                    success: true,
+                    workflow_status: a.workflow_status,
+                    uploaded_at: a.uploaded_at
+                }));
+
+                // Also fetch in-memory recent log for failed entries (not in DB)
+                let memEntries = [];
+                try {
+                    const memRes = await fetch('/extract/scan-log');
+                    const memData = await memRes.json();
+                    memEntries = (memData.entries || []).filter(e => !e.success);
+                } catch (_) {}
+
+                scanLogEntries = [...dbEntries, ...memEntries];
+
+                // Update stats
+                const success = scanLogEntries.filter(e => e.success).length;
+                const failed = scanLogEntries.filter(e => !e.success).length;
+                document.getElementById('scanProcessed').textContent = scanLogEntries.length;
+                document.getElementById('scanSuccess').textContent = success;
+                document.getElementById('scanFailed').textContent = failed;
+
+                // Render with current search query
+                const searchInput = document.getElementById('scanLogSearch');
+                renderScanLog((searchInput && searchInput.value) || '');
+            } catch (e) {
+                container.innerHTML = `<div class="text-muted small">Could not load scan log: ${e.message}</div>`;
+            }
+        }
+
+        function renderScanLog(query) {
+            const container = document.getElementById('scanLogList');
+            const q = (query || '').toLowerCase().trim();
+
+            let filtered = scanLogEntries.slice();
+            if (q) {
+                filtered = filtered.filter(e => {
+                    const orig = (e.original_filename || '').toLowerCase();
+                    const renamed = (e.renamed_filename || '').toLowerCase();
+                    const reg = (e.register_number || '').toLowerCase();
+                    const sub = (e.subject_code || '').toLowerCase();
+                    const exam = (e.exam_type || '').toLowerCase();
+                    return orig.includes(q) || renamed.includes(q) || reg.includes(q) || sub.includes(q) || exam.includes(q);
+                });
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2">${q ? 'No matching files' : 'No auto-processed files yet. Start the Scanner Agent to begin.'}</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size: 0.85rem;">';
+            html += '<thead><tr><th>Original File</th><th>Renamed To</th><th>Reg No</th><th>Subject</th><th>Exam</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>';
+            filtered.forEach(e => {
+                const wsLower = (e.workflow_status || '').toLowerCase();
+                let badge;
+                if (!e.success) {
+                    badge = '<span class="badge bg-danger"><i class="bi bi-x"></i> Failed</span>';
+                } else if (wsLower === 'submitted_to_moodle' || wsLower === 'completed') {
+                    badge = '<span class="badge bg-primary"><i class="bi bi-cloud-check"></i> Submitted</span>';
+                } else {
+                    badge = '<span class="badge bg-success"><i class="bi bi-check"></i> Uploaded</span>';
+                }
+                const uploadTime = e.uploaded_at ? new Date(e.uploaded_at).toLocaleString() : '-';
+                html += `<tr>
+                    <td class="text-truncate" style="max-width: 150px;" title="${e.original_filename || ''}">${e.original_filename || '-'}</td>
+                    <td class="text-truncate" style="max-width: 150px;" title="${e.renamed_filename || ''}">${e.renamed_filename || '-'}</td>
+                    <td><span class="badge bg-secondary">${e.register_number || '-'}</span></td>
+                    <td><span class="badge bg-primary">${e.subject_code || '-'}</span></td>
+                    <td><span class="badge bg-info text-dark">${e.exam_type || '-'}</span></td>
+                    <td>${badge}</td>
+                    <td><small>${uploadTime}</small></td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            html += `<div class="text-muted small mt-2">Showing ${filtered.length} of ${scanLogEntries.length} entries</div>`;
+            container.innerHTML = html;
+        }
+
+        // Attach scan log search listener
+        document.addEventListener('DOMContentLoaded', () => {
+            const scanSearch = document.getElementById('scanLogSearch');
+            if (scanSearch) {
+                scanSearch.addEventListener('input', (e) => {
+                    renderScanLog(e.target.value);
+                });
+            }
+        });
+    </script>
 
 </body>
 

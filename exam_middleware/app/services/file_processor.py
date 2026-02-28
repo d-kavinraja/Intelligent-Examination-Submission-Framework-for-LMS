@@ -28,15 +28,15 @@ class FileProcessor:
     
     # Regex patterns for filename parsing
     # Pattern: REGISTER_NUMBER_SUBJECT_CODE.pdf
-    # Example: 212223240065_19AI405.pdf
+    # Examples: 212223240065_19AI405.pdf, 212223240065_AI405.pdf, 212223240065_CS501.pdf
     FILENAME_PATTERN = re.compile(
         r'^(\d{12})_([A-Z0-9]{2,10})\.(pdf|jpg|jpeg|png)$',
         re.IGNORECASE
     )
     
-    # More flexible pattern for variations
+    # More flexible pattern for variations - accepts digits/letters in any order
     FLEXIBLE_PATTERN = re.compile(
-        r'(\d{10,12})[_\-\s]?([A-Z]{2,3}[\d]{2,4}[A-Z]?\d*)',
+        r'(\d{10,12})[_\-\s]?([A-Z0-9]{2,10})',
         re.IGNORECASE
     )
     
@@ -92,7 +92,8 @@ class FileProcessor:
     def validate_file(
         self,
         file_content: bytes,
-        filename: str
+        filename: str,
+        skip_filename_validation: bool = False
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Validate uploaded file
@@ -100,6 +101,7 @@ class FileProcessor:
         Args:
             file_content: Raw file bytes
             filename: Original filename
+            skip_filename_validation: If True, skip filename format check (for extraction mode)
             
         Returns:
             Tuple of (is_valid, message, metadata)
@@ -126,14 +128,23 @@ class FileProcessor:
         
         metadata["mime_type"] = mime_type
         
-        # Parse filename
-        register_no, subject_code, is_parsed = self.parse_filename(filename)
-        metadata["parsed_register_no"] = register_no
-        metadata["parsed_subject_code"] = subject_code
-        metadata["filename_valid"] = is_parsed
-        
-        if not is_parsed:
-            return False, "Invalid filename format. Expected: REGISTER_SUBJECT.pdf", metadata
+        # Parse filename (but allow ANY filename in extraction mode)
+        if not skip_filename_validation:
+            register_no, subject_code, is_parsed = self.parse_filename(filename)
+            metadata["parsed_register_no"] = register_no
+            metadata["parsed_subject_code"] = subject_code
+            metadata["filename_valid"] = is_parsed
+            
+            if not is_parsed:
+                return False, "Invalid filename format. Expected: REGISTER_SUBJECT.pdf or use /scan-upload for auto-extraction", metadata
+        else:
+            # In extraction mode, filename format doesn't matter
+            # Extract will happen via ML models
+            register_no, subject_code, is_parsed = self.parse_filename(filename)
+            metadata["parsed_register_no"] = register_no
+            metadata["parsed_subject_code"] = subject_code
+            metadata["filename_valid"] = is_parsed
+            metadata["will_extract"] = True
         
         return True, "File validated successfully", metadata
     

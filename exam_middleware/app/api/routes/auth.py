@@ -143,11 +143,18 @@ async def register_staff(
     password: str,
     email: str,
     full_name: str = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Register a new staff user (admin only in production)
+    Register a new staff user (admin only)
     """
+    # Only admins can create new staff accounts
+    if current_staff.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can register new staff accounts"
+        )
     # Check if username exists
     result = await db.execute(
         select(StaffUser).where(StaffUser.username == username)

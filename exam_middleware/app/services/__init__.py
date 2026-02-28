@@ -10,6 +10,8 @@ from app.services.artifact_service import (
     AuditService,
 )
 from app.services.submission_service import SubmissionService
+from app.services.mail_service import MailService, mail_service
+from app.services.notification_service import NotificationService
 
 __all__ = [
     "MoodleClient",
@@ -21,4 +23,7 @@ __all__ = [
     "SubjectMappingService",
     "AuditService",
     "SubmissionService",
+    "MailService",
+    "mail_service",
+    "NotificationService",
 ]
