@@ -152,11 +152,13 @@ class AnswerSheetExtractor:
 
         # ---- Transforms -------------------------------------------------------
         self.register_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
             transforms.Resize((32, 256)),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
         ])
         self.subject_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
             transforms.Resize((32, 128)),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
@@ -169,6 +171,18 @@ class AnswerSheetExtractor:
 
     def _detect_regions(self, image: np.ndarray):
         """Run YOLO and return register and subject regions."""
+        h, w = image.shape[:2]
+        PADDING = 10  # px around each detection box (prevents edge chars from being cut)
+        CONF_THRESH = 0.2  # match the working Streamlit threshold
+
+        def _padded_crop(img, x1, y1, x2, y2):
+            """Crop with padding, clamped to image boundaries."""
+            px1 = max(0, x1 - PADDING)
+            py1 = max(0, y1 - PADDING)
+            px2 = min(w, x2 + PADDING)
+            py2 = min(h, y2 + PADDING)
+            return img[py1:py2, px1:px2]
+
         results = self.primary_yolo(image)
         boxes = results[0].boxes
         names = results[0].names
@@ -180,16 +194,28 @@ class AnswerSheetExtractor:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             conf = float(box.conf[0])
             label = names[int(box.cls[0])]
-            crop = image[y1:y2, x1:x2]
+            # Clamp to image boundaries
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            if x1 >= x2 or y1 >= y2:
+                continue
 
-            if label == "RegisterNumber" and conf > 0.5:
+            crop = _padded_crop(image, x1, y1, x2, y2)
+
+            if label == "RegisterNumber" and conf > CONF_THRESH:
                 reg_regions.append((crop, conf))
-            elif label == "SubjectCode" and conf > 0.5:
+            elif label == "SubjectCode" and conf > CONF_THRESH:
                 sub_regions.append((crop, conf))
 
-        # Fallback for subject code
-        if not sub_regions and self.fallback_yolo is not None:
-            logger.info("Primary YOLO missed SubjectCode — trying fallback")
+        # Fallback YOLO for BOTH register and subject if either is missing
+        if (not reg_regions or not sub_regions) and self.fallback_yolo is not None:
+            missing = []
+            if not reg_regions:
+                missing.append("RegisterNumber")
+            if not sub_regions:
+                missing.append("SubjectCode")
+            logger.info("Primary YOLO missed regions — trying fallback", missing=missing)
+
             fb_results = self.fallback_yolo(image)
             fb_boxes = fb_results[0].boxes
             fb_names = fb_results[0].names
@@ -197,8 +223,16 @@ class AnswerSheetExtractor:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 conf = float(box.conf[0])
                 label = fb_names[int(box.cls[0])]
-                if label == "SubjectCode" and conf > 0.5:
-                    crop = image[y1:y2, x1:x2]
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+                if x1 >= x2 or y1 >= y2:
+                    continue
+
+                crop = _padded_crop(image, x1, y1, x2, y2)
+
+                if label == "RegisterNumber" and conf > CONF_THRESH and not reg_regions:
+                    reg_regions.append((crop, conf))
+                elif label == "SubjectCode" and conf > CONF_THRESH and not sub_regions:
                     sub_regions.append((crop, conf))
 
         return reg_regions, sub_regions
