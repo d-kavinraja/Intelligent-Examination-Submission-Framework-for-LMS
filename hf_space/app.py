@@ -398,7 +398,7 @@ async def extraction_status():
 
 
 @app.post("/extract")
-async def extract_endpoint(file: UploadFile = File(...)):
+def extract_endpoint(file: UploadFile = File(...)):
     """Extract register number and subject code from uploaded file."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
@@ -410,7 +410,7 @@ async def extract_endpoint(file: UploadFile = File(...)):
 
     try:
         extractor = get_extractor()
-        file_data = await file.read()
+        file_data = file.file.read()
         result = extractor.extract_from_bytes(file_data, file.filename)
         return JSONResponse(content=result)
     except Exception as e:
@@ -419,7 +419,7 @@ async def extract_endpoint(file: UploadFile = File(...)):
 
 
 @app.post("/extract/base64")
-async def extract_base64_endpoint(image_data: str):
+def extract_base64_endpoint(image_data: str):
     """Extract from base64-encoded image/PDF."""
     try:
         file_bytes = base64.b64decode(image_data)

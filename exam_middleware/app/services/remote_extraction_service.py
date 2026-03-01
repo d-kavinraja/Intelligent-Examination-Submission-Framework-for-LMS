@@ -32,13 +32,20 @@ async def check_hf_space_health() -> bool:
         logger.warning("HF_SPACE_URL not configured — using local extraction")
         return False
 
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(HEALTH_ENDPOINT)
-            return resp.status_code == 200
-    except Exception as e:
-        logger.warning("HF Space health check failed", error=str(e))
-        return False
+    import asyncio
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(HEALTH_ENDPOINT)
+                if resp.status_code == 200:
+                    return True
+        except Exception as e:
+            logger.warning(f"HF Space health check failed (attempt {attempt + 1})", error=str(e))
+        
+        if attempt < 2:
+            await asyncio.sleep(5)  # Wait 5 seconds before retrying
+            
+    return False
 
 
 async def extract_from_hf_space(file_bytes: bytes, filename: str) -> dict:
