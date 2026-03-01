@@ -32,6 +32,6 @@ services:
       - key: LOG_LEVEL
         value: "INFO"
       - key: CORS_ORIGINS
-        value: '["*"]'
+        value: '["https://saveetha-exam-middleware.moodlecloud.com"]'
       - key: HF_SPACE_URL
         value: "https://kavinraja-ml-service.hf.space"
