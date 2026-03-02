@@ -56,7 +56,7 @@ class MoodleClient:
         token: Optional[str] = None,
         timeout: float = 30.0
     ):
-        self.base_url = (base_url or settings.moodle_base_url).rstrip('/')
+        self.base_url = (base_url or settings.moodle_base_url_default).rstrip('/')
         self.token = token
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
