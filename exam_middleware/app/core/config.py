@@ -41,12 +41,15 @@ class Settings(BaseSettings):
     redis_db: int = Field(default=0)
     redis_url: Optional[str] = None
     
-    # Moodle
-    moodle_base_url: str = Field(default="https://saveetha-exam-middleware.moodlecloud.com")
+    # Moodle - Configure for your Moodle instance
+    # Default: College's Moodle at lms.ai.saveetha.in
+    moodle_base_url: str = Field(default="https://lms.ai.saveetha.in")
     moodle_ws_endpoint: str = Field(default="/webservice/rest/server.php")
     moodle_upload_endpoint: str = Field(default="/webservice/upload.php")
     moodle_token_endpoint: str = Field(default="/login/token.php")
     moodle_service: str = Field(default="moodle_mobile_app")
+    # OPTIONAL: Admin token only needed for admin operations
+    # Students use their own Moodle tokens for submissions
     moodle_admin_token: Optional[str] = None
 
     # Email Notifications (SendGrid preferred, SMTP fallback)
@@ -70,10 +73,12 @@ class Settings(BaseSettings):
     max_file_size_mb: int = Field(default=50)
     allowed_extensions: str = Field(default=".pdf,.jpg,.jpeg,.png")
     
-    # ML Service - HuggingFace Spaces for extraction
-    hf_space_url: str = Field(default="https://kavinraja-ml-service.hf.space")
-    ml_service_url: str = Field(default="http://localhost:8501")  # Local fallback
-    ml_service_enabled: bool = Field(default=False)
+    # ML Service Configuration
+    # LOCAL MODE (default): Uses YOLO + CRNN models running on this machine
+    # Set HF_SPACE_URL to use remote extraction via HuggingFace Spaces instead
+    hf_space_url: str = Field(default="")  # Leave empty to use local models
+    ml_service_url: str = Field(default="http://localhost:8501")  # Streamlit UI (optional)
+    ml_service_enabled: bool = Field(default=False)  # Disable remote HF Spaces by default
     
     # Logging
     log_level: str = Field(default="INFO")

@@ -88,6 +88,8 @@ class NotificationService:
             return
 
         if not settings.moodle_admin_token:
+            # Admin token not configured - skip user lookup, but don't fail
+            # Students can still submit without email notifications
             await self.audit_service.log_action(
                 action="student_notification_skipped",
                 action_category="notification",
@@ -95,8 +97,9 @@ class NotificationService:
                 actor_username="notification_service",
                 actor_ip=actor_ip,
                 artifact_id=artifact.id,
-                description="Moodle admin token not configured for user-email lookup",
+                description="Moodle admin token not configured - email notification skipped (not critical)",
             )
+            logger.info(f"Admin token not configured - skipping email notification for {artifact.parsed_reg_no}")
             return
 
         moodle_username = username_mapping.moodle_username
@@ -182,17 +185,21 @@ class NotificationService:
         Send a test upload notification email for admin verification.
 
         Returns a structured result with success flag and resolved recipient details.
+        
+        NOTE: Admin token is optional. If not configured, returns a message indicating
+        email notifications are disabled.
         """
         if not mail_service.is_configured():
             return {
                 "success": False,
-                "message": "SMTP is not configured",
+                "message": "SMTP/SendGrid is not configured",
             }
 
         if not settings.moodle_admin_token:
             return {
                 "success": False,
-                "message": "Moodle admin token not configured",
+                "message": "Moodle admin token not configured - email notifications disabled (optional feature)",
+                "note": "Configure MOODLE_ADMIN_TOKEN to enable email notifications from admin account"
             }
 
         result = await self.db.execute(

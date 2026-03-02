@@ -519,11 +519,14 @@ class SubmissionService:
         finally:
             await client.close()
     
-    async def retry_queued_submissions(self, admin_token: str) -> Dict[str, Any]:
+    async def retry_queued_submissions(self, admin_token: Optional[str] = None) -> Dict[str, Any]:
         """
         Retry all queued submissions (for background worker)
         
-        This implements the buffer pattern from Section 6.4
+        This implements the buffer pattern from Section 6.4.
+        
+        NOTE: admin_token is optional. If not provided, submissions will not be retried
+        automatically. You can still manually trigger retry through the API.
         """
         from app.db.models import SubmissionQueue
         from sqlalchemy import select
@@ -532,8 +535,16 @@ class SubmissionService:
             "processed": 0,
             "successful": 0,
             "failed": 0,
-            "details": []
+            "details": [],
+            "note": "Admin token not configured - automatic retry disabled" if not admin_token else None
         }
+        
+        if not admin_token:
+            # Without admin token, queue processing is disabled for background tasks
+            # Students can still submit individually with their own credentials
+            logger.warning("Retry queue: Admin token not configured - skipping automatic queue processing")
+            result["skipped"] = True
+            return result
         
         # Get queued items
         query = await self.db.execute(

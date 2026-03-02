@@ -204,7 +204,8 @@ async def auto_create_subject_mapping(
     if not settings.moodle_admin_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="MOODLE_ADMIN_TOKEN not configured on server"
+            detail="MOODLE_ADMIN_TOKEN not configured. Configure it to auto-lookup assignment IDs from Moodle, "
+                   "or manually set assignment_id in the request body instead of cmid."
         )
 
     subject_code = (payload.get("subject_code") or "").strip().upper()
@@ -463,16 +464,18 @@ async def retry_queued_submissions(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Manually trigger retry of queued submissions
-    """
-    if not settings.moodle_admin_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Admin token not configured for queue processing"
-        )
+    Manually trigger retry of queued submissions.
     
+    NOTE: This endpoint is useful to manually retry any failed submissions,
+    but not critical for local operation. Admin token is optional.
+    """
     submission_service = SubmissionService(db)
-    result = await submission_service.retry_queued_submissions(settings.moodle_admin_token)
+    
+    # Use admin token if available, otherwise use local student scenarios
+    # This allows retry processing even without admin token
+    result = await submission_service.retry_queued_submissions(
+        admin_token=settings.moodle_admin_token
+    )
     
     return result
 

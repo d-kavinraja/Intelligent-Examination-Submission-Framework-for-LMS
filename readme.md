@@ -353,6 +353,12 @@ python setup_subject_mapping.py
 
 ## Quick Start
 
+> **NEW: Local Deployment Support!** 
+> The application now runs locally on your machine with your college's Moodle instance (`lms.ai.saveetha.in`).
+> No admin token required - students use their own Moodle credentials for submissions.
+> 
+> **→ For complete local setup guide, see: [LOCAL_DEPLOYMENT.md](exam_middleware/LOCAL_DEPLOYMENT.md)**
+
 ### Step 1: Clone and Navigate
 
 ```bash
