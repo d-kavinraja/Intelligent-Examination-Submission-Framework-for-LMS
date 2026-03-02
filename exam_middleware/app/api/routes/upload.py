@@ -19,7 +19,6 @@ from app.schemas import (
 )
 from app.services.file_processor import file_processor
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
-from app.services.notification_service import NotificationService
 from app.api.routes.auth import get_current_staff
 from app.db.models import WorkflowStatus, ExaminationArtifact, SubjectMapping, StudentUsernameRegister
 
@@ -27,32 +26,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-async def _bg_notify_student(
-    artifact_id: int,
-    uploaded_by_username: str,
-    actor_ip: Optional[str],
-) -> None:
-    """Run student notification in the background with its own DB session."""
-    try:
-        async with async_session_maker() as session:
-            from app.db.models import ExaminationArtifact
-            result = await session.execute(
-                select(ExaminationArtifact).where(ExaminationArtifact.id == artifact_id)
-            )
-            artifact = result.scalar_one_or_none()
-            if artifact:
-                notification_service = NotificationService(session)
-                await notification_service.notify_student_on_upload(
-                    artifact=artifact,
-                    uploaded_by_username=uploaded_by_username,
-                    actor_ip=actor_ip,
-                )
-                await session.commit()
-    except Exception as exc:
-        logging.getLogger(__name__).error(
-            "Background notification failed for artifact %s: %s", artifact_id, exc
-        )
 
 
 @router.post("/single", response_model=FileUploadResponse)
@@ -145,14 +118,7 @@ async def upload_single_file(
         
         await db.commit()
 
-        # Schedule non-blocking student notification in background
-        background_tasks.add_task(
-            _bg_notify_student,
-            artifact_id=artifact.id,
-            uploaded_by_username=current_staff.username,
-            actor_ip=request.client.host if request and request.client else None,
-        )
-        
+
         return FileUploadResponse(
             success=True,
             message="File uploaded successfully",
@@ -253,14 +219,7 @@ async def upload_bulk_files(
                     file_content=content
                 )
 
-            # Schedule non-blocking student notification in background
-            background_tasks.add_task(
-                _bg_notify_student,
-                artifact_id=artifact.id,
-                uploaded_by_username=current_staff.username,
-                actor_ip=request.client.host if request and request.client else None,
-            )
-            
+
             results.append(FileUploadResponse(
                 success=True,
                 filename=file.filename,
