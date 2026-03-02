@@ -65,15 +65,15 @@ def _disable_windows_quick_edit():
 # SETTINGS — Edit these to match your environment
 # ─────────────────────────────────────────────────────────────────
 
-# Server URL (your Render deployment)
-SERVER_URL = "https://exam-middleware.onrender.com"
+# Server URL (local development server)
+SERVER_URL = "http://localhost:8000"
 
 # Staff credentials (the agent logs in as staff to upload)
 STAFF_USERNAME = "admin"
 STAFF_PASSWORD = "admin123"
 
 # Folder where the Ricoh scanner saves files
-WATCH_FOLDER = r"C:\ScanInbox"
+WATCH_FOLDER = r"C:\Users\SEC\Downloads\Saveetha - B-tech AIML\ML_PROJECTS\Models\SCANNED-PAPERS"
 
 # Exam type to tag files with (CIA1 or CIA2)
 DEFAULT_EXAM_TYPE = "CIA1"
@@ -230,9 +230,10 @@ class ScannerAgent:
                 # Warn if server returned a UUID we've already seen (overwrite)
                 if uuid in self._uploaded_uuids:
                     log.warning(f"   ⚠ DUPLICATE UUID detected! Server overwrote a previous upload.")
+                    log.warning(f"   ⚠ This file may have the same extracted reg+subject as another file.")
                 self._uploaded_uuids.add(uuid)
 
-                # Move to processed folder
+                # Move to processed folder (include hash to distinguish files)
                 dest = self.processed_folder / f"{renamed}__{file_hash}__{file_path.name}"
                 shutil.move(str(file_path), str(dest))
                 log.info(f"   ✓ Moved to: processed/{dest.name}")
@@ -252,29 +253,31 @@ class ScannerAgent:
                 self._stats["failed"] += 1
                 return False
 
-        except (requests.exceptions.RequestException, Exception) as e:
-            log.error(f"   ✗ Connection/request error: {e}")
+        except requests.exceptions.Timeout:
+            log.error(f"   ✗ Request timed out (server may be starting up)")
             if retry_count < MAX_RETRIES:
-                wait_time = (2 ** retry_count) * 5  # Exponential backoff: 5s, 10s...
-                log.info(f"   Retrying in {wait_time}s ({retry_count + 1}/{MAX_RETRIES})...")
-                time.sleep(wait_time)
+                log.info(f"   Retrying ({retry_count + 1}/{MAX_RETRIES})...")
+                time.sleep(5)
                 return self.process_file(file_path, retry_count + 1)
-            
-            # If all retries fail, move to failed folder
             self._stats["failed"] += 1
-            try:
-                dest = self.failed_folder / f"error__{file_hash}__{file_path.name}"
-                shutil.move(str(file_path), str(dest))
-                log.warning(f"   Moved failed file to: failed/{dest.name}")
-            except Exception as move_err:
-                log.error(f"   Could not move failed file: {move_err}")
+            return False
+        except Exception as e:
+            log.error(f"   ✗ Error: {e}")
+            self._stats["failed"] += 1
             return False
 
     def _is_file_stable(self, file_path: Path) -> bool:
         """
         Non-blocking stability check.
+
+        Instead of sleeping inside this method (which blocks the entire
+        agent for every single file), we compare the file's current size
+        to the size recorded on the *previous* poll cycle.  If the size
+        hasn't changed and is > 0, the file is stable.  First time we
+        see a file we just record its size and return False (will be
+        picked up on the next poll, ~POLL_INTERVAL seconds later).
         """
-        key = str(file_path.absolute()) # Use absolute path for reliable keying
+        key = str(file_path)
         try:
             current_size = file_path.stat().st_size
         except OSError:
@@ -288,6 +291,7 @@ class ScannerAgent:
         self._pending_sizes[key] = current_size
 
         if prev_size is None:
+            # First sighting — record size and wait for next poll
             return False
 
         return current_size == prev_size
@@ -299,25 +303,27 @@ class ScannerAgent:
             return
 
         try:
-            # Use rglob if we want recursive, but for now stick to root level entries
-            # Filter out the directories we use for tracking
-            entries = sorted([f for f in self.watch_folder.iterdir() 
-                             if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS])
+            entries = sorted(self.watch_folder.iterdir())
         except OSError as e:
             log.error(f"Cannot read watch folder: {e}")
             return
 
         for entry in entries:
-            key = str(entry.absolute())
-            if key in self._seen_files:
+            if not entry.is_file():
+                continue
+            if entry.suffix.lower() not in ALLOWED_EXTENSIONS:
+                continue
+            if str(entry) in self._seen_files:
                 continue
 
+            # Non-blocking stability check (compares size across poll cycles)
             if not self._is_file_stable(entry):
+                log.debug(f"File still writing: {entry.name}")
                 continue
 
             # Clean up tracking dict
-            self._pending_sizes.pop(key, None)
-            self._seen_files.add(key)
+            self._pending_sizes.pop(str(entry), None)
+            self._seen_files.add(str(entry))
             self._queue.append(entry)
             log.info(f"   ⊕ Queued: {entry.name}  (queue size: {len(self._queue)})")
             sys.stdout.flush()

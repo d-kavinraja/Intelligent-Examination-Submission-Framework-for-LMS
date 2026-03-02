@@ -95,8 +95,9 @@ def _get_local_extractor():
             _local_extractor = get_extractor()
             logger.info("Local extraction service loaded as fallback")
         except Exception as e:
-            logger.error("Failed to load local extraction", error=str(e))
-            _local_extractor = None
+            import traceback
+            logger.error(f"Failed to load local extraction: {e}\n{traceback.format_exc()}")
+            raise RuntimeError(f"Local extraction model loading failed: {e}") from e
     return _local_extractor
 
 
@@ -118,12 +119,16 @@ async def extract_from_bytes_with_fallback(file_bytes: bytes, filename: str) -> 
     logger.info("Falling back to local extraction")
     try:
         local_extractor = _get_local_extractor()
-        if local_extractor:
-            return local_extractor.extract_from_bytes(file_bytes, filename)
-        else:
-            return {"success": False, "error": "No extraction service available"}
+        result = local_extractor.extract_from_bytes(file_bytes, filename)
+        # Ensure result has a success flag
+        if "error" in result and "success" not in result:
+            result["success"] = False
+        elif "success" not in result:
+            result["success"] = True
+        return result
     except Exception as e:
-        logger.error("Local extraction fallback failed", error=str(e))
+        import traceback
+        logger.error(f"Local extraction fallback failed: {e}\n{traceback.format_exc()}")
         return {"success": False, "error": str(e)}
 
 
@@ -133,7 +138,12 @@ def is_extraction_available() -> bool:
         return True
 
     try:
-        from app.services.extraction_service import is_extraction_available
-        return is_extraction_available()
-    except Exception:
+        from app.services.extraction_service import is_extraction_available as _local_check
+        result = _local_check()
+        logger.info(f"Local extraction available: {result}")
+        return result
+    except Exception as e:
+        logger.warning(f"Local extraction import failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False

@@ -3231,7 +3231,7 @@
                 subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
                 subject_name: document.getElementById('sm_subject_name').value.trim() || null,
                 exam_type: document.getElementById('sm_exam_type').value,
-                cmid: parseInt(cmidVal),
+                assignment_id: parseInt(cmidVal),  // Changed: send assignment_id for manual mapping (no admin token needed)
                 exam_session: document.getElementById('sm_exam_session').value.trim() || null,
             };
             try {

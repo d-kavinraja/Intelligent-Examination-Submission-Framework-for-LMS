@@ -1,53 +1,62 @@
 # FastAPI and Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-jinja2==3.1.2
-aiofiles==23.2.1
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+aiofiles
 
 # Database
-sqlalchemy==2.0.23
-asyncpg==0.29.0
-alembic==1.12.1
-psycopg2-binary==2.9.9
+sqlalchemy
+asyncpg
+alembic
+psycopg2-binary
 
 # Authentication and Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-cryptography==41.0.7
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+cryptography
 
 # HTTP Client
-httpx==0.25.2
-aiohttp==3.9.1
+httpx
+aiohttp
+requests
 
 # Redis for Session/Queue Management
-redis==5.0.1
-aioredis==2.0.1
+redis
+aioredis
 
 # Background Tasks
-celery==5.3.4
-flower==2.0.1
+celery
+flower
 
 # Validation and Settings
-pydantic==2.5.2
-pydantic-settings==2.1.0
-python-dotenv==1.0.0
-email-validator==2.1.0
+pydantic
+pydantic-settings
+python-dotenv
+email-validator
 
 # File Processing
-pillow==10.1.0
-pypdf==3.17.1
+pillow
+pypdf
+python-magic
+
+# ML / Deep Learning
+torch
+torchvision
+ultralytics
+opencv-python-headless
+numpy
+pdf2image
 
 # Logging and Monitoring
-structlog==23.2.0
-prometheus-client==0.19.0
+structlog
+prometheus-client
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.2
-
+pytest
+pytest-asyncio
 
 # Utilities
-python-dateutil==2.8.2
-orjson==3.9.10
+python-dateutil
+orjson

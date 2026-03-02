@@ -10,18 +10,19 @@ import logging
 import tempfile
 from pathlib import Path
 
-import numpy as np
-import torch
-import torch.nn as nn
-from PIL import Image
-from torchvision import transforms
-
+# Heavy ML imports are done LAZILY inside the class to avoid
+# import failures breaking the is_extraction_available() check
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Model directory — resolve relative to this file → exam_middleware/models/
 # ---------------------------------------------------------------------------
-MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
+# Get the absolute path to the models directory
+_current_file = Path(__file__).resolve()  # app/services/extraction_service.py
+_service_dir = _current_file.parent  # app/services/
+_app_dir = _service_dir.parent  # app/
+_exam_middleware_dir = _app_dir.parent  # exam_middleware/
+MODELS_DIR = _exam_middleware_dir / "models"
 
 PRIMARY_YOLO_WEIGHTS = MODELS_DIR / "improved_weights.pt"
 FALLBACK_YOLO_WEIGHTS = MODELS_DIR / "weights.pt"  # optional
@@ -31,51 +32,65 @@ SUBJECT_CRNN_WEIGHTS = MODELS_DIR / "best_subject_model_final.pth"
 
 # ---------------------------------------------------------------------------
 # CRNN architecture (must match training code exactly)
+# Imports torch lazily so is_extraction_available() works without torch
 # ---------------------------------------------------------------------------
-class CRNN(nn.Module):
-    def __init__(self, num_classes: int):
-        super().__init__()
-        self.cnn = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Dropout2d(0.3),
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d((2, 1), (2, 1)),
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.MaxPool2d((2, 1), (2, 1)),
-            nn.Dropout2d(0.3),
-            nn.Conv2d(512, 512, kernel_size=(2, 1)),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-        )
-        self.rnn = nn.LSTM(512, 256, num_layers=2, bidirectional=True, dropout=0.3)
-        self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(512, num_classes)
+def _get_torch():
+    import torch
+    import torch.nn as nn
+    return torch, nn
 
-    def forward(self, x):
-        x = self.cnn(x)
-        x = x.squeeze(2)
-        x = x.permute(2, 0, 1)
-        x, _ = self.rnn(x)
-        x = self.dropout(x)
-        x = self.fc(x)
-        return x
+
+class CRNN:
+    """Lazy wrapper — actual nn.Module is built on first use."""
+    def __new__(cls, num_classes: int):
+        import torch.nn as nn
+
+        class _CRNN(nn.Module):
+            def __init__(self, num_classes: int):
+                super().__init__()
+                self.cnn = nn.Sequential(
+                    nn.Conv2d(1, 64, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(64),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2, 2),
+                    nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2, 2),
+                    nn.Dropout2d(0.3),
+                    nn.Conv2d(128, 256, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(256),
+                    nn.ReLU(),
+                    nn.Conv2d(256, 256, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(256),
+                    nn.ReLU(),
+                    nn.MaxPool2d((2, 1), (2, 1)),
+                    nn.Conv2d(256, 512, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU(),
+                    nn.Conv2d(512, 512, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU(),
+                    nn.MaxPool2d((2, 1), (2, 1)),
+                    nn.Dropout2d(0.3),
+                    nn.Conv2d(512, 512, kernel_size=(2, 1)),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU(),
+                )
+                self.rnn = nn.LSTM(512, 256, num_layers=2, bidirectional=True, dropout=0.3)
+                self.dropout = nn.Dropout(0.5)
+                self.fc = nn.Linear(512, num_classes)
+
+            def forward(self, x):
+                x = self.cnn(x)
+                x = x.squeeze(2)
+                x = x.permute(2, 0, 1)
+                x, _ = self.rnn(x)
+                x = self.dropout(x)
+                x = self.fc(x)
+                return x
+
+        return _CRNN(num_classes)
 
 
 # ---------------------------------------------------------------------------
@@ -106,8 +121,13 @@ def get_extractor() -> "AnswerSheetExtractor":
 
 
 def is_extraction_available() -> bool:
-    """Check whether the required model weight files exist."""
-    return PRIMARY_YOLO_WEIGHTS.exists() and REGISTER_CRNN_WEIGHTS.exists() and SUBJECT_CRNN_WEIGHTS.exists()
+    """Check whether the required model weight files exist. Pure path check — no ML imports needed."""
+    yolo_exists = PRIMARY_YOLO_WEIGHTS.exists()
+    register_exists = REGISTER_CRNN_WEIGHTS.exists()
+    subject_exists = SUBJECT_CRNN_WEIGHTS.exists()
+    logger.info(f"[ExtractionService] Models dir: {MODELS_DIR}")
+    logger.info(f"[ExtractionService] YOLO({PRIMARY_YOLO_WEIGHTS.name}): {yolo_exists}, Register({REGISTER_CRNN_WEIGHTS.name}): {register_exists}, Subject({SUBJECT_CRNN_WEIGHTS.name}): {subject_exists}")
+    return yolo_exists and register_exists and subject_exists
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +135,18 @@ def is_extraction_available() -> bool:
 # ---------------------------------------------------------------------------
 class AnswerSheetExtractor:
     def __init__(self):
+        import torch
+        import torch.nn as nn
+        import numpy as np
+        from PIL import Image
+        from torchvision import transforms
+
+        # Store as instance references so other methods can use them
+        self._torch = torch
+        self._np = np
+        self._Image = Image
+        self._transforms = transforms
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # ---- YOLO (detection) ------------------------------------------------
@@ -165,11 +197,12 @@ class AnswerSheetExtractor:
     # ------------------------------------------------------------------
     # Region detection (YOLO)
     # ------------------------------------------------------------------
-    def _detect_regions(self, image: np.ndarray):
+    def _detect_regions(self, image):
         """
         Run YOLO on the image and return lists of
         (cropped_ndarray, confidence) for register and subject regions.
         """
+        np = self._np
         h, w = image.shape[:2]
         PADDING = 10  # px around each detection box (prevents edge chars from being cut)
         CONF_THRESH = 0.2  # match the working Streamlit threshold
@@ -186,8 +219,8 @@ class AnswerSheetExtractor:
         boxes = results[0].boxes
         names = results[0].names
 
-        reg_regions: list[tuple[np.ndarray, float]] = []
-        sub_regions: list[tuple[np.ndarray, float]] = []
+        reg_regions: list = []
+        sub_regions: list = []
 
         for box in boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -239,8 +272,11 @@ class AnswerSheetExtractor:
     # ------------------------------------------------------------------
     # CRNN inference helpers
     # ------------------------------------------------------------------
-    def _extract_register_number(self, crop: np.ndarray) -> tuple[str, float]:
+    def _extract_register_number(self, crop) -> tuple:
         """Return (decoded_text, confidence)."""
+        torch = self._torch
+        np = self._np
+        Image = self._Image
         try:
             # Convert BGR numpy array → grayscale PIL without cv2
             gray = crop[:, :, ::-1] if len(crop.shape) == 3 else crop
@@ -267,8 +303,11 @@ class AnswerSheetExtractor:
             logger.error(f"Register extraction error: {e}")
             return "", 0.0
 
-    def _extract_subject_code(self, crop: np.ndarray) -> tuple[str, float]:
+    def _extract_subject_code(self, crop) -> tuple:
         """Return (decoded_text, confidence)."""
+        torch = self._torch
+        np = self._np
+        Image = self._Image
         try:
             # Convert BGR numpy array → grayscale PIL without cv2
             gray = crop[:, :, ::-1] if len(crop.shape) == 3 else crop
@@ -298,7 +337,7 @@ class AnswerSheetExtractor:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def extract_from_image(self, image: np.ndarray) -> dict:
+    def extract_from_image(self, image) -> dict:
         """
         Run the full pipeline on a single OpenCV image (BGR).
         Returns dict with register_number, subject_code, and confidence scores.
@@ -324,6 +363,7 @@ class AnswerSheetExtractor:
             subject_code, subject_confidence = self._extract_subject_code(chosen)
 
         return {
+            "success": True,
             "register_number": register_number,
             "register_confidence": round(register_confidence * 100, 1),
             "subject_code": subject_code,
@@ -339,6 +379,8 @@ class AnswerSheetExtractor:
         Run extraction on a file (image or PDF).
         For PDFs, only the first page is processed.
         """
+        np = self._np
+        Image = self._Image
         ext = Path(file_path).suffix.lower()
 
         if ext == ".pdf":

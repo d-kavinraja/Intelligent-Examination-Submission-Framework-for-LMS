@@ -200,6 +200,8 @@ async def student_login(
     2. Gets user information from Moodle
     3. Creates a local session
     4. Returns session information and pending papers
+    
+    NOTE: First time users must register their mapping via /auth/student/register-mapping
     """
     client = MoodleClient()
     
@@ -228,11 +230,11 @@ async def student_login(
         )
         mapping = result_map.scalar_one_or_none()
         if mapping is None:
-            # No explicit mapping found; deny login to prevent unauthorized access
+            # No explicit mapping found; guide user to register mapping first
             logger.warning(f"Login denied: no username->register mapping for {moodle_username}")
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account not mapped to a register number. Contact administration."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please register your Moodle username first. Use /auth/student/register-mapping endpoint."
             )
 
         if mapping.register_number != credentials.register_number:
@@ -291,8 +293,130 @@ async def student_login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication failed: {e.message}"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during student login: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
+    finally:
+        await client.close()
+
+
+@router.post("/student/register-mapping", response_model=dict)
+async def register_student_mapping(
+    credentials: StudentLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Register Moodle username to register number mapping
+    
+    First time users must call this endpoint to create the mapping,
+    then they can use the login endpoint.
+    """
+    client = MoodleClient()
+    
+    try:
+        # Authenticate with Moodle to verify credentials
+        logger.info(f"Registering mapping for student: {credentials.username}")
+        
+        token_response = await client.get_token(
+            username=credentials.username,
+            password=credentials.password
+        )
+        
+        moodle_token = token_response["token"]
+        
+        # Get user info
+        site_info = await client.get_site_info(token=moodle_token)
+        
+        moodle_username = site_info["username"]
+        moodle_fullname = site_info.get("fullname", "")
+        
+        # Check if mapping already exists
+        result = await db.execute(
+            select(StudentUsernameRegister).where(
+                StudentUsernameRegister.moodle_username == moodle_username
+            )
+        )
+        existing = result.scalar_one_or_none()
+        
+        if existing:
+            return {
+                "success": True,
+                "message": f"Mapping already exists for {moodle_username}",
+                "register_number": existing.register_number,
+                "moodle_username": existing.moodle_username
+            }
+        
+        # Create new mapping
+        mapping = StudentUsernameRegister(
+            moodle_username=moodle_username,
+            register_number=credentials.register_number,
+            full_name=moodle_fullname,
+            created_at=datetime.now(timezone.utc)
+        )
+        
+        db.add(mapping)
+        await db.commit()
+        
+        logger.info(f"Registered mapping: {moodle_username} -> {credentials.register_number}")
+        
+        return {
+            "success": True,
+            "message": "Mapping registered successfully",
+            "register_number": credentials.register_number,
+            "moodle_username": moodle_username,
+            "full_name": moodle_fullname,
+            "next_step": "Use /auth/student/login with the same credentials"
+        }
+        
+        # Store session with register number
+        session = StudentSession(
+            session_id=session_id,
+            moodle_user_id=moodle_user_id,
+            moodle_username=moodle_username,
+            moodle_fullname=moodle_fullname,
+            register_number=credentials.register_number,  # Store the provided register number
+            encrypted_token=encrypted_token,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent", "")[:500],
+            expires_at=expires_at
+        )
+        
+        db.add(session)
+        await db.commit()
+        
+        # Step 4: Get pending papers count
+        artifact_service = ArtifactService(db)
+        pending_papers = await artifact_service.get_pending_for_student(
+            register_number=credentials.register_number,
+            moodle_user_id=moodle_user_id,
+            moodle_username=moodle_username
+        )
+        
+        logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Pending papers: {len(pending_papers)}")
+        
+        return StudentLoginResponse(
+            success=True,
+            session_id=session_id,
+            moodle_user_id=moodle_user_id,
+            moodle_username=moodle_username,
+            full_name=moodle_fullname,
+            expires_at=expires_at,
+            pending_submissions=len(pending_papers)
+        )
+        
+    except MoodleAPIError as e:
+        logger.warning(f"Moodle authentication failed for {credentials.username}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Authentication failed: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during register mapping: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred"
