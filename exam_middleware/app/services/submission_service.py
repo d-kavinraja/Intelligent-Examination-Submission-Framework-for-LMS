@@ -91,8 +91,15 @@ class SubmissionService:
                 "submitted_at": artifact.submit_timestamp.isoformat() if artifact.submit_timestamp else None
             }
         
-        # Get assignment ID
-        assignment_id = await self._resolve_assignment_id(artifact)
+        # Extract base URL dynamically
+        base_url = settings.get_moodle_base_url(artifact.parsed_subject_code)
+
+        # Get assignment ID with JIT support
+        assignment_id = await self._resolve_assignment_id(
+            artifact=artifact,
+            moodle_token=moodle_token,
+            base_url=base_url
+        )
         if not assignment_id:
             return False, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
         
@@ -110,7 +117,7 @@ class SubmissionService:
             actor_username=moodle_username,
             actor_ip=actor_ip,
             artifact_id=artifact.id,
-            description=f"Starting submission for assignment {assignment_id}"
+            description=f"Starting submission for assignment {assignment_id} on {base_url}"
         )
         
         # Execute the 3-step submission process
@@ -119,6 +126,7 @@ class SubmissionService:
                 artifact=artifact,
                 assignment_id=assignment_id,
                 moodle_token=moodle_token,
+                base_url=base_url,
                 lock_submission=lock_submission
             )
             
@@ -222,16 +230,48 @@ class SubmissionService:
             
             return False, f"Unexpected error: {str(e)}", None
     
-    async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Optional[int]:
-        """Resolve the Moodle assignment ID for an artifact"""
-        # Always try to get the latest mapping first to handle re-mappings/retries correctly
-        if artifact.parsed_subject_code:
-            exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
-            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type)
+    async def _resolve_assignment_id(
+        self, 
+        artifact: ExaminationArtifact,
+        moodle_token: str,
+        base_url: str
+    ) -> Optional[int]:
+        """Resolve the Moodle assignment ID using DB cache or JIT discovery"""
+        exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
+        subject_code = artifact.parsed_subject_code
+
+        # Always try to get the latest mapping first
+        if subject_code:
+            mapping_id = await self.mapping_service.get_assignment_id(subject_code, exam_type)
             if mapping_id:
-                # Update the artifact's field to keep it in sync with the latest mapping
                 artifact.moodle_assignment_id = mapping_id
                 return mapping_id
+                
+            # Perform JIT Discovery
+            logger.info(f"No DB mapping for {subject_code}. Performing JIT resolution on {base_url}.")
+            try:
+                client = MoodleClient(token=moodle_token, base_url=base_url)
+                jit_result = await client.resolve_assignment_jit(subject_code, exam_type)
+                
+                # Cache it in the DB!
+                assignment_id = jit_result["assignment_id"]
+                logger.info(f"JIT success: found {assignment_id}. Saving to mapping DB.")
+                
+                await self.mapping_service.create_mapping(
+                    subject_code=subject_code,
+                    moodle_course_id=jit_result["course_id"],
+                    moodle_assignment_id=assignment_id,
+                    moodle_assignment_name=jit_result.get("assignment_name", "Auto-discovered JIT"),
+                    subject_name=subject_code,
+                    exam_session="Current"
+                )
+                
+                artifact.moodle_assignment_id = assignment_id
+                return assignment_id
+            except MoodleAPIError as e:
+                logger.error(f"JIT Resolution failed for {subject_code}: {e}")
+            finally:
+                await client.close()
         
         # Fallback to what was previously stored (or None)
         return artifact.moodle_assignment_id
@@ -241,6 +281,7 @@ class SubmissionService:
         artifact: ExaminationArtifact,
         assignment_id: int,
         moodle_token: str,
+        base_url: str,
         lock_submission: bool
     ) -> Dict[str, Any]:
         """
@@ -250,7 +291,7 @@ class SubmissionService:
         Step 2: Link draft to assignment
         Step 3: Finalize submission (optional)
         """
-        client = MoodleClient(token=moodle_token)
+        client = MoodleClient(token=moodle_token, base_url=base_url)
         result = {
             "assignment_id": assignment_id,
             "steps_completed": []
@@ -505,7 +546,8 @@ class SubmissionService:
                 "moodle_status": None
             }
         
-        client = MoodleClient(token=moodle_token)
+        base_url = settings.get_moodle_base_url(artifact.parsed_subject_code)
+        client = MoodleClient(token=moodle_token, base_url=base_url)
         try:
             status = await client.get_submission_status(
                 assignment_id=artifact.moodle_assignment_id,
@@ -519,89 +561,13 @@ class SubmissionService:
         finally:
             await client.close()
     
-    async def retry_queued_submissions(self, admin_token: str) -> Dict[str, Any]:
+    async def retry_queued_submissions(self) -> Dict[str, Any]:
         """
-        Retry all queued submissions (for background worker)
-        
-        This implements the buffer pattern from Section 6.4
+        Retry logic requires user authentication tokens since Admin Token was removed.
+        Currently, retrying queued submissions automatically is disabled without a token.
+        Consider changing status to PENDING_REVIEW instead.
         """
-        from app.db.models import SubmissionQueue
-        from sqlalchemy import select
-        
-        result = {
-            "processed": 0,
-            "successful": 0,
-            "failed": 0,
-            "details": []
+        return {
+            "success": False,
+            "message": "Retry queue disabled: No admin token available. Retries must involve user interaction."
         }
-        
-        # Get queued items
-        query = await self.db.execute(
-            select(SubmissionQueue)
-            .where(SubmissionQueue.status == "QUEUED")
-            .order_by(SubmissionQueue.priority, SubmissionQueue.queued_at)
-            .limit(50)
-        )
-        
-        queue_items = query.scalars().all()
-        
-        for item in queue_items:
-            result["processed"] += 1
-            
-            artifact = await self.artifact_service.get_by_id(item.artifact_id)
-            if not artifact:
-                item.status = "FAILED"
-                item.last_error = "Artifact not found"
-                result["failed"] += 1
-                continue
-            
-            # For queued items, we use the admin token
-            # In production, you'd need to handle this differently
-            try:
-                client = MoodleClient(token=admin_token)
-                
-                submit_result = await self._execute_submission(
-                    artifact=artifact,
-                    assignment_id=artifact.moodle_assignment_id,
-                    moodle_token=admin_token,
-                    lock_submission=True
-                )
-                
-                item.status = "COMPLETED"
-                item.processed_at = datetime.utcnow()
-                
-                await self.artifact_service.mark_submitted(
-                    artifact_id=artifact.id,
-                    moodle_submission_id=submit_result.get("submission_id")
-                )
-                
-                result["successful"] += 1
-                result["details"].append({
-                    "artifact_uuid": str(artifact.artifact_uuid),
-                    "status": "success"
-                })
-                
-            except Exception as e:
-                item.retry_count += 1
-                item.last_error = str(e)
-                
-                if item.retry_count >= item.max_retries:
-                    item.status = "FAILED"
-                    await self.artifact_service.mark_failed(
-                        artifact_id=artifact.id,
-                        error_message=f"Max retries exceeded: {e}",
-                        queue_for_retry=False
-                    )
-                
-                result["failed"] += 1
-                result["details"].append({
-                    "artifact_uuid": str(artifact.artifact_uuid),
-                    "status": "failed",
-                    "error": str(e)
-                })
-            
-            finally:
-                await client.close()
-        
-        await self.db.commit()
-        return result

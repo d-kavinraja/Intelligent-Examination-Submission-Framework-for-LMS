@@ -201,11 +201,13 @@ async def student_login(
     3. Creates a local session
     4. Returns session information and pending papers
     """
-    client = MoodleClient()
+    # Determine the correct Moodle instance base URL based on subject code (if provided)
+    base_url = settings.get_moodle_base_url(credentials.subject_code)
+    client = MoodleClient(base_url=base_url)
     
     try:
         # Step 1: Get Moodle token
-        logger.info(f"Authenticating student: {credentials.username}")
+        logger.info(f"Authenticating student: {credentials.username} against {base_url}")
         
         token_response = await client.get_token(
             username=credentials.username,

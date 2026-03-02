@@ -42,12 +42,16 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     
     # Moodle
-    moodle_base_url: str = Field(default="https://saveetha-exam-middleware.moodlecloud.com")
+    moodle_base_url_default: str = Field(default="https://saveetha-exam-middleware.moodlecloud.com")
+    moodle_base_url_ai: Optional[str] = None
+    moodle_base_url_cse: Optional[str] = None
+    moodle_base_url_eee: Optional[str] = None
+    # Add other departments as needed
+    
     moodle_ws_endpoint: str = Field(default="/webservice/rest/server.php")
     moodle_upload_endpoint: str = Field(default="/webservice/upload.php")
     moodle_token_endpoint: str = Field(default="/login/token.php")
     moodle_service: str = Field(default="moodle_mobile_app")
-    moodle_admin_token: Optional[str] = None
 
     # Email Notifications (SendGrid preferred, SMTP fallback)
     sendgrid_api_key: str = Field(default="")
@@ -115,20 +119,32 @@ class Settings(BaseSettings):
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
     
-    @property
-    def moodle_webservice_url(self) -> str:
-        """Full Moodle webservice URL"""
-        return f"{self.moodle_base_url}{self.moodle_ws_endpoint}"
+    def get_moodle_base_url(self, subject_code: Optional[str] = None) -> str:
+        """Dynamically resolve the Moodle base URL based on subject code prefix."""
+        if not subject_code:
+            return self.moodle_base_url_default
+            
+        code_upper = subject_code.upper()
+        if "AI" in code_upper and self.moodle_base_url_ai:
+            return self.moodle_base_url_ai
+        elif "CSE" in code_upper and self.moodle_base_url_cse:
+            return self.moodle_base_url_cse
+        elif "EEE" in code_upper and self.moodle_base_url_eee:
+            return self.moodle_base_url_eee
+            
+        return self.moodle_base_url_default
+
+    def get_moodle_webservice_url(self, subject_code: Optional[str] = None) -> str:
+        base = self.get_moodle_base_url(subject_code)
+        return f"{base}{self.moodle_ws_endpoint}"
     
-    @property
-    def moodle_upload_url(self) -> str:
-        """Full Moodle upload URL"""
-        return f"{self.moodle_base_url}{self.moodle_upload_endpoint}"
+    def get_moodle_upload_url(self, subject_code: Optional[str] = None) -> str:
+        base = self.get_moodle_base_url(subject_code)
+        return f"{base}{self.moodle_upload_endpoint}"
     
-    @property
-    def moodle_token_url(self) -> str:
-        """Full Moodle token URL"""
-        return f"{self.moodle_base_url}{self.moodle_token_endpoint}"
+    def get_moodle_token_url(self, subject_code: Optional[str] = None) -> str:
+        base = self.get_moodle_base_url(subject_code)
+        return f"{base}{self.moodle_token_endpoint}"
     
     @property
     def allowed_extensions_list(self) -> List[str]:

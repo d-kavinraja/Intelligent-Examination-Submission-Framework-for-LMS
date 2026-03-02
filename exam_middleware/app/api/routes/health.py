@@ -79,7 +79,7 @@ async def get_public_config():
     return {
         "app_name": settings.app_name,
         "app_version": settings.app_version,
-        "moodle_url": settings.moodle_base_url,
+        "moodle_url": settings.moodle_base_url_default,
         "max_file_size_mb": settings.max_file_size_mb,
         "allowed_extensions": settings.allowed_extensions_list,
         "subject_mappings": list(settings.get_subject_assignment_mapping().keys())

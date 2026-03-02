@@ -54,6 +54,7 @@ class StudentLoginRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=100, description="Moodle username")
     password: str = Field(..., min_length=1, description="Moodle password")
     register_number: str = Field(..., min_length=12, max_length=12, description="12-digit university register number")
+    subject_code: Optional[str] = Field(None, description="Subject code to route to the correct LMS instance")
 
 
 class StudentLoginResponse(BaseModel):

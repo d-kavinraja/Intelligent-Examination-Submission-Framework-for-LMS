@@ -938,6 +938,151 @@ class MoodleClient:
         except Exception as e:
             return False, f"Connection error: {e}"
 
+    # =========================================
+    # JIT Auto-Discovery
+    # =========================================
+    
+    async def get_course_contents(self, course_id: int, token: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get the structured contents (sections and modules) of a course.
+        Function: core_course_get_contents
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+        
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+            
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_course_get_contents",
+            "moodlewsrestformat": "json",
+            "courseid": course_id
+        }
+        
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            self._check_error_response(result, "core_course_get_contents")
+            
+            if isinstance(result, list):
+                return result
+                
+            raise MoodleAPIError(
+                "Unexpected response format from core_course_get_contents",
+                response_data=result
+            )
+            
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def resolve_assignment_jit(
+        self, 
+        subject_code: str, 
+        exam_type: str, 
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Just-In-Time resolution of an assignment ID for a given subject and exam type.
+        Uses the user's token (must be enrolled).
+        
+        Returns dict with:
+        - course_id
+        - assignment_id
+        - assignment_name
+        """
+        ws_token = token or self.token
+        if not ws_token:
+            raise MoodleAPIError("Token required for JIT resolution")
+
+        # 1. Fetch user's enrolled courses using mod_assign_get_assignments
+        client = await self._get_client()
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "mod_assign_get_assignments",
+            "moodlewsrestformat": "json",
+        }
+        
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+            self._check_error_response(result, "mod_assign_get_assignments")
+            
+            courses = result.get("courses", [])
+            
+            # Find the course matching subject_code "19AI406"
+            matched_course = None
+            subject_upper = subject_code.upper()
+            
+            for c in courses:
+                shortname = c.get("shortname", "").upper()
+                fullname = c.get("fullname", "").upper()
+                if subject_upper in shortname or subject_upper in fullname:
+                    matched_course = c
+                    break
+                    
+            if not matched_course:
+                raise MoodleAPIError(f"User is not enrolled in any course matching '{subject_code}'")
+                
+            course_id = matched_course["id"]
+            
+            # Now we look at the assignments within this course
+            assignments = matched_course.get("assignments", [])
+            if not assignments:
+                raise MoodleAPIError(f"No assignments found in course '{matched_course.get('fullname')}'")
+                
+            # Fetch course sections to match exam format
+            contents = await self.get_course_contents(course_id, token=ws_token)
+            
+            # Find the section for the exam_type
+            target_section = None
+            exam_type_clean = exam_type.replace(" ", "").upper() # e.g. "CIA1"
+            
+            for section in contents:
+                sec_name = section.get("name", "").replace(" ", "").upper()
+                if exam_type_clean in sec_name:
+                    target_section = section
+                    break
+                    
+            if not target_section:
+                # Fallback: combine all sections if exam_type not clearly labeled
+                target_section = {"modules": []}
+                for section in contents:
+                    target_section["modules"].extend(section.get("modules", []))
+                    
+            # Find assignment modules in the matched section
+            assignment_modules = [m for m in target_section.get("modules", []) if m.get("modname") == "assign"]
+            
+            if not assignment_modules:
+                raise MoodleAPIError(f"No assignment module found for exam type '{exam_type}' in course '{subject_code}'")
+                
+            # If multiple, prefer "part" in name as requested
+            target_module = assignment_modules[0]
+            for m in assignment_modules:
+                if "part" in m.get("name", "").lower():
+                    target_module = m
+                    break
+                    
+            # The 'instance' field is the actual mod_assign table ID
+            real_assignment_id = target_module.get("instance")
+            assignment_name = target_module.get("name")
+            
+            if not real_assignment_id:
+                raise MoodleAPIError(f"Failed to extract instance ID from assignment module: {target_module}")
+            
+            return {
+                "course_id": course_id,
+                "assignment_id": real_assignment_id,
+                "assignment_name": assignment_name
+            }
+            
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error during JIT resolution: {e.response.status_code}")
 
 # Create a default client instance
 moodle_client = MoodleClient()

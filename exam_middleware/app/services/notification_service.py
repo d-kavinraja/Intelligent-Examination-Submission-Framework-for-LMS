@@ -87,46 +87,16 @@ class NotificationService:
             )
             return
 
-        if not settings.moodle_admin_token:
-            await self.audit_service.log_action(
-                action="student_notification_skipped",
-                action_category="notification",
-                actor_type="system",
-                actor_username="notification_service",
-                actor_ip=actor_ip,
-                artifact_id=artifact.id,
-                description="Moodle admin token not configured for user-email lookup",
-            )
-            return
-
-        moodle_username = username_mapping.moodle_username
-
-        recipient_email = None
-        recipient_name = None
-        client = MoodleClient(token=settings.moodle_admin_token)
-        try:
-            user_data = await client.get_user_by_username(moodle_username)
-            if user_data:
-                recipient_email = user_data.get("email")
-                recipient_name = user_data.get("fullname")
-        except MoodleAPIError as exc:
-            logger.warning("Failed to fetch Moodle user/email for %s: %s", moodle_username, exc)
-        except Exception as exc:
-            logger.error("Unexpected error during Moodle user lookup for %s: %s", moodle_username, exc)
-        finally:
-            await client.close()
-
-        if not recipient_email:
-            await self.audit_service.log_action(
-                action="student_notification_skipped",
-                action_category="notification",
-                actor_type="system",
-                actor_username="notification_service",
-                actor_ip=actor_ip,
-                artifact_id=artifact.id,
-                description=f"No email available in Moodle profile for user {moodle_username}",
-            )
-            return
+        await self.audit_service.log_action(
+            action="student_notification_skipped",
+            action_category="notification",
+            actor_type="system",
+            actor_username="notification_service",
+            actor_ip=actor_ip,
+            artifact_id=artifact.id,
+            description="Moodle admin token removed. Email lookups are disabled.",
+        )
+        return
 
         subject_mapping = await self.mapping_service.get_mapping(
             artifact.parsed_subject_code,
@@ -189,47 +159,10 @@ class NotificationService:
                 "message": "SMTP is not configured",
             }
 
-        if not settings.moodle_admin_token:
-            return {
-                "success": False,
-                "message": "Moodle admin token not configured",
-            }
-
-        result = await self.db.execute(
-            select(StudentUsernameRegister).where(
-                StudentUsernameRegister.register_number == register_number
-            )
-        )
-        username_mapping = result.scalar_one_or_none()
-
-        if not username_mapping:
-            return {
-                "success": False,
-                "message": f"No username mapping found for register number {register_number}",
-            }
-
-        moodle_username = username_mapping.moodle_username
-
-        recipient_email = None
-        recipient_name = None
-        client = MoodleClient(token=settings.moodle_admin_token)
-        try:
-            user_data = await client.get_user_by_username(moodle_username)
-            if user_data:
-                recipient_email = user_data.get("email")
-                recipient_name = user_data.get("fullname")
-        except MoodleAPIError as exc:
-            logger.warning("Failed to fetch Moodle user/email for %s: %s", moodle_username, exc)
-        except Exception as exc:
-            logger.error("Unexpected error during Moodle user lookup for %s: %s", moodle_username, exc)
-        finally:
-            await client.close()
-
-        if not recipient_email:
-            return {
-                "success": False,
-                "message": f"No email available in Moodle profile for user {moodle_username}",
-            }
+        return {
+            "success": False,
+            "message": "Moodle admin token removed. Email lookups are disabled.",
+        }
 
         subject_mapping = await self.mapping_service.get_mapping(subject_code, exam_type)
 
