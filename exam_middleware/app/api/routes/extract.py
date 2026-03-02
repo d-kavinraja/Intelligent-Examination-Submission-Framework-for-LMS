@@ -233,6 +233,10 @@ async def scan_extract_and_upload(
         
         # Mark as auto-processed (extracted and renamed via ML)
         artifact.auto_processed = True
+        
+        # Store AI extraction confidence scores
+        artifact.register_confidence = int(result.get("register_confidence", 0))
+        artifact.subject_confidence = int(result.get("subject_confidence", 0))
 
         await audit_service.log_action(
             action="scan_auto_uploaded",

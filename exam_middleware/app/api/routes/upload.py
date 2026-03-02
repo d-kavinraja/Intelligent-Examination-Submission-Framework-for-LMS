@@ -569,6 +569,8 @@ async def get_auto_processed_uploads(
                     "raw_filename": art.raw_filename,
                     "parsed_reg_no": art.parsed_reg_no,
                     "parsed_subject_code": art.parsed_subject_code,
+                    "register_confidence": art.register_confidence,
+                    "subject_confidence": art.subject_confidence,
                     "exam_type": art.exam_type,
                     "workflow_status": art.workflow_status.value,
                     "uploaded_at": art.uploaded_at.isoformat() if art.uploaded_at else None,

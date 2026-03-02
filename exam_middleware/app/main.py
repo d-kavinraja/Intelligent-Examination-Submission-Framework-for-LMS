@@ -29,17 +29,26 @@ from app.api.routes import (
 
 # Configure logging - use stdout only in production (Render)
 _is_production = os.environ.get("RENDER") or os.environ.get("DEBUG", "true").lower() == "false"
-_handlers = [logging.StreamHandler()]
+
+# Create console handler with UTF-8 encoding (fixes Windows Unicode issues)
+import sys
+_console_handler = logging.StreamHandler(sys.stdout)
+_console_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')  # Python 3.7+ on Windows
+
+_handlers = [_console_handler]
 if not _is_production:
     try:
         Path("logs").mkdir(parents=True, exist_ok=True)
-        _handlers.append(logging.FileHandler("exam_middleware.log"))
+        _file_handler = logging.FileHandler("exam_middleware.log", encoding='utf-8')
+        _file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        _handlers.append(_file_handler)
     except Exception:
         pass  # Skip file logging if not writable
 
 logging.basicConfig(
     level=logging.DEBUG if not _is_production else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=_handlers,
 )
 # Set specific loggers to INFO to reduce SQLAlchemy noise
@@ -98,6 +107,13 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN auto_processed BOOLEAN NOT NULL DEFAULT FALSE"))
                 # Create index for fast filtering
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_examination_artifacts_auto_processed ON examination_artifacts(auto_processed) WHERE auto_processed = true"))
+
+            # Check for register_confidence (AI extraction confidence scores)
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='examination_artifacts' AND column_name='register_confidence'"))
+            if not res.fetchone():
+                logger.info("Adding register_confidence and subject_confidence to examination_artifacts...")
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN register_confidence INTEGER DEFAULT NULL"))
+                await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN subject_confidence INTEGER DEFAULT NULL"))
 
             # Migrate FK constraints to CASCADE on delete (for hard-delete support)
             try:

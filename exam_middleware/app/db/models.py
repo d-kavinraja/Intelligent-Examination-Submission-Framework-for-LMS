@@ -55,6 +55,10 @@ class ExaminationArtifact(Base):
     parsed_reg_no = Column(String(20), index=True, nullable=True)
     parsed_subject_code = Column(String(20), index=True, nullable=True)
     
+    # AI Extraction Confidence Scores (percentages 0-100)
+    register_confidence = Column(Integer, nullable=True)  # Confidence % for register number
+    subject_confidence = Column(Integer, nullable=True)  # Confidence % for subject code
+    
     # Exam type and attempt tracking
     exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
     attempt_number = Column(Integer, nullable=False, default=1, server_default="1")  # Max 2 attempts

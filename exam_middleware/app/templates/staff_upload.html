@@ -3462,7 +3462,9 @@
                     original_filename: a.original_filename,
                     renamed_filename: a.raw_filename || a.original_filename,
                     register_number: a.parsed_reg_no,
+                    register_confidence: a.register_confidence || 0,
                     subject_code: a.parsed_subject_code,
+                    subject_confidence: a.subject_confidence || 0,
                     exam_type: a.exam_type,
                     success: true,
                     workflow_status: a.workflow_status,
@@ -3519,32 +3521,55 @@
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size: 0.85rem;">';
-            html += '<thead><tr><th>Original File</th><th>Renamed To</th><th>Reg No</th><th>Subject</th><th>Exam</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>';
-            filtered.forEach(e => {
+            // NEW: Card-based display with prominent extraction details
+            let html = '';
+            filtered.slice(0, 20).forEach(e => {
                 const wsLower = (e.workflow_status || '').toLowerCase();
-                let badge;
+                const isSuccess = e.success && (wsLower !== 'failed' && wsLower !== 'error');
+                
+                let statusBadge;
                 if (!e.success) {
-                    badge = '<span class="badge bg-danger"><i class="bi bi-x"></i> Failed</span>';
+                    statusBadge = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Failed</span>';
                 } else if (wsLower === 'submitted_to_moodle' || wsLower === 'completed') {
-                    badge = '<span class="badge bg-primary"><i class="bi bi-cloud-check"></i> Submitted</span>';
+                    statusBadge = '<span class="badge bg-primary"><i class="bi bi-cloud-check"></i> Submitted</span>';
                 } else {
-                    badge = '<span class="badge bg-success"><i class="bi bi-check"></i> Uploaded</span>';
+                    statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Uploaded</span>';
                 }
+                
                 const uploadTime = e.uploaded_at ? new Date(e.uploaded_at).toLocaleString() : '-';
-                html += `<tr>
-                    <td class="text-truncate" style="max-width: 150px;" title="${e.original_filename || ''}">${e.original_filename || '-'}</td>
-                    <td class="text-truncate" style="max-width: 150px;" title="${e.renamed_filename || ''}">${e.renamed_filename || '-'}</td>
-                    <td><span class="badge bg-secondary">${e.register_number || '-'}</span></td>
-                    <td><span class="badge bg-primary">${e.subject_code || '-'}</span></td>
-                    <td><span class="badge bg-info text-dark">${e.exam_type || '-'}</span></td>
-                    <td>${badge}</td>
-                    <td><small>${uploadTime}</small></td>
-                </tr>`;
+                
+                html += `
+                <div class="alert ${isSuccess ? 'alert-success' : 'alert-danger'} border-2 mb-3 py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+                                <div>
+                                    <span class="badge bg-dark px-3 py-2" style="font-size: 0.85rem;">Reg: <strong>${e.register_number || 'N/A'}</strong></span>
+                                    <span class="badge ${(e.register_confidence || 0) >= 80 ? 'bg-success' : 'bg-warning text-dark'} px-3 py-2 ms-2" style="font-size: 0.85rem; font-weight: 600;">${e.register_confidence || 0}%</span>
+                                </div>
+                                <div>
+                                    <span class="badge bg-dark px-3 py-2" style="font-size: 0.85rem;">Subject: <strong>${e.subject_code || 'N/A'}</strong></span>
+                                    <span class="badge ${(e.subject_confidence || 0) >= 80 ? 'bg-success' : 'bg-warning text-dark'} px-3 py-2 ms-2" style="font-size: 0.85rem; font-weight: 600;">${e.subject_confidence || 0}%</span>
+                                </div>
+                            </div>
+                            <div class="small text-muted">
+                                <i class="bi bi-file-earmark-pdf me-1"></i><strong>Renamed:</strong> <code>${e.renamed_filename || e.original_filename || 'N/A'}</code> &nbsp;|&nbsp; <i class="bi bi-calendar me-1"></i>${uploadTime}
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            ${statusBadge}
+                            <div class="small mt-2"><span class="badge bg-info text-dark">${e.exam_type || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += '</tbody></table></div>';
-            html += `<div class="text-muted small mt-2">Showing ${filtered.length} of ${scanLogEntries.length} entries</div>`;
+            
             container.innerHTML = html;
+            if (filtered.length > 20) {
+                container.innerHTML += `<div class="text-muted small text-center">Showing first 20 of ${filtered.length} entries</div>`;
+            } else {
+                container.innerHTML += `<div class="text-muted small mt-3">Total: ${filtered.length} auto-processed file(s)</div>`;
+            }
         }
 
         // Attach scan log search listener
