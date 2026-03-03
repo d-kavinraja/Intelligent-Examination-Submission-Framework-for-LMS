@@ -39,6 +39,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -46,9 +47,12 @@
         }
 
         @keyframes softPulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.15);
             }
+
             50% {
                 box-shadow: 0 0 0 15px rgba(79, 70, 229, 0);
             }
@@ -176,8 +180,11 @@
         .stats-card::after {
             content: '';
             position: absolute;
-            top: 0; right: 0; bottom: 0; left: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
             pointer-events: none;
         }
 
@@ -237,7 +244,10 @@
         .upload-zone::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             border-radius: 20px;
             background: radial-gradient(circle at center, rgba(79, 70, 229, 0.05) 0%, transparent 70%);
             opacity: 0;
@@ -665,14 +675,16 @@
             .stats-number {
                 font-size: 2.2rem;
             }
+
             .stats-card {
                 padding: 1.5rem 1rem;
             }
+
             .col-6 {
                 width: 50%;
             }
         }
-        
+
         @media (max-width: 768px) {
             .main-container {
                 padding: 1rem 0.5rem;
@@ -709,8 +721,9 @@
                 flex-direction: column;
                 gap: 0.75rem !important;
             }
-            
-            .btn-primary, .btn-outline-secondary {
+
+            .btn-primary,
+            .btn-outline-secondary {
                 width: 100%;
                 padding: 1rem;
             }
@@ -723,7 +736,7 @@
                 padding-bottom: 5px;
                 -webkit-overflow-scrolling: touch;
             }
-            
+
             .nav-tabs .nav-link {
                 white-space: nowrap;
             }
@@ -1025,10 +1038,10 @@
                         <div class="btn-group btn-group-sm" id="attemptFilterGroup">
                             <button type="button" class="btn btn-outline-light active"
                                 onclick="setAttemptFilter('all')">All Attempts</button>
-                            <button type="button" class="btn btn-outline-light"
-                                onclick="setAttemptFilter(1)">Attempt 1</button>
-                            <button type="button" class="btn btn-outline-light"
-                                onclick="setAttemptFilter(2)">Attempt 2</button>
+                            <button type="button" class="btn btn-outline-light" onclick="setAttemptFilter(1)">Attempt
+                                1</button>
+                            <button type="button" class="btn btn-outline-light" onclick="setAttemptFilter(2)">Attempt
+                                2</button>
                         </div>
                         <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
                             <i class="bi bi-arrow-clockwise me-1"></i>
@@ -1254,12 +1267,14 @@
                     <!-- Scanner Agent Setup -->
                     <div class="card border mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold"><i class="bi bi-terminal me-1"></i> Scanner Agent Setup (Run on Scanner PC)</h6>
+                            <h6 class="fw-bold"><i class="bi bi-terminal me-1"></i> Scanner Agent Setup (Run on Scanner
+                                PC)</h6>
                             <p class="text-muted small mb-2">
                                 Run this Python script on the PC connected to your Ricoh scanner.
                                 It watches the scan folder and auto-uploads processed papers.
                             </p>
-                            <div class="bg-dark text-light p-3 rounded" style="font-family: 'Consolas', monospace; font-size: 0.82rem; overflow-x: auto;">
+                            <div class="bg-dark text-light p-3 rounded"
+                                style="font-family: 'Consolas', monospace; font-size: 0.82rem; overflow-x: auto;">
                                 <div class="text-success mb-1"># Step 1: Install dependencies (one time)</div>
                                 <div>pip install requests watchdog</div>
                                 <br>
@@ -1268,7 +1283,8 @@
                                 <br>
                                 <div class="text-success mb-1"># Step 3: Run the scanner agent</div>
                                 <div>python scanner_agent.py \</div>
-                                <div>&nbsp;&nbsp;--server <span id="agentServerUrl" class="text-warning">https://exam-middleware.onrender.com</span> \</div>
+                                <div>&nbsp;&nbsp;--server <span id="agentServerUrl"
+                                        class="text-warning">https://exam-middleware.onrender.com</span> \</div>
                                 <div>&nbsp;&nbsp;--username <span class="text-info">admin</span> \</div>
                                 <div>&nbsp;&nbsp;--password <span class="text-info">your_password</span> \</div>
                                 <div>&nbsp;&nbsp;--folder <span class="text-info">C:\ScanInbox</span> \</div>
@@ -1318,7 +1334,8 @@
                         Recent Auto-Processed Files
                     </h5>
                     <div class="d-flex gap-2 align-items-center">
-                        <input type="text" id="scanLogSearch" class="form-control form-control-sm" placeholder="Search by filename, reg no, subject..." style="width: 260px;">
+                        <input type="text" id="scanLogSearch" class="form-control form-control-sm"
+                            placeholder="Search by filename, reg no, subject..." style="width: 260px;">
                         <button class="btn btn-sm btn-outline-primary" onclick="loadScanLog()">
                             <i class="bi bi-arrow-clockwise me-1"></i> Refresh
                         </button>
@@ -3477,7 +3494,7 @@
                     const memRes = await fetch('/extract/scan-log');
                     const memData = await memRes.json();
                     memEntries = (memData.entries || []).filter(e => !e.success);
-                } catch (_) {}
+                } catch (_) { }
 
                 scanLogEntries = [...dbEntries, ...memEntries];
 
@@ -3526,7 +3543,7 @@
             filtered.slice(0, 20).forEach(e => {
                 const wsLower = (e.workflow_status || '').toLowerCase();
                 const isSuccess = e.success && (wsLower !== 'failed' && wsLower !== 'error');
-                
+
                 let statusBadge;
                 if (!e.success) {
                     statusBadge = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Failed</span>';
@@ -3535,9 +3552,9 @@
                 } else {
                     statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Uploaded</span>';
                 }
-                
+
                 const uploadTime = e.uploaded_at ? new Date(e.uploaded_at).toLocaleString() : '-';
-                
+
                 html += `
                 <div class="alert ${isSuccess ? 'alert-success' : 'alert-danger'} border-2 mb-3 py-3 px-4">
                     <div class="d-flex justify-content-between align-items-start">
@@ -3563,7 +3580,7 @@
                     </div>
                 </div>`;
             });
-            
+
             container.innerHTML = html;
             if (filtered.length > 20) {
                 container.innerHTML += `<div class="text-muted small text-center">Showing first 20 of ${filtered.length} entries</div>`;
