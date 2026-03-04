@@ -979,6 +979,54 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
 
+    @staticmethod
+    def _normalize(s: str) -> str:
+        """Strip all non-alphanumeric characters and uppercase for fuzzy matching.
+        'CIA - 1' → 'CIA1', 'CIA_1' → 'CIA1', 'C.I.A 1' → 'CIA1'
+        """
+        import re
+        return re.sub(r'[^A-Z0-9]', '', s.upper())
+
+    @staticmethod
+    def _score_assignment(name: str) -> int:
+        """Score an assignment name for likelihood of being the answer script dropbox.
+
+        Higher score = more likely to be the target assignment for paper submission.
+        Scoring is tuned for Indian college Moodle patterns where CIA sections
+        typically have Part A (MCQ), Part B (short answer), Part B & C (answer script).
+        """
+        name_lower = name.lower()
+        score = 0
+
+        # Strong positive: explicit answer script indicators
+        if "answer script" in name_lower or "answer sheet" in name_lower:
+            score += 20
+        if "b & c" in name_lower or "b and c" in name_lower:
+            score += 15
+        if "part b" in name_lower:
+            score += 10
+        if "part c" in name_lower:
+            score += 10
+
+        # Weak positive: generic "part" mention
+        if "part" in name_lower:
+            score += 3
+
+        # Negative: non-script assignment types
+        if "mcq" in name_lower or "objective" in name_lower:
+            score -= 15
+        if "quiz" in name_lower:
+            score -= 10
+        # "Part A" alone (without B) is typically MCQ
+        if ("part a" in name_lower or "part-a" in name_lower) and "part b" not in name_lower:
+            score -= 10
+
+        # Penalty for temp/test assignments
+        if name_lower.strip() in ("temp", "test", "draft"):
+            score -= 20
+
+        return score
+
     async def resolve_assignment_jit(
         self, 
         subject_code: str, 
@@ -993,6 +1041,9 @@ class MoodleClient:
         - course_id
         - assignment_id
         - assignment_name
+        
+        Raises MoodleAPIError with 'ambiguous' keyword if multiple candidates tie,
+        so the caller can set MAPPING_AMBIGUOUS status.
         """
         ws_token = token or self.token
         if not ws_token:
@@ -1014,17 +1065,26 @@ class MoodleClient:
             self._check_error_response(result, "mod_assign_get_assignments")
             
             courses = result.get("courses", [])
+            subject_norm = self._normalize(subject_code)
             
-            # Find the course matching subject_code "19AI406"
+            # --- Course Matching: exact shortname first, then substring ---
             matched_course = None
-            subject_upper = subject_code.upper()
             
+            # Pass 1: Exact shortname match (most reliable)
             for c in courses:
-                shortname = c.get("shortname", "").upper()
-                fullname = c.get("fullname", "").upper()
-                if subject_upper in shortname or subject_upper in fullname:
+                if self._normalize(c.get("shortname", "")) == subject_norm:
                     matched_course = c
                     break
+            
+            # Pass 2: Substring match on shortname or fullname
+            if not matched_course:
+                subject_upper = subject_code.upper()
+                for c in courses:
+                    shortname = c.get("shortname", "").upper()
+                    fullname = c.get("fullname", "").upper()
+                    if subject_upper in shortname or subject_upper in fullname:
+                        matched_course = c
+                        break
                     
             if not matched_course:
                 raise MoodleAPIError(f"User is not enrolled in any course matching '{subject_code}'")
@@ -1039,34 +1099,75 @@ class MoodleClient:
             # Fetch course sections to match exam format
             contents = await self.get_course_contents(course_id, token=ws_token)
             
-            # Find the section for the exam_type
+            # --- Section Matching: aggressive normalization with boundary awareness ---
             target_section = None
-            exam_type_clean = exam_type.replace(" ", "").upper() # e.g. "CIA1"
+            exam_type_norm = self._normalize(exam_type)  # e.g. "CIA1"
             
+            # Pass 1: Exact normalized match (section name normalizes to exactly the exam type)
             for section in contents:
-                sec_name = section.get("name", "").replace(" ", "").upper()
-                if exam_type_clean in sec_name:
-                    target_section = section
-                    break
+                sec_norm = self._normalize(section.get("name", ""))
+                # Guard against CIA1 matching CIA10: after the match,
+                # the next character (if any) must NOT be a digit
+                if exam_type_norm in sec_norm:
+                    idx = sec_norm.index(exam_type_norm) + len(exam_type_norm)
+                    if idx >= len(sec_norm) or not sec_norm[idx].isdigit():
+                        target_section = section
+                        break
+            
+            # Pass 2: Broader match — look for just the exam number (e.g., "1" in "Internal 1")
+            if not target_section and len(exam_type_norm) > 3:
+                exam_number = exam_type_norm[3:]  # Extract "1" from "CIA1"
+                for section in contents:
+                    sec_norm = self._normalize(section.get("name", ""))
+                    # Match sections with the exam number that also contain related keywords
+                    if exam_number in sec_norm and any(kw in sec_norm for kw in ["CIA", "INTERNAL", "EXAM", "ASSESSMENT", "MIDTERM"]):
+                        target_section = section
+                        break
                     
             if not target_section:
-                # Fallback: combine all sections if exam_type not clearly labeled
+                # Last resort: combine ALL sections but log a warning
+                logger.warning(f"JIT: No section matched '{exam_type}' in course {subject_code}. Merging all sections as fallback.")
                 target_section = {"modules": []}
                 for section in contents:
                     target_section["modules"].extend(section.get("modules", []))
                     
-            # Find assignment modules in the matched section
+            # --- Assignment Selection: score-based instead of blind "part" heuristic ---
             assignment_modules = [m for m in target_section.get("modules", []) if m.get("modname") == "assign"]
             
             if not assignment_modules:
                 raise MoodleAPIError(f"No assignment module found for exam type '{exam_type}' in course '{subject_code}'")
+            
+            if len(assignment_modules) == 1:
+                # Only one assignment in section — use it directly
+                target_module = assignment_modules[0]
+            else:
+                # Multiple assignments — score each one
+                scored = []
+                for m in assignment_modules:
+                    name = m.get("name", "")
+                    score = self._score_assignment(name)
+                    scored.append((score, name, m))
+                    logger.debug(f"JIT scoring: '{name}' → score {score}")
                 
-            # If multiple, prefer "part" in name as requested
-            target_module = assignment_modules[0]
-            for m in assignment_modules:
-                if "part" in m.get("name", "").lower():
-                    target_module = m
-                    break
+                scored.sort(key=lambda x: x[0], reverse=True)
+                top_score = scored[0][0]
+                second_score = scored[1][0] if len(scored) > 1 else -999
+                
+                if top_score > 0 and (top_score - second_score) >= 5:
+                    # Clear winner
+                    target_module = scored[0][2]
+                    logger.info(f"JIT scoring winner: '{scored[0][1]}' (score={top_score}, runner-up={second_score})")
+                elif top_score > 0 and (top_score - second_score) < 5:
+                    # Ambiguous — scores too close, need manual intervention
+                    candidates = ", ".join(f"'{s[1]}' (score={s[0]})" for s in scored[:3])
+                    raise MoodleAPIError(
+                        f"Ambiguous: multiple candidates for {subject_code} {exam_type}: {candidates}. "
+                        f"Staff must manually select the correct assignment."
+                    )
+                else:
+                    # No positive scores — just pick the first one but warn
+                    logger.warning(f"JIT: No assignment scored positively for {subject_code} {exam_type}. Using first available: '{scored[0][1]}'")
+                    target_module = scored[0][2]
                     
             # The 'instance' field is the actual mod_assign table ID
             real_assignment_id = target_module.get("instance")

@@ -39,6 +39,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -46,9 +47,12 @@
         }
 
         @keyframes softPulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.15);
             }
+
             50% {
                 box-shadow: 0 0 0 15px rgba(79, 70, 229, 0);
             }
@@ -176,8 +180,11 @@
         .stats-card::after {
             content: '';
             position: absolute;
-            top: 0; right: 0; bottom: 0; left: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
             pointer-events: none;
         }
 
@@ -237,7 +244,10 @@
         .upload-zone::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             border-radius: 20px;
             background: radial-gradient(circle at center, rgba(79, 70, 229, 0.05) 0%, transparent 70%);
             opacity: 0;
@@ -665,14 +675,16 @@
             .stats-number {
                 font-size: 2.2rem;
             }
+
             .stats-card {
                 padding: 1.5rem 1rem;
             }
+
             .col-6 {
                 width: 50%;
             }
         }
-        
+
         @media (max-width: 768px) {
             .main-container {
                 padding: 1rem 0.5rem;
@@ -709,8 +721,9 @@
                 flex-direction: column;
                 gap: 0.75rem !important;
             }
-            
-            .btn-primary, .btn-outline-secondary {
+
+            .btn-primary,
+            .btn-outline-secondary {
                 width: 100%;
                 padding: 1rem;
             }
@@ -723,7 +736,7 @@
                 padding-bottom: 5px;
                 -webkit-overflow-scrolling: touch;
             }
-            
+
             .nav-tabs .nav-link {
                 white-space: nowrap;
             }
@@ -1006,6 +1019,22 @@
                 </div>
             </div>
 
+            <!-- Unmapped Assignments Alert Panel -->
+            <div class="card mt-4 border-warning" id="unmappedAlertCard" style="display:none;">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Action Required: Unmapped Assignments
+                    </h5>
+                    <button class="btn btn-sm btn-outline-dark" onclick="loadUnmappedSubjects()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="unmappedAlertBody" class="p-3 text-muted text-center">Loading...</div>
+                </div>
+            </div>
+
             <!-- Previously Uploaded Files -->
             <div class="card mt-4" id="pendingFilesCard">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -1025,10 +1054,10 @@
                         <div class="btn-group btn-group-sm" id="attemptFilterGroup">
                             <button type="button" class="btn btn-outline-light active"
                                 onclick="setAttemptFilter('all')">All Attempts</button>
-                            <button type="button" class="btn btn-outline-light"
-                                onclick="setAttemptFilter(1)">Attempt 1</button>
-                            <button type="button" class="btn btn-outline-light"
-                                onclick="setAttemptFilter(2)">Attempt 2</button>
+                            <button type="button" class="btn btn-outline-light" onclick="setAttemptFilter(1)">Attempt
+                                1</button>
+                            <button type="button" class="btn btn-outline-light" onclick="setAttemptFilter(2)">Attempt
+                                2</button>
                         </div>
                         <button class="btn btn-sm btn-outline-primary" onclick="loadPendingFiles()">
                             <i class="bi bi-arrow-clockwise me-1"></i>
@@ -1254,12 +1283,14 @@
                     <!-- Scanner Agent Setup -->
                     <div class="card border mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold"><i class="bi bi-terminal me-1"></i> Scanner Agent Setup (Run on Scanner PC)</h6>
+                            <h6 class="fw-bold"><i class="bi bi-terminal me-1"></i> Scanner Agent Setup (Run on Scanner
+                                PC)</h6>
                             <p class="text-muted small mb-2">
                                 Run this Python script on the PC connected to your Ricoh scanner.
                                 It watches the scan folder and auto-uploads processed papers.
                             </p>
-                            <div class="bg-dark text-light p-3 rounded" style="font-family: 'Consolas', monospace; font-size: 0.82rem; overflow-x: auto;">
+                            <div class="bg-dark text-light p-3 rounded"
+                                style="font-family: 'Consolas', monospace; font-size: 0.82rem; overflow-x: auto;">
                                 <div class="text-success mb-1"># Step 1: Install dependencies (one time)</div>
                                 <div>pip install requests watchdog</div>
                                 <br>
@@ -1268,7 +1299,8 @@
                                 <br>
                                 <div class="text-success mb-1"># Step 3: Run the scanner agent</div>
                                 <div>python scanner_agent.py \</div>
-                                <div>&nbsp;&nbsp;--server <span id="agentServerUrl" class="text-warning">https://exam-middleware.onrender.com</span> \</div>
+                                <div>&nbsp;&nbsp;--server <span id="agentServerUrl"
+                                        class="text-warning">https://exam-middleware.onrender.com</span> \</div>
                                 <div>&nbsp;&nbsp;--username <span class="text-info">admin</span> \</div>
                                 <div>&nbsp;&nbsp;--password <span class="text-info">your_password</span> \</div>
                                 <div>&nbsp;&nbsp;--folder <span class="text-info">C:\ScanInbox</span> \</div>
@@ -1318,7 +1350,8 @@
                         Recent Auto-Processed Files
                     </h5>
                     <div class="d-flex gap-2 align-items-center">
-                        <input type="text" id="scanLogSearch" class="form-control form-control-sm" placeholder="Search by filename, reg no, subject..." style="width: 260px;">
+                        <input type="text" id="scanLogSearch" class="form-control form-control-sm"
+                            placeholder="Search by filename, reg no, subject..." style="width: 260px;">
                         <button class="btn btn-sm btn-outline-primary" onclick="loadScanLog()">
                             <i class="bi bi-arrow-clockwise me-1"></i> Refresh
                         </button>
@@ -1564,6 +1597,7 @@
             // Only load if we haven't already loaded during token validation
             if (document.getElementById('pendingFilesList').innerHTML.includes('Loading...')) {
                 loadPendingFiles();
+                loadUnmappedSubjects();
             }
         }
 
@@ -1606,6 +1640,45 @@
                 });
             }
             renderPendingFiles(document.getElementById('pendingFilesSearch').value);
+        }
+
+        async function loadUnmappedSubjects() {
+            const card = document.getElementById('unmappedAlertCard');
+            const body = document.getElementById('unmappedAlertBody');
+            if (!authToken) { card.style.display = 'none'; return; }
+
+            try {
+                const resp = await fetch('/upload/unmapped-subjects', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!resp.ok) { card.style.display = 'none'; return; }
+                const data = await resp.json();
+                const items = data.unmapped || [];
+                if (items.length === 0) { card.style.display = 'none'; return; }
+
+                card.style.display = 'block';
+                let html = '<table class="table table-sm table-hover mb-0"><thead><tr>';
+                html += '<th>Subject Code</th><th>Exam Type</th><th>Status</th><th>Affected Students</th><th>Action</th></tr></thead><tbody>';
+                items.forEach(item => {
+                    const statusBadge = item.status === 'MAPPING_AMBIGUOUS'
+                        ? '<span class="badge bg-info">Ambiguous</span>'
+                        : '<span class="badge bg-danger">Failed</span>';
+                    html += `<tr>
+                        <td><span class="badge bg-primary">${item.subject_code}</span></td>
+                        <td>${item.exam_type}</td>
+                        <td>${statusBadge}</td>
+                        <td><strong>${item.affected_count}</strong> student(s)</td>
+                        <td><button class="btn btn-sm btn-warning" onclick="document.getElementById('subjectCodeInput').value='${item.subject_code}'; document.getElementById('subjectMappingsSection').scrollIntoView({behavior:'smooth'});">
+                            <i class="bi bi-pencil-square me-1"></i>Map Now
+                        </button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                body.innerHTML = html;
+            } catch (e) {
+                card.style.display = 'none';
+                console.warn('Failed to load unmapped subjects:', e);
+            }
         }
 
         async function loadPendingFiles() {
@@ -2214,7 +2287,8 @@
                 let itemClass = f.valid ? 'valid' : 'invalid';
                 if (f.duplicate) itemClass = 'invalid';
                 // Files with unmapped subject or student are also invalid
-                if (f.valid && !f.duplicate && (f.subjectMapped === false || f.studentMapped === false)) itemClass = 'invalid';
+                if (f.valid && !f.duplicate && f.studentMapped === false) itemClass = 'invalid';
+                if (f.valid && !f.duplicate && f.subjectMapped === false) itemClass = 'warning';
 
                 // Build status line
                 let statusHtml = '';
@@ -2235,7 +2309,7 @@
                     if (f.subjectMapped !== null || f.studentMapped !== null) {
                         let mappingParts = [];
                         if (f.subjectMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Subject mapped</span>');
-                        else if (f.subjectMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Subject NOT mapped</span>');
+                        else if (f.subjectMapped === false) mappingParts.push('<span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Subject not yet mapped (auto-discovers on submit)</span>');
                         if (f.studentMapped === true) mappingParts.push('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Student mapped</span>');
                         else if (f.studentMapped === false) mappingParts.push('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Student NOT mapped</span>');
                         if (mappingParts.length > 0) {
@@ -2270,7 +2344,7 @@
         function updateStats() {
             const total = selectedFiles.length;
             // Valid = filename-valid AND not duplicate AND both mappings confirmed
-            const isUploadReady = f => f.valid && !f.duplicate && f.subjectMapped !== false && f.studentMapped !== false;
+            const isUploadReady = f => f.valid && !f.duplicate && f.studentMapped !== false;
             const valid = selectedFiles.filter(isUploadReady).length;
             const invalid = total - valid;
 
@@ -3475,7 +3549,7 @@
                     const memRes = await fetch('/extract/scan-log');
                     const memData = await memRes.json();
                     memEntries = (memData.entries || []).filter(e => !e.success);
-                } catch (_) {}
+                } catch (_) { }
 
                 scanLogEntries = [...dbEntries, ...memEntries];
 

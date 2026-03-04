@@ -74,8 +74,13 @@ async def create_subject_mapping(
     current_staff: StaffUser = Depends(get_current_staff)
 ):
     """
-    Create a new subject to assignment mapping
+    Create a new subject to assignment mapping.
+    After saving, auto-requeues any artifacts stuck in MAPPING_FAILED or
+    MAPPING_AMBIGUOUS for the same subject_code + exam_type.
     """
+    from app.db.models import WorkflowStatus
+    from sqlalchemy import and_, or_, update
+
     mapping_service = SubjectMappingService(db)
     
     # Check if mapping already exists
@@ -94,6 +99,29 @@ async def create_subject_mapping(
         moodle_assignment_name=mapping.moodle_assignment_name,
         exam_session=mapping.exam_session
     )
+    
+    # Auto-requeue artifacts stuck due to missing mapping for this subject
+    exam_type = getattr(mapping, 'exam_type', 'CIA1') or 'CIA1'
+    requeue_result = await db.execute(
+        update(ExaminationArtifact)
+        .where(
+            and_(
+                ExaminationArtifact.parsed_subject_code == mapping.subject_code.upper(),
+                or_(
+                    ExaminationArtifact.workflow_status == WorkflowStatus.MAPPING_FAILED,
+                    ExaminationArtifact.workflow_status == WorkflowStatus.MAPPING_AMBIGUOUS,
+                ),
+            )
+        )
+        .values(
+            workflow_status=WorkflowStatus.PENDING,
+            moodle_assignment_id=mapping.moodle_assignment_id,
+            error_message=None,
+        )
+    )
+    requeued_count = requeue_result.rowcount
+    if requeued_count > 0:
+        logger.info(f"Auto-requeued {requeued_count} stuck artifacts for {mapping.subject_code} {exam_type}")
     
     await db.commit()
     

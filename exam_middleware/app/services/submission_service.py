@@ -248,7 +248,8 @@ class SubmissionService:
                 return mapping_id
                 
             # Perform JIT Discovery
-            logger.info(f"No DB mapping for {subject_code}. Performing JIT resolution on {base_url}.")
+            logger.info(f"No DB mapping for {subject_code}/{exam_type}. Performing JIT resolution on {base_url}.")
+            client = None
             try:
                 client = MoodleClient(token=moodle_token, base_url=base_url)
                 jit_result = await client.resolve_assignment_jit(subject_code, exam_type)
@@ -257,21 +258,40 @@ class SubmissionService:
                 assignment_id = jit_result["assignment_id"]
                 logger.info(f"JIT success: found {assignment_id}. Saving to mapping DB.")
                 
-                await self.mapping_service.create_mapping(
-                    subject_code=subject_code,
-                    moodle_course_id=jit_result["course_id"],
-                    moodle_assignment_id=assignment_id,
-                    moodle_assignment_name=jit_result.get("assignment_name", "Auto-discovered JIT"),
-                    subject_name=subject_code,
-                    exam_session="Current"
-                )
+                try:
+                    await self.mapping_service.create_mapping(
+                        subject_code=subject_code,
+                        moodle_course_id=jit_result["course_id"],
+                        moodle_assignment_id=assignment_id,
+                        moodle_assignment_name=jit_result.get("assignment_name", "Auto-discovered JIT"),
+                        subject_name=subject_code,
+                        exam_session="Current",
+                        exam_type=exam_type
+                    )
+                except Exception as cache_err:
+                    # Race condition: another request cached it first — just re-read
+                    logger.warning(f"JIT cache write failed (likely race condition): {cache_err}")
+                    cached_id = await self.mapping_service.get_assignment_id(subject_code, exam_type)
+                    if cached_id:
+                        artifact.moodle_assignment_id = cached_id
+                        return cached_id
                 
                 artifact.moodle_assignment_id = assignment_id
                 return assignment_id
             except MoodleAPIError as e:
-                logger.error(f"JIT Resolution failed for {subject_code}: {e}")
+                error_msg = str(e).lower()
+                logger.error(f"JIT Resolution failed for {subject_code}/{exam_type}: {e}")
+                
+                # Route to specific workflow statuses for Staff Dashboard visibility
+                if "ambiguous" in error_msg or "multiple candidates" in error_msg:
+                    artifact.workflow_status = WorkflowStatus.MAPPING_AMBIGUOUS
+                    artifact.error_message = f"JIT found multiple assignment candidates for {subject_code} {exam_type}. Staff must select the correct one."
+                else:
+                    artifact.workflow_status = WorkflowStatus.MAPPING_FAILED
+                    artifact.error_message = f"JIT could not discover assignment for {subject_code} {exam_type}: {e}"
             finally:
-                await client.close()
+                if client:
+                    await client.close()
         
         # Fallback to what was previously stored (or None)
         return artifact.moodle_assignment_id

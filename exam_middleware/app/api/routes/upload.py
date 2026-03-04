@@ -556,3 +556,59 @@ async def get_upload_stats(
         "stats": stats,
         "total": sum(stats.values())
     }
+
+
+@router.get("/unmapped-subjects")
+async def get_unmapped_subjects(
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff)
+):
+    """
+    Get subjects with artifacts stuck in MAPPING_FAILED or MAPPING_AMBIGUOUS.
+    Groups by subject_code + exam_type with count of affected students.
+    Used by the Staff Dashboard 'Unmapped Assignments' alert panel.
+    """
+    from sqlalchemy import func, or_
+
+    try:
+        stmt = (
+            select(
+                ExaminationArtifact.parsed_subject_code,
+                ExaminationArtifact.exam_type,
+                ExaminationArtifact.workflow_status,
+                func.count(ExaminationArtifact.id).label("count"),
+                func.max(ExaminationArtifact.error_message).label("error_detail"),
+            )
+            .where(
+                or_(
+                    ExaminationArtifact.workflow_status == WorkflowStatus.MAPPING_FAILED,
+                    ExaminationArtifact.workflow_status == WorkflowStatus.MAPPING_AMBIGUOUS,
+                )
+            )
+            .group_by(
+                ExaminationArtifact.parsed_subject_code,
+                ExaminationArtifact.exam_type,
+                ExaminationArtifact.workflow_status,
+            )
+            .order_by(func.count(ExaminationArtifact.id).desc())
+        )
+
+        result = await db.execute(stmt)
+        rows = result.all()
+
+        return {
+            "success": True,
+            "unmapped": [
+                {
+                    "subject_code": row.parsed_subject_code,
+                    "exam_type": row.exam_type or "CIA1",
+                    "status": row.workflow_status.value,
+                    "affected_count": row.count,
+                    "error_detail": row.error_detail,
+                }
+                for row in rows
+            ],
+        }
+    except Exception as e:
+        logger.error(f"Error fetching unmapped subjects: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch unmapped subjects")

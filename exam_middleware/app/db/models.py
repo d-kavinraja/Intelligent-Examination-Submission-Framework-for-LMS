@@ -34,6 +34,8 @@ class WorkflowStatus(str, PyEnum):
     DELETED = "DELETED"
     QUEUED = "QUEUED"  # For Moodle maintenance mode
     SUPERSEDED = "SUPERSEDED"  # Replaced by a newer attempt
+    MAPPING_FAILED = "MAPPING_FAILED"  # JIT could not discover assignment mapping
+    MAPPING_AMBIGUOUS = "MAPPING_AMBIGUOUS"  # JIT found multiple candidates, needs manual pick
 
 
 class ExaminationArtifact(Base):
