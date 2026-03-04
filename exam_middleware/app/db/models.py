@@ -151,11 +151,20 @@ class SubjectMapping(Base):
     exam_type = Column(String(10), nullable=False, default="CIA1", server_default="CIA1")  # CIA1, CIA2
     
     # Moodle Mapping
-    moodle_course_id = Column(Integer, nullable=False)
+    moodle_course_id = Column(Integer, nullable=True)  # Resolved on student login
     moodle_course_idnumber = Column(String(50), nullable=True)  # Moodle's idnumber field
-    moodle_assignment_id = Column(Integer, nullable=False)
+    moodle_assignment_id = Column(Integer, nullable=True)   # Resolved on student login
     moodle_assignment_name = Column(String(255), nullable=True)
-    
+
+    # Staff-entered cmid (the `id=` value from the Moodle assignment URL)
+    # This is the course module ID — NOT the assignment instance ID.
+    # It is stored here when staff creates the mapping; moodle_assignment_id
+    # is populated automatically in the background when a student logs in.
+    cmid = Column(Integer, nullable=True, index=True)
+
+    # When was the cmid successfully resolved to a real assignment ID?
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
     # Exam Session
     exam_session = Column(String(50), nullable=True)  # e.g., "CIA-II 2025-2026"
     

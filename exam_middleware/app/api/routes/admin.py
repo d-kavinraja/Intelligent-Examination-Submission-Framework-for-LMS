@@ -105,13 +105,15 @@ async def list_subject_mappings(
             id=m.id,
             subject_code=m.subject_code,
             subject_name=m.subject_name,
-            exam_type=getattr(m, 'exam_type', 'CIA1') or 'CIA1',
+            exam_type=m.exam_type,
+            cmid=m.cmid,
             moodle_course_id=m.moodle_course_id,
             moodle_assignment_id=m.moodle_assignment_id,
             moodle_assignment_name=m.moodle_assignment_name,
             exam_session=m.exam_session,
             is_active=m.is_active,
             created_at=m.created_at,
+            resolved_at=m.resolved_at,
             last_verified_at=m.last_verified_at
         )
         for m in mappings
@@ -222,7 +224,7 @@ async def find_assignments_for_student(
     client = MoodleClient(token=moodle_token)
     
     try:
-        # Get user's enrolled courses
+        # Get user's enrolled courses using the student token
         courses_data = await client.get_user_courses(session.moodle_user_id)
         courses = courses_data.get("courses", [])
         
@@ -260,6 +262,117 @@ async def find_assignments_for_student(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Moodle API error: {e.message}"
+        )
+    finally:
+        await client.close()
+
+
+@router.get("/mappings/lookup-assignment")
+async def lookup_assignment_by_cmid(
+    cmid: int,
+    db: AsyncSession = Depends(get_db),
+    current_staff: StaffUser = Depends(get_current_staff),
+):
+    """
+    Resolve a Moodle assignment cmid (the `id=` value from the assignment page URL)
+    to the actual Moodle assignment instance ID.
+
+    This works WITHOUT an admin token by using any currently active student session.
+    At least one student must be logged in to the student portal for this to succeed.
+
+    Query params:
+      - cmid: The `id=` value from the Moodle assignment URL (e.g. 49)
+
+    Returns:
+      {
+        "cmid": 49,
+        "assignment_id": 5,          # Use THIS value when creating a subject mapping
+        "assignment_name": "...",
+        "course_id": 2,
+        "course_name": "..."
+      }
+    """
+    from app.db.models import StudentSession
+    from app.api.routes.auth import get_decrypted_token
+    from datetime import datetime
+
+    # Find any currently active student session
+    result = await db.execute(
+        select(StudentSession)
+        .where(StudentSession.expires_at > datetime.utcnow())
+        .limit(1)
+    )
+    session = result.scalar_one_or_none()
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "No active student sessions found. "
+                "Please ask a student to log into the student portal first, then retry. "
+                "Alternatively, find the assignment_id manually: go to Moodle → "
+                "Assignment → Grades → Download CSV → look for 'id=N' in the CSV footer."
+            ),
+        )
+
+    moodle_token = get_decrypted_token(session)
+    client = MoodleClient(token=moodle_token)
+
+    try:
+        # Get all courses the student is enrolled in
+        courses_data = await client.get_user_courses(session.moodle_user_id)
+        courses = courses_data.get("courses", [])
+
+        if not courses:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not enrolled in any courses on Moodle.",
+            )
+
+        course_ids = [c["id"] for c in courses]
+        assignments_data = await client.get_assignments(course_ids)
+
+        # Search for the assignment whose cmid matches
+        for course_data in assignments_data.get("courses", []):
+            for assignment in course_data.get("assignments", []):
+                if assignment.get("cmid") == cmid:
+                    return {
+                        "cmid": cmid,
+                        "assignment_id": assignment["id"],
+                        "assignment_name": assignment.get("name", ""),
+                        "course_id": course_data.get("id"),
+                        "course_name": course_data.get("name", ""),
+                        "note": (
+                            "Use 'assignment_id' (NOT cmid) when creating the subject mapping."
+                        ),
+                    }
+
+        # Not found — list what we saw so staff can identify the right one
+        found = []
+        for course_data in assignments_data.get("courses", []):
+            for a in course_data.get("assignments", []):
+                found.append({
+                    "cmid": a.get("cmid"),
+                    "assignment_id": a["id"],
+                    "name": a.get("name", ""),
+                    "course": course_data.get("name", ""),
+                })
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": (
+                    f"No assignment with cmid={cmid} found in the student's enrolled courses. "
+                    "Check the URL or use one of the assignments listed below."
+                ),
+                "available_assignments": found,
+            },
+        )
+
+    except MoodleAPIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Moodle API error: {e.message}",
         )
     finally:
         await client.close()
@@ -307,207 +420,159 @@ async def auto_create_subject_mapping(
     subject_name = (payload.get("subject_name") or "").strip() or None
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
     exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
-    
+
     if not subject_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="subject_code is required"
         )
-    
-    # MODE 2: Manual assignment_id (no admin token needed)
-    if "assignment_id" in payload:
-        assignment_id = payload.get("assignment_id")
-        if not assignment_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="assignment_id is required"
-            )
-        
-        # Check if mapping already exists
-        result = await db.execute(
-            select(SubjectMapping).where(
-                SubjectMapping.subject_code == subject_code,
-                SubjectMapping.exam_type == exam_type
-            )
+
+    # Check if a mapping already exists for this subject+exam_type
+    result = await db.execute(
+        select(SubjectMapping).where(
+            SubjectMapping.subject_code == subject_code,
+            SubjectMapping.exam_type == exam_type
         )
-        existing = result.scalar_one_or_none()
-        
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Mapping already exists for subject {subject_code} ({exam_type})"
-            )
-        
-        # Create mapping directly without Moodle lookup
-        # Use a default course_id (not needed for manual entry but required by DB)
-        mapping = SubjectMapping(
-            subject_code=subject_code,
-            subject_name=subject_name,
-            exam_type=exam_type,
-            moodle_course_id=0,  # Not used for manual entry
-            moodle_assignment_id=int(assignment_id),
-            moodle_assignment_name=subject_name or f"Assignment {assignment_id}",
-            exam_session=exam_session,
-            is_active=True
-        )
-        
-        db.add(mapping)
-        await db.commit()
-        await db.refresh(mapping)
-        
-        logger.info(f"Created mapping: {subject_code} ({exam_type}) -> assignment {assignment_id} (manual entry)")
-        
-        return {
-            "success": True,
-            "message": "Mapping created successfully",
-            "mapping": {
-                "id": mapping.id,
-                "subject_code": mapping.subject_code,
-                "subject_name": mapping.subject_name,
-                "exam_type": mapping.exam_type,
-                "moodle_assignment_id": mapping.moodle_assignment_id,
-                "exam_session": mapping.exam_session
-            }
-        }
-    
-    # MODE 1: Auto-lookup (requires admin token)
-    cmid = payload.get("cmid")
-    course_id = payload.get("moodle_course_id")
-    
-    if not cmid and not course_id:
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provide either: assignment_id (no token needed), OR cmid + optional course_id (requires MOODLE_ADMIN_TOKEN)"
-        )
-    
-    if not settings.moodle_admin_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="MOODLE_ADMIN_TOKEN not configured. Use assignment_id instead for manual mapping."
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Mapping already exists for {subject_code} ({exam_type}). Delete it first to remap."
         )
 
-    client = MoodleClient(token=settings.moodle_admin_token)
+    # == OPTION A: Staff provides cmid (the id= value from the Moodle assignment URL) ==
+    # The cmid is stored. moodle_assignment_id will be resolved automatically when
+    # the first student logs in (see auth.py -> student_login -> _resolve_pending_mappings).
+    # No admin token or student session required at this step.
+    cmid = payload.get("cmid") or payload.get("assignment_url_id")
 
-    try:
-        # If cmid is provided, resolve the course ID and assignment info from it
-        if cmid:
+    # == OPTION B: Admin token available – resolve immediately using cmid ==
+    if cmid and settings.moodle_admin_token:
+        client = MoodleClient(token=settings.moodle_admin_token)
+        try:
             cm_data = await client.get_course_module(int(cmid))
             cm = cm_data.get("cm", {})
-            if not cm:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No course module found for id={cmid} on Moodle"
-                )
             course_id = cm.get("course")
-            # The instance field is the assignment ID in the mod_assign table
             resolved_assignment_id = cm.get("instance")
-            resolved_assignment_name = cm.get("name", "Unknown")
+            assignments_data = await client.get_assignments([int(course_id)])
+            courses = assignments_data.get("courses", [])
+            assignment = None
+            assignment_name = subject_name or f"Assignment {resolved_assignment_id}"
+            if courses:
+                for a in courses[0].get("assignments", []):
+                    if a.get("cmid") == int(cmid) or a.get("id") == resolved_assignment_id:
+                        assignment = a
+                        assignment_name = a.get("name", assignment_name)
+                        break
 
-            if not course_id:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Could not resolve course for module id={cmid}"
-                )
-
-        # Fetch assignments for this course from Moodle
-        assignments_data = await client.get_assignments([int(course_id)])
-        courses = assignments_data.get("courses", [])
-
-        if not courses:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No course found with ID {course_id} on Moodle, or admin token lacks access"
-            )
-
-        assignments = courses[0].get("assignments", [])
-        if not assignments:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No assignments found in course {course_id}"
-            )
-
-        # Find the right assignment
-        if cmid:
-            # Match by cmid (the id= from the Moodle assignment URL)
-            assignment = next((a for a in assignments if a.get("cmid") == int(cmid)), None)
-            if not assignment:
-                # Fallback: match by the resolved instance ID
-                assignment = next((a for a in assignments if a.get("id") == resolved_assignment_id), None)
-            if not assignment:
-                names = ", ".join([f"{a.get('name','')} (cmid={a.get('cmid')})" for a in assignments])
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No assignment with module ID {cmid} found. Available: {names}"
-                )
-        else:
-            # Auto-select: use the first (only works well for single-assignment courses)
-            assignment = assignments[0]
-
-        assignment_id = assignment["id"]
-        assignment_name = assignment.get("name", "Unknown")
-
-        # Upsert: update existing or create new (unique by subject_code + exam_type)
-        result = await db.execute(
-            select(SubjectMapping).where(
-                SubjectMapping.subject_code == subject_code,
-                SubjectMapping.exam_type == exam_type
-            )
-        )
-        existing = result.scalar_one_or_none()
-
-        if existing:
-            existing.moodle_course_id = int(course_id)
-            existing.moodle_assignment_id = assignment_id
-            existing.moodle_assignment_name = assignment_name
-            existing.subject_name = subject_name or assignment_name
-            existing.exam_session = exam_session
-            existing.is_active = True
-            await db.commit()
-            action = "Updated"
-            mapping = existing
-        else:
+            from datetime import datetime as _dt
             mapping = SubjectMapping(
                 subject_code=subject_code,
                 subject_name=subject_name or assignment_name,
                 exam_type=exam_type,
-                moodle_course_id=int(course_id),
-                moodle_assignment_id=assignment_id,
+                cmid=int(cmid),
+                moodle_course_id=int(course_id) if course_id else None,
+                moodle_assignment_id=resolved_assignment_id,
                 moodle_assignment_name=assignment_name,
                 exam_session=exam_session,
                 is_active=True,
+                resolved_at=_dt.utcnow(),
             )
             db.add(mapping)
             await db.commit()
             await db.refresh(mapping)
-            action = "Created"
+            logger.info(f"Created mapping (admin token): {subject_code} -> cmid={cmid} -> assignment_id={resolved_assignment_id}")
+            return {
+                "success": True,
+                "message": f"Mapping created: {subject_code} ({exam_type}) → '{assignment_name}' (assignment_id={resolved_assignment_id})",
+                "resolved": True,
+                "mapping": {
+                    "id": mapping.id,
+                    "subject_code": mapping.subject_code,
+                    "cmid": mapping.cmid,
+                    "moodle_assignment_id": mapping.moodle_assignment_id,
+                    "moodle_assignment_name": mapping.moodle_assignment_name,
+                    "exam_type": mapping.exam_type,
+                    "exam_session": mapping.exam_session,
+                },
+            }
+        except MoodleAPIError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Moodle API error: {e.message}")
+        finally:
+            await client.close()
 
+    # == OPTION C: cmid provided, no admin token – store cmid, resolve later on student login ==
+    if cmid:
+        mapping = SubjectMapping(
+            subject_code=subject_code,
+            subject_name=subject_name,
+            exam_type=exam_type,
+            cmid=int(cmid),
+            moodle_course_id=None,      # Will be filled on student login
+            moodle_assignment_id=None,  # Will be filled on student login
+            moodle_assignment_name=None,
+            exam_session=exam_session,
+            is_active=True,
+            resolved_at=None,
+        )
+        db.add(mapping)
+        await db.commit()
+        await db.refresh(mapping)
+        logger.info(f"Created unresolved mapping: {subject_code} ({exam_type}) with cmid={cmid} — will auto-resolve on student login")
         return {
-            "message": f"{action} mapping: {subject_code} ({exam_type}) → Assignment '{assignment_name}' (ID: {cmid or assignment.get('cmid', 'N/A')})",
+            "success": True,
+            "message": (
+                f"Mapping saved for {subject_code} ({exam_type}) with cmid={cmid}. "
+                "The assignment ID will be resolved automatically when any student logs in."
+            ),
+            "resolved": False,
             "mapping": {
                 "id": mapping.id,
                 "subject_code": mapping.subject_code,
-                "subject_name": mapping.subject_name,
+                "cmid": mapping.cmid,
+                "moodle_assignment_id": None,
                 "exam_type": mapping.exam_type,
-                "moodle_course_id": mapping.moodle_course_id,
-                "moodle_assignment_id": mapping.moodle_assignment_id,
-                "moodle_assignment_name": mapping.moodle_assignment_name,
                 "exam_session": mapping.exam_session,
-                "cmid": int(cmid) if cmid else assignment.get("cmid"),
             },
-            "all_assignments": [
-                {"id": a["id"], "name": a.get("name", ""), "cmid": a.get("cmid")}
-                for a in assignments
-            ],
         }
 
-    except MoodleAPIError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Moodle API error: {e.message}"
+    # == OPTION D: Manual assignment_id (legacy / fallback) ==
+    assignment_id = payload.get("assignment_id")
+    if assignment_id:
+        mapping = SubjectMapping(
+            subject_code=subject_code,
+            subject_name=subject_name,
+            exam_type=exam_type,
+            cmid=None,
+            moodle_course_id=None,
+            moodle_assignment_id=int(assignment_id),
+            moodle_assignment_name=subject_name or f"Assignment {assignment_id}",
+            exam_session=exam_session,
+            is_active=True,
         )
-    finally:
-        await client.close()
+        db.add(mapping)
+        await db.commit()
+        await db.refresh(mapping)
+        logger.info(f"Created mapping (manual): {subject_code} ({exam_type}) -> assignment_id={assignment_id}")
+        return {
+            "success": True,
+            "message": f"Mapping created for {subject_code} ({exam_type}) with assignment_id={assignment_id}",
+            "resolved": True,
+            "mapping": {
+                "id": mapping.id,
+                "subject_code": mapping.subject_code,
+                "cmid": None,
+                "moodle_assignment_id": mapping.moodle_assignment_id,
+                "exam_type": mapping.exam_type,
+                "exam_session": mapping.exam_session,
+            },
+        }
 
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Provide 'cmid' (the id= from the Moodle assignment URL) OR 'assignment_id' (manual)."
+    )
 
 
 @router.delete("/mappings/{mapping_id}")

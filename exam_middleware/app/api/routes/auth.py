@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
+import asyncio
 import logging
 import secrets
 
@@ -183,6 +184,109 @@ async def register_staff(
 
 
 # ============================================
+# Helper: auto-resolve unresolved subject mappings
+# ============================================
+
+async def _resolve_pending_mappings(moodle_token: str) -> None:
+    """
+    Background task: resolve any SubjectMappings that have a cmid stored
+    but no moodle_assignment_id yet (i.e., staff created the mapping before
+    any student had logged in).  Called after a student login succeeds.
+
+    Uses the student's own Moodle token (no admin token required).
+    Runs as a fire-and-forget asyncio task so it doesn't delay the login response.
+    """
+    from app.db.database import async_session_maker
+    from app.db.models import SubjectMapping
+    from app.services.moodle_client import MoodleClient, MoodleAPIError
+
+    logger.info("[resolve_mappings] Checking for unresolved subject mappings…")
+    try:
+        async with async_session_maker() as db:
+            # Find all mappings that have a cmid but no resolved assignment_id
+            result = await db.execute(
+                select(SubjectMapping).where(
+                    SubjectMapping.cmid.isnot(None),
+                    SubjectMapping.moodle_assignment_id.is_(None),
+                    SubjectMapping.is_active == True,
+                )
+            )
+            unresolved = result.scalars().all()
+
+            if not unresolved:
+                logger.info("[resolve_mappings] No unresolved mappings found.")
+                return
+
+            logger.info(f"[resolve_mappings] Found {len(unresolved)} unresolved mapping(s).")
+
+            client = MoodleClient(token=moodle_token)
+            try:
+                # Get user_id from site_info, then fetch enrolled courses
+                site_info = await client.get_site_info(token=moodle_token)
+                user_id = site_info.get("userid")
+                
+                if not user_id:
+                    logger.error("[resolve_mappings] Could not determine student user_id from token.")
+                    return
+
+                # Get enrolled courses using the student's token
+                courses_data = await client.get_user_courses(user_id)
+                courses = courses_data.get("courses", [])
+
+                if not courses:
+                    logger.warning("[resolve_mappings] Student has no enrolled courses — cannot resolve.")
+                    return
+
+                course_ids = [c["id"] for c in courses]
+                assignments_data = await client.get_assignments(course_ids)
+
+                # Build a cmid → (assignment_id, assignment_name, course_id) lookup map
+                cmid_map: dict = {}
+                for course_data in assignments_data.get("courses", []):
+                    c_id = course_data.get("id")
+                    for assignment in course_data.get("assignments", []):
+                        a_cmid = assignment.get("cmid")
+                        if a_cmid is not None:
+                            cmid_map[a_cmid] = {
+                                "assignment_id": assignment["id"],
+                                "assignment_name": assignment.get("name", ""),
+                                "course_id": c_id,
+                            }
+
+                # Resolve each unresolved mapping
+                resolved_count = 0
+                for mapping in unresolved:
+                    info = cmid_map.get(mapping.cmid)
+                    if info:
+                        mapping.moodle_assignment_id = info["assignment_id"]
+                        mapping.moodle_assignment_name = info["assignment_name"]
+                        mapping.moodle_course_id = info["course_id"]
+                        mapping.resolved_at = datetime.utcnow()
+                        resolved_count += 1
+                        logger.info(
+                            f"[resolve_mappings] Resolved {mapping.subject_code} ({mapping.exam_type}): "
+                            f"cmid={mapping.cmid} → assignment_id={info['assignment_id']} ({info['assignment_name']})"
+                        )
+                    else:
+                        logger.warning(
+                            f"[resolve_mappings] cmid={mapping.cmid} not found in student's enrolled courses "
+                            f"for {mapping.subject_code} ({mapping.exam_type})"
+                        )
+
+                if resolved_count:
+                    await db.commit()
+                    logger.info(f"[resolve_mappings] Committed {resolved_count} resolved mapping(s).")
+
+            except MoodleAPIError as e:
+                logger.warning(f"[resolve_mappings] Moodle API error: {e}")
+            finally:
+                await client.close()
+
+    except Exception as e:
+        logger.error(f"[resolve_mappings] Unexpected error: {e}", exc_info=True)
+
+
+# ============================================
 # Student Authentication (via Moodle)
 # ============================================
 
@@ -266,7 +370,11 @@ async def student_login(
         
         db.add(session)
         await db.commit()
-        
+
+        # Fire-and-forget: resolve any cmid-only subject mappings in the background
+        # using this student's Moodle token — doesn't block the login response.
+        asyncio.create_task(_resolve_pending_mappings(moodle_token))
+
         # Step 4: Get pending papers count
         artifact_service = ArtifactService(db)
         pending_papers = await artifact_service.get_pending_for_student(

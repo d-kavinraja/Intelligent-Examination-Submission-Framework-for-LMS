@@ -92,9 +92,9 @@ class SubmissionService:
             }
         
         # Get assignment ID
-        assignment_id = await self._resolve_assignment_id(artifact)
+        assignment_id, error_msg = await self._resolve_assignment_id(artifact)
         if not assignment_id:
-            return False, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
+            return False, error_msg or f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
         
         # Update artifact with Moodle info
         artifact.moodle_user_id = moodle_user_id
@@ -222,19 +222,25 @@ class SubmissionService:
             
             return False, f"Unexpected error: {str(e)}", None
     
-    async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Optional[int]:
-        """Resolve the Moodle assignment ID for an artifact"""
+    async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Tuple[Optional[int], Optional[str]]:
+        """Resolve the Moodle assignment ID for an artifact. Returns (assignment_id, error_message)"""
         # Always try to get the latest mapping first to handle re-mappings/retries correctly
         if artifact.parsed_subject_code:
             exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
-            mapping_id = await self.mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type)
-            if mapping_id:
-                # Update the artifact's field to keep it in sync with the latest mapping
-                artifact.moodle_assignment_id = mapping_id
-                return mapping_id
+            mapping = await self.mapping_service.get_mapping(artifact.parsed_subject_code, exam_type)
+            if mapping:
+                if mapping.moodle_assignment_id:
+                    # Update the artifact's field to keep it in sync with the latest mapping
+                    artifact.moodle_assignment_id = mapping.moodle_assignment_id
+                    return mapping.moodle_assignment_id, None
+                elif mapping.cmid:
+                    return None, f"Mapping for {artifact.parsed_subject_code} is pending auto-resolution. Please try again in a few moments."
         
         # Fallback to what was previously stored (or None)
-        return artifact.moodle_assignment_id
+        if artifact.moodle_assignment_id:
+            return artifact.moodle_assignment_id, None
+            
+        return None, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}"
     
     async def _execute_submission(
         self,

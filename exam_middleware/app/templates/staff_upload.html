@@ -1084,17 +1084,24 @@
                 <div class="card-body p-4">
                     <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle-fill me-2"></i>
-                        <strong>Auto-discover:</strong> Enter Subject Code + the <code>id=</code> value from the
-                        Moodle assignment page URL. The system will resolve the course and assignment automatically.
+                        <strong>How to add a mapping:</strong>
+                        <ol class="mb-0 mt-1">
+                            <li>Open the Moodle assignment page. The URL looks like:
+                                <code>…/mod/assign/view.php?id=<strong>49</strong></code></li>
+                            <li>Copy that <code>id=</code> number and paste it in the <strong>Moodle URL id=</strong>
+                                field below.</li>
+                            <li>Click <strong>Save Mapping</strong>. The real assignment ID resolves automatically when
+                                any student logs in.</li>
+                        </ol>
                     </div>
                     <form id="subjectMappingForm" onsubmit="return addSubjectMapping(event)">
                         <div class="row g-3">
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label">Subject Code <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="sm_subject_code" required
                                     placeholder="e.g. 19AI411">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label">Subject Name</label>
                                 <input type="text" class="form-control" id="sm_subject_name"
                                     placeholder="e.g. Machine Learning">
@@ -1106,13 +1113,13 @@
                                     <option value="CIA2">CIA-2</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Assignment URL ID <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="sm_cmid" required placeholder="e.g. 123">
-                                <small class="text-muted">The <code>id=</code> value from the assignment page
-                                    URL</small>
+                            <div class="col-md-2">
+                                <label class="form-label">Moodle URL <code>id=</code> <span
+                                        class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="sm_cmid" required placeholder="e.g. 49">
+                                <small class="text-muted">The <code>id=</code> value from the assignment URL</small>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Exam Session</label>
                                 <input type="text" class="form-control" id="sm_exam_session"
                                     placeholder="e.g. 2025-2026" value="2025-2026">
@@ -1120,7 +1127,7 @@
                         </div>
                         <div id="smAlert" class="alert mt-3" style="display: none;"></div>
                         <button type="submit" class="btn btn-primary mt-3" id="smSubmitBtn">
-                            <i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping
+                            <i class="bi bi-floppy-fill me-1"></i> Save Mapping
                         </button>
                     </form>
                 </div>
@@ -3216,14 +3223,17 @@
                     container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
                     return;
                 }
-                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>URL ID</th><th>Assignment</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>cmid</th><th>Assignment ID</th><th>Assignment Name</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
                 data.forEach(m => {
                     html += `<tr>
                         <td><span class="badge bg-primary">${m.subject_code}</span></td>
                         <td>${m.subject_name || '-'}</td>
                         <td><span class="badge ${m.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${m.exam_type || 'CIA1'}</span></td>
-                        <td><span class="badge bg-secondary">${m.cmid || m.moodle_assignment_id || '-'}</span></td>
-                        <td>${m.moodle_assignment_name || '-'}</td>
+                        <td><span class="badge bg-secondary">${m.cmid || '-'}</span></td>
+                        <td>${m.moodle_assignment_id
+                            ? `<span class="badge bg-success">${m.moodle_assignment_id}</span>`
+                            : `<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pending (auto-resolves on student login)</span>`}</td>
+                        <td>${m.moodle_assignment_name || (m.moodle_assignment_id ? '-' : '<em class="text-muted">unresolved</em>')}</td>
                         <td>${m.exam_session || '-'}</td>
                         <td><button class="btn btn-sm btn-outline-danger" onclick="deleteSubjectMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
                     </tr>`;
@@ -3236,20 +3246,23 @@
             }
         }
 
+        // Clear lookup result helper (kept for compatibility, no-op now)
+        function clearLookupResult() { }
+
         async function addSubjectMapping(event) {
             event.preventDefault();
             const alertEl = document.getElementById('smAlert');
             const submitBtn = document.getElementById('smSubmitBtn');
             alertEl.style.display = 'none';
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Discovering assignments...';
-            const cmidVal = document.getElementById('sm_cmid').value.trim();
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
             const body = {
                 subject_code: document.getElementById('sm_subject_code').value.trim().toUpperCase(),
                 subject_name: document.getElementById('sm_subject_name').value.trim() || null,
                 exam_type: document.getElementById('sm_exam_type').value,
-                assignment_id: parseInt(cmidVal),  // Changed: send assignment_id for manual mapping (no admin token needed)
-                exam_session: document.getElementById('sm_exam_session').value.trim() || null,
+                cmid: parseInt(document.getElementById('sm_cmid').value.trim()),
+                exam_session: document.getElementById('sm_exam_session').value.trim() || '2025-2026',
             };
             try {
                 const res = await fetch('/admin/mappings/auto', {
@@ -3260,14 +3273,15 @@
                 const data = await res.json();
                 if (res.ok) {
                     alertEl.className = 'alert mt-3 alert-success';
-                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${data.message}`;
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${data.message || 'Mapping saved!'}`;
                     alertEl.style.display = 'block';
                     document.getElementById('subjectMappingForm').reset();
                     document.getElementById('sm_exam_session').value = '2025-2026';
                     loadSubjectMappings();
                 } else {
                     alertEl.className = 'alert mt-3 alert-danger';
-                    alertEl.textContent = data.detail || 'Failed to create mapping';
+                    const errDetail = data.detail;
+                    alertEl.textContent = (typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail)) || 'Failed to create mapping';
                     alertEl.style.display = 'block';
                 }
             } catch (e) {
@@ -3276,7 +3290,7 @@
                 alertEl.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-lightning-fill me-1"></i> Auto-Discover & Add Mapping';
+                submitBtn.innerHTML = '<i class="bi bi-floppy-fill me-1"></i> Save Mapping';
             }
             return false;
         }

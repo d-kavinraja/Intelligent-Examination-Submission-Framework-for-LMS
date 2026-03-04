@@ -246,8 +246,9 @@ class SubjectMappingBase(BaseModel):
     subject_code: str
     subject_name: Optional[str] = None
     exam_type: str = "CIA1"  # CIA1, CIA2
-    moodle_course_id: int
-    moodle_assignment_id: int
+    cmid: Optional[int] = None
+    moodle_course_id: Optional[int] = None
+    moodle_assignment_id: Optional[int] = None
     moodle_assignment_name: Optional[str] = None
     exam_session: Optional[str] = None
 
@@ -262,7 +263,9 @@ class SubjectMappingResponse(SubjectMappingBase):
     id: int
     is_active: bool
     created_at: datetime
+    resolved_at: Optional[datetime] = None
     last_verified_at: Optional[datetime]
+
     
     class Config:
         from_attributes = True

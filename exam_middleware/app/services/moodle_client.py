@@ -310,6 +310,47 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
+    async def get_user_courses(
+        self,
+        userid: int,
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get courses a user is enrolled in
+        
+        Function: core_enrol_get_users_courses
+        
+        Args:
+            userid: The Moodle user ID
+            token: Web service token
+            
+        Returns:
+            Dict with 'courses' list
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+        
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "core_enrol_get_users_courses",
+            "moodlewsrestformat": "json",
+            "userid": str(userid)
+        }
+        
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            self._check_error_response(result, "core_enrol_get_users_courses")
+            
+            # Result is array of courses
+            return {"courses": result if isinstance(result, list) else []}
+            
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
     async def get_courses(
         self,
         token: Optional[str] = None
