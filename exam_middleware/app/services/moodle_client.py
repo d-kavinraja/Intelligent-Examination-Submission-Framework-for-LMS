@@ -642,7 +642,13 @@ class MoodleClient:
             "wsfunction": "mod_assign_save_submission",
             "moodlewsrestformat": "json",
             "assignmentid": str(assignment_id),
-            "plugindata[files_filemanager]": str(item_id)
+            "plugindata[files_filemanager]": str(item_id),
+            # Many assignments have both 'file' and 'onlinetext' plugins enabled. 
+            # Omitting onlinetext causes a 'dmlwriteexception' (Error writing to database) in Moodle.
+            # Sending a token space/string satisfies the plugin requirement.
+            "plugindata[onlinetext_editor][text]": "See attached file for submission.",
+            "plugindata[onlinetext_editor][format]": "1",
+            "plugindata[onlinetext_editor][itemid]": "0"
         }
         
         logger.info(f"Saving submission for assignment {assignment_id} with item {item_id}")
