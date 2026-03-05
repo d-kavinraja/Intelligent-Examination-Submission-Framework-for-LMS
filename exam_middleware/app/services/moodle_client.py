@@ -594,14 +594,21 @@ class MoodleClient:
         
         url = f"{self.base_url}/webservice/rest/server.php"
         
-        # IMPORTANT: This exact structure is required by Moodle
-        # plugindata[files_filemanager] links the draft to file submission
+        # IMPORTANT: This exact structure is required by Moodle.
+        # plugindata[files_filemanager] links the draft to file submission.
+        # plugindata[onlinetext_editor] is required when the assignment has
+        # the "Online text" submission plugin enabled (even if we don't use it).
+        # Without it, Moodle throws dmlwriteexception on the onlinetext table.
         params = {
             "wstoken": ws_token,
             "wsfunction": "mod_assign_save_submission",
             "moodlewsrestformat": "json",
             "assignmentid": str(assignment_id),
-            "plugindata[files_filemanager]": str(item_id)
+            "plugindata[files_filemanager]": str(item_id),
+            # Online text plugin — send empty text in HTML format
+            "plugindata[onlinetext_editor][text]": "",
+            "plugindata[onlinetext_editor][format]": "1",  # 1 = FORMAT_HTML
+            "plugindata[onlinetext_editor][itemid]": "0",
         }
         
         logger.info(f"Saving submission for assignment {assignment_id} with item {item_id}")
