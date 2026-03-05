@@ -85,7 +85,7 @@ services:
       PORT: 8000
       HF_SPACE_URL: ${HF_SPACE_URL:-http://ml-service:7860}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
-      MOODLE_BASE_URL: ${MOODLE_BASE_URL:-http://lms.ai.saveetha.in}
+      MOODLE_BASE_URL: ${MOODLE_BASE_URL:-https://saveetha-exam-middleware.moodlecloud.com}
       MOODLE_SERVICE: ${MOODLE_SERVICE:-moodle_mobile_app}
       MOODLE_ADMIN_TOKEN: ${MOODLE_ADMIN_TOKEN:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
