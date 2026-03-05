@@ -4,6 +4,12 @@ This guide explains how to deploy the Intelligent Examination Submission Framewo
 
 You **do not** need to download the source code, install Python packages, or compile machine learning models. Everything is pre-built, optimized, and hosted on Docker Hub.
 
+## Pull the latest changes :
+
+```bash
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+```
 ## Prerequisites
 
 1. A computer or server running **Linux, Windows, or macOS**.
