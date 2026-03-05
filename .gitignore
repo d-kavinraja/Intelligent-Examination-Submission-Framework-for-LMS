@@ -11,9 +11,13 @@ exam_middleware/storage/
 
 # Environment
 .env
+.env.docker
 
 # Virtual environment
 venv/
+
+# Local DB backups/snapshots
+backups/
 
 # Moodle Docker data
 moodle-docker/mariadb_data/

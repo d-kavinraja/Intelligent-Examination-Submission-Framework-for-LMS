@@ -1,8 +1,8 @@
-FROM python:3.11-slim-bookworm
+FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-runtime
 
 WORKDIR /app
 
-# Install system dependencies (including X11 libs for cv2/YOLO)
+# System dependencies for cv2/pdf/image processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -12,28 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-6 \
     libxext6 \
     poppler-utils \
-    gcc \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
-COPY hf_space/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (torch/torchvision already in base image)
+COPY hf_space/requirements.gpu.txt .
+RUN pip install --no-cache-dir -r requirements.gpu.txt
 
-# Copy application and models
+# Copy app and baked-in models
 COPY hf_space/app.py .
 COPY exam_middleware/models/ ./models/
 
-# Note: Model files should be uploaded via:
-# 1. HF Spaces web UI (drag-drop into Files)
-# 2. Or git lfs if using git push
+ENV PORT=7860 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()" || exit 1
 
-# Default port for HF Spaces
-ENV PORT=7860
-
-# Run application
 CMD ["python", "app.py"]

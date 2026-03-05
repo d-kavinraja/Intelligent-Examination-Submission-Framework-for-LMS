@@ -1,0 +1,11 @@
+services:
+  ml-service:
+    build:
+      context: ./hf_space
+      dockerfile: Dockerfile.gpu
+    gpus: all
+    environment:
+      PORT: 7860
+      PYTHONUNBUFFERED: "1"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility

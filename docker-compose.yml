@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${LOCAL_POSTGRES_DB:-exam_middleware}
+      POSTGRES_USER: ${LOCAL_POSTGRES_USER:-exam_user}
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:-exam_password}
+    ports:
+      - "${LOCAL_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_POSTGRES_USER:-exam_user} -d ${LOCAL_POSTGRES_DB:-exam_middleware}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  # Default CPU-based ML Service
+  ml-service:
+    build:
+      context: .
+      dockerfile: ./hf_space/Dockerfile
+      network: host
+    restart: unless-stopped
+    environment:
+      PORT: 7860
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${ML_SERVICE_PORT:-7860}:7860"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - cpu
+      - default
+
+  # GPU-Optimized ML Service (Run with: docker compose --profile gpu up)
+  ml-service-gpu:
+    build:
+      context: .
+      dockerfile: ./hf_space/Dockerfile.gpu
+      network: host
+    restart: unless-stopped
+    environment:
+      PORT: 7860
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${ML_SERVICE_PORT:-7860}:7860"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - gpu
+
+  middleware:
+    build:
+      context: ./exam_middleware
+      dockerfile: Dockerfile
+      network: host
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://exam_user:exam_password@postgres:5432/exam_middleware}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${LOCAL_POSTGRES_USER:-exam_user}
+      POSTGRES_DB: ${LOCAL_POSTGRES_DB:-exam_middleware}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-local-env}
+      DEBUG: ${DEBUG:-false}
+      HOST: 0.0.0.0
+      PORT: 8000
+      HF_SPACE_URL: ${HF_SPACE_URL:-http://ml-service:7860}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
+      MOODLE_BASE_URL: ${MOODLE_BASE_URL:-https://lms.ai.saveetha.in}
+      MOODLE_SERVICE: ${MOODLE_SERVICE:-moodle_mobile_app}
+      MOODLE_ADMIN_TOKEN: ${MOODLE_ADMIN_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
+      SMTP_ENABLED: ${SMTP_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@local.exam-middleware}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Exam Middleware Local}
+    ports:
+      - "${MIDDLEWARE_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./assets:/usr/share/nginx/html/assets:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+
+volumes:
+  pgdata:
