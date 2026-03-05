@@ -207,9 +207,23 @@ async def get_dashboard(
         if artifact.parsed_subject_code:
             mapping = await mapping_service.get_mapping(artifact.parsed_subject_code, exam_type)
         
-        # Check if we have a valid assignment mapping
+        # Determine if student can submit this paper
         assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type) if artifact.parsed_subject_code else None
-        
+        from app.db.models import WorkflowStatus as WS
+        if artifact.workflow_status == WS.MAPPING_FAILED:
+            submit_allowed = False
+            submit_message = "JIT mapping failed for this subject. Staff has been notified and will map it manually."
+        elif artifact.workflow_status == WS.MAPPING_AMBIGUOUS:
+            submit_allowed = False
+            submit_message = "Multiple Moodle assignments matched this subject. Staff must select the correct one."
+        elif assignment_id:
+            submit_allowed = True
+            submit_message = None
+        else:
+            # No mapping yet — allow submit so JIT can attempt auto-discovery
+            submit_allowed = True
+            submit_message = "Subject mapping will be auto-discovered when you submit."
+
         pending_papers.append(StudentPendingPaper(
             artifact_uuid=str(artifact.artifact_uuid),
             subject_code=artifact.parsed_subject_code or "Unknown",
@@ -221,8 +235,8 @@ async def get_dashboard(
             exam_type=exam_type,
             attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
             attempt_2_locked=getattr(artifact, 'attempt_2_locked', True),
-            can_submit=assignment_id is not None,
-            message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
+            can_submit=submit_allowed,
+            message=submit_message
         ))
     
     # Build submitted papers list (include subject_name from mapping if available)
