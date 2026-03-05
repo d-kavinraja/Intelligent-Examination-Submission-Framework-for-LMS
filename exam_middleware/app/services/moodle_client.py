@@ -982,10 +982,18 @@ class MoodleClient:
     @staticmethod
     def _normalize(s: str) -> str:
         """Strip all non-alphanumeric characters and uppercase for fuzzy matching.
-        'CIA - 1' → 'CIA1', 'CIA_1' → 'CIA1', 'C.I.A 1' → 'CIA1'
+        Also converts Roman numerals after CIA prefix to Arabic digits.
+        'CIA - 1' → 'CIA1', 'CIA_1' → 'CIA1', 'CIA- I EXAMINATION' → 'CIA1EXAMINATION'
+        'CIA-II EXAMINATION' → 'CIA2EXAMINATION'
         """
         import re
-        return re.sub(r'[^A-Z0-9]', '', s.upper())
+        cleaned = re.sub(r'[^A-Z0-9]', '', s.upper())
+        # Roman → Arabic conversion for CIA prefixes (longest match first)
+        roman_map = [('VIII','8'),('VII','7'),('VI','6'),('IV','4'),
+                     ('III','3'),('II','2'),('I','1')]
+        for roman, arabic in roman_map:
+            cleaned = cleaned.replace(f'CIA{roman}', f'CIA{arabic}')
+        return cleaned
 
     @staticmethod
     def _score_assignment(name: str) -> int:
@@ -998,9 +1006,9 @@ class MoodleClient:
         name_lower = name.lower()
         score = 0
 
-        # Strong positive: explicit answer script indicators
+        # Strong positive: explicit answer script indicators (institutional mandatory keyword)
         if "answer script" in name_lower or "answer sheet" in name_lower:
-            score += 20
+            score += 30
         if "b & c" in name_lower or "b and c" in name_lower:
             score += 15
         if "part b" in name_lower:
@@ -1131,11 +1139,21 @@ class MoodleClient:
                 for section in contents:
                     target_section["modules"].extend(section.get("modules", []))
                     
-            # --- Assignment Selection: score-based instead of blind "part" heuristic ---
+            # --- Assignment Selection: score-based with pre-filter ---
             assignment_modules = [m for m in target_section.get("modules", []) if m.get("modname") == "assign"]
             
             if not assignment_modules:
                 raise MoodleAPIError(f"No assignment module found for exam type '{exam_type}' in course '{subject_code}'")
+            
+            # Pre-filter: if any candidate has the mandatory "answer script" keyword,
+            # discard all that don't. Leverages institutional invariant.
+            answer_script_candidates = [
+                m for m in assignment_modules
+                if "answer script" in m.get("name", "").lower()
+                or "answer sheet" in m.get("name", "").lower()
+            ]
+            if answer_script_candidates:
+                assignment_modules = answer_script_candidates
             
             if len(assignment_modules) == 1:
                 # Only one assignment in section — use it directly
@@ -1175,6 +1193,20 @@ class MoodleClient:
             
             if not real_assignment_id:
                 raise MoodleAPIError(f"Failed to extract instance ID from assignment module: {target_module}")
+            
+            # Cross-validate: if assignment name contains a CIA marker,
+            # ensure it matches the requested exam_type
+            import re as _re
+            winner_norm = self._normalize(assignment_name or "")
+            cia_match = _re.search(r'CIA(\d)', winner_norm)
+            if cia_match and len(exam_type_norm) > 3:
+                assign_cia = cia_match.group(1)
+                requested_cia = exam_type_norm[3:]
+                if assign_cia != requested_cia:
+                    raise MoodleAPIError(
+                        f"Cross-validation failed: assignment '{assignment_name}' "
+                        f"is for CIA{assign_cia} but requested {exam_type}"
+                    )
             
             return {
                 "course_id": course_id,

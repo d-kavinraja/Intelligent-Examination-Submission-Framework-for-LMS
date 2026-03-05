@@ -101,6 +101,9 @@ class SubmissionService:
             base_url=base_url
         )
         if not assignment_id:
+            # If JIT set a specific status, use its error message (not generic)
+            if artifact.workflow_status in (WorkflowStatus.MAPPING_FAILED, WorkflowStatus.MAPPING_AMBIGUOUS):
+                return False, artifact.error_message or f"Assignment mapping failed for {artifact.parsed_subject_code}", None
             return False, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
         
         # Update artifact with Moodle info

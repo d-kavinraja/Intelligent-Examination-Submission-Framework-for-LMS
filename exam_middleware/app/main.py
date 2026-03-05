@@ -150,14 +150,17 @@ async def lifespan(app: FastAPI):
 
             # 4. Update Enum
             try:
-                # PostgreSQL specific: check if value exists in enum
-                res = await conn.execute(text("SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'workflowstatus' AND e.enumlabel = 'SUPERSEDED'"))
-                if not res.fetchone():
-                    logger.info("Adding SUPERSEDED to workflowstatus enum...")
-                    # Note: ALTER TYPE ... ADD VALUE cannot run in a transaction block in some PG versions
-                    # But engine.begin() is a transaction. We try it anyway as async pg handles this usually
-                    await conn.execute(text("COMMIT")) # End current transaction if needed
-                    await conn.execute(text("ALTER TYPE workflowstatus ADD VALUE 'SUPERSEDED'"))
+                # PostgreSQL specific: add new enum values if they don't exist
+                enum_additions = ['SUPERSEDED', 'MAPPING_FAILED', 'MAPPING_AMBIGUOUS']
+                for enum_val in enum_additions:
+                    res = await conn.execute(text(
+                        f"SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid "
+                        f"WHERE t.typname = 'workflowstatus' AND e.enumlabel = '{enum_val}'"
+                    ))
+                    if not res.fetchone():
+                        logger.info(f"Adding {enum_val} to workflowstatus enum...")
+                        await conn.execute(text("COMMIT"))
+                        await conn.execute(text(f"ALTER TYPE workflowstatus ADD VALUE '{enum_val}'"))
             except Exception as ee:
                 logger.debug(f"Enum update skipped or failed: {ee}")
 

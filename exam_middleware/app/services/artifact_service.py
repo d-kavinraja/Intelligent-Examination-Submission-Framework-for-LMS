@@ -351,6 +351,8 @@ class ArtifactService:
             WorkflowStatus.UPLOADING,
             WorkflowStatus.SUBMITTING,
             WorkflowStatus.SUPERSEDED,
+            WorkflowStatus.MAPPING_FAILED,
+            WorkflowStatus.MAPPING_AMBIGUOUS,
         ]
 
         # Build identity conditions conservatively
