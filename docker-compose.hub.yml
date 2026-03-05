@@ -29,19 +29,38 @@ services:
         condition: service_healthy
       ml-service:
         condition: service_started
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
+      # ── Database ──────────────────────────────────────────────
       DATABASE_URL: postgresql+asyncpg://exam_user:exam_password@postgres:5432/exam_db
-      ML_SERVICE_URL: http://ml-service:7860
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: exam_user
+      POSTGRES_DB: exam_db
+      # ── ML Service (must be HF_SPACE_URL — that's what the code reads) ──
+      HF_SPACE_URL: http://ml-service:7860
+      # ── Moodle ────────────────────────────────────────────────
       MOODLE_BASE_URL: https://saveetha-exam-middleware.moodlecloud.com
+      MOODLE_SERVICE: moodle_mobile_app
+      # ── App ───────────────────────────────────────────────────
       SECRET_KEY: "change_this_to_a_secure_random_string_in_production"
       ENVIRONMENT: production
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: '["*"]'
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+      - storage_data:/app/storage
     # Port 8000 is only accessible internally (proxied by frontend)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
   # ------------------------------------------
   # Answer Sheet ML Inference (PyTorch/YOLO)
@@ -50,7 +69,7 @@ services:
     image: senthankumar/exam-ml-service:latest
     restart: unless-stopped
     environment:
-      PORT: 7860
+      PORT: "7860"
     # Port 7860 is only accessible internally via Docker network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()"]
@@ -67,7 +86,8 @@ services:
     image: senthankumar/exam-frontend:latest
     restart: unless-stopped
     depends_on:
-      - middleware
+      middleware:
+        condition: service_healthy
     ports:
       - "8000:80"
     healthcheck:
@@ -78,3 +98,5 @@ services:
 
 volumes:
   pgdata:
+  uploads_data:
+  storage_data:

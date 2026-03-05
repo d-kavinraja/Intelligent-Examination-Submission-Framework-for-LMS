@@ -397,6 +397,12 @@ async def student_login(
         
     except MoodleAPIError as e:
         logger.warning(f"Moodle authentication failed for {credentials.username}: {e}")
+        # Distinguish connection errors (503) from auth failures (401)
+        if "Cannot connect" in e.message:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=e.message
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication failed: {e.message}"
@@ -481,44 +487,13 @@ async def register_student_mapping(
             "next_step": "Use /auth/student/login with the same credentials"
         }
         
-        # Store session with register number
-        session = StudentSession(
-            session_id=session_id,
-            moodle_user_id=moodle_user_id,
-            moodle_username=moodle_username,
-            moodle_fullname=moodle_fullname,
-            register_number=credentials.register_number,  # Store the provided register number
-            encrypted_token=encrypted_token,
-            ip_address=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent", "")[:500],
-            expires_at=expires_at
-        )
-        
-        db.add(session)
-        await db.commit()
-        
-        # Step 4: Get pending papers count
-        artifact_service = ArtifactService(db)
-        pending_papers = await artifact_service.get_pending_for_student(
-            register_number=credentials.register_number,
-            moodle_user_id=moodle_user_id,
-            moodle_username=moodle_username
-        )
-        
-        logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Pending papers: {len(pending_papers)}")
-        
-        return StudentLoginResponse(
-            success=True,
-            session_id=session_id,
-            moodle_user_id=moodle_user_id,
-            moodle_username=moodle_username,
-            full_name=moodle_fullname,
-            expires_at=expires_at,
-            pending_submissions=len(pending_papers)
-        )
-        
     except MoodleAPIError as e:
         logger.warning(f"Moodle authentication failed for {credentials.username}: {e}")
+        if "Cannot connect" in e.message:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=e.message
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication failed: {e.message}"

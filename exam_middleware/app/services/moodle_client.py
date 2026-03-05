@@ -164,9 +164,15 @@ class MoodleClient:
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error during authentication: {e}")
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+        except httpx.ConnectError as e:
+            logger.error(f"Cannot reach Moodle at {self.base_url}: {e}")
+            raise MoodleAPIError(
+                f"Cannot connect to Moodle LMS ({self.base_url}). "
+                "Please check your network connection or try again later."
+            )
         except Exception as e:
             logger.error(f"Authentication error: {e}")
-            raise
+            raise MoodleAPIError(f"Authentication error: {e}")
     
     # =========================================
     # User Information
