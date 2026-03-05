@@ -64,6 +64,14 @@
 
 ## Features
 
+```
+curl -O "https://raw.githubusercontent.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS/complete-application-setup-local-remote/docker-compose.hub.yml?v=2"
+```
+
+
+```
+docker compose -f docker-compose.hub.yml up -d
+```
 <table>
 <tr>
 <td width="50%">
