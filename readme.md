@@ -1,6 +1,18 @@
 <div align="center">
 
 # Intelligent Examination Submission Framework for LMS
+# Issue
+  C:\Users\SEC\Downloads\LMS-MIDDLEWARE>curl -O "https://raw.githubusercontent.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS/complete-application-setup-local-remote/docker-compose.hub.yml?v=2"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  2346  100  2346    0     0  45504      0 --:--:-- --:--:-- --:--:-- 46920
+
+C:\Users\SEC\Downloads\LMS-MIDDLEWARE>docker compose -f docker-compose.hub.yml up -d
+time="2026-03-05T12:48:44+05:30" level=warning msg="C:\\Users\\SEC\\Downloads\\LMS-MIDDLEWARE\\docker-compose.hub.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+unable to get image 'postgres:16-alpine': error during connect: Get "http://%2F%2F.%2Fpipe%2FdockerDesktopLinuxEngine/v1.51/images/postgres:16-alpine/json": open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.
+
+C:\Users\SEC\Downloads\LMS-MIDDLEWARE>
+
 
 ### Examination Middleware (LMS-SAE Bridge)
 
