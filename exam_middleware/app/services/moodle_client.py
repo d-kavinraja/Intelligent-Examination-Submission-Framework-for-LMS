@@ -989,55 +989,62 @@ class MoodleClient:
     @staticmethod
     def _normalize(s: str) -> str:
         """Strip all non-alphanumeric characters and uppercase for fuzzy matching.
-        Also converts Roman numerals after CIA prefix to Arabic digits.
-        'CIA - 1' → 'CIA1', 'CIA_1' → 'CIA1', 'CIA- I EXAMINATION' → 'CIA1EXAMINATION'
-        'CIA-II EXAMINATION' → 'CIA2EXAMINATION'
+        Also converts Roman numerals after common prefixes to Arabic digits.
+        Handles 'CIA- I', 'INTERNAL II', 'MIDTERM III', 'EXAM 1', etc.
         """
         import re
         cleaned = re.sub(r'[^A-Z0-9]', '', s.upper())
-        # Roman → Arabic conversion for CIA prefixes (longest match first)
+        
+        # Roman → Arabic conversion for common exam prefixes (longest match first)
+        prefixes = ['CIA', 'INTERNAL', 'MIDTERM', 'MID', 'ASSESSMENT', 'EXAM', 'UNIT', 'PART']
         roman_map = [('VIII','8'),('VII','7'),('VI','6'),('IV','4'),
                      ('III','3'),('II','2'),('I','1')]
-        for roman, arabic in roman_map:
-            cleaned = cleaned.replace(f'CIA{roman}', f'CIA{arabic}')
+        
+        for prefix in prefixes:
+            for roman, arabic in roman_map:
+                # Replace prefix+roman with prefix+arabic (e.g., INTERNALII -> INTERNAL2)
+                cleaned = cleaned.replace(f'{prefix}{roman}', f'{prefix}{arabic}')
+        
         return cleaned
 
     @staticmethod
     def _score_assignment(name: str) -> int:
         """Score an assignment name for likelihood of being the answer script dropbox.
-
-        Higher score = more likely to be the target assignment for paper submission.
-        Scoring is tuned for Indian college Moodle patterns where CIA sections
-        typically have Part A (MCQ), Part B (short answer), Part B & C (answer script).
+        Uses space-insensitive normalization to handle tricky formatting like 'p a rt'.
         """
-        name_lower = name.lower()
+        import re
+        # Normalize: uppercase and strip all non-alnum for robust matching
+        norm = re.sub(r'[^A-Z0-9]', '', name.upper())
         score = 0
 
-        # Strong positive: explicit answer script indicators (institutional mandatory keyword)
-        if "answer script" in name_lower or "answer sheet" in name_lower:
-            score += 30
-        if "b & c" in name_lower or "b and c" in name_lower:
-            score += 15
-        if "part b" in name_lower:
-            score += 10
-        if "part c" in name_lower:
-            score += 10
+        # 1. Strong positive: Explicit script indicators (space-insensitive)
+        if "ANSWERSCRIPT" in norm or "ANSWERSHEET" in norm:
+            score += 35
+        elif "ANSWER" in norm: # Fallback if 'script' is missing but 'answer' is present
+            score += 25
 
-        # Weak positive: generic "part" mention
-        if "part" in name_lower:
+        # 2. Section indicators
+        if "BANDC" in norm or "BC" in norm:
+            score += 15
+        
+        # 3. Part indicators
+        if "PARTB" in norm:
+            score += 10
+        if "PARTC" in norm:
+            score += 10
+        if "PART" in norm:
             score += 3
 
-        # Negative: non-script assignment types
-        if "mcq" in name_lower or "objective" in name_lower:
+        # 4. Negative: MCQ/Objective/Quiz
+        if any(kw in norm for kw in ["MCQ", "OBJECTIVE", "QUIZ", "TEST"]):
+            score -= 20
+        
+        # 5. "Part A" penalty (if no Part B found)
+        if "PARTA" in norm and "PARTB" not in norm:
             score -= 15
-        if "quiz" in name_lower:
-            score -= 10
-        # "Part A" alone (without B) is typically MCQ
-        if ("part a" in name_lower or "part-a" in name_lower) and "part b" not in name_lower:
-            score -= 10
 
-        # Penalty for temp/test assignments
-        if name_lower.strip() in ("temp", "test", "draft"):
+        # 6. Temp/Draft penalty
+        if any(kw in norm for kw in ["TEMP", "DRAFT", "DEMO"]):
             score -= 20
 
         return score
@@ -1154,11 +1161,13 @@ class MoodleClient:
             
             # Pre-filter: if any candidate has the mandatory "answer script" keyword,
             # discard all that don't. Leverages institutional invariant.
-            answer_script_candidates = [
-                m for m in assignment_modules
-                if "answer script" in m.get("name", "").lower()
-                or "answer sheet" in m.get("name", "").lower()
-            ]
+            # Using space-insensitive normalization for robust matching.
+            answer_script_candidates = []
+            for m in assignment_modules:
+                m_norm = self._normalize(m.get("name", ""))
+                if "ANSWERSCRIPT" in m_norm or "ANSWERSHEET" in m_norm:
+                    answer_script_candidates.append(m)
+            
             if answer_script_candidates:
                 assignment_modules = answer_script_candidates
             
