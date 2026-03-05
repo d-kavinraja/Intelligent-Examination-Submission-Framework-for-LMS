@@ -24,7 +24,7 @@ Download the pre-configured `docker-compose.hub.yml` file. This single file cont
 *(You can copy this file manually, or use `curl` to download it if it's hosted publicly)*:
 
 ```yaml
-# Save the contents of docker-compose.hub.yml into this folder
+curl -O "https://raw.githubusercontent.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS/complete-application-setup-local-remote/docker-compose.hub.yml?v=2"
 ```
 
 ### Step 3: Start the Framework!
