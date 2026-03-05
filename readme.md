@@ -39,6 +39,10 @@ middleware-1  | INFO:     172.18.0.1:48392 - "POST /auth/student/login HTTP/1.1"
 
 ---
 
+
+```
+docker exec -it middleware-1 ping lms.ai.saveetha.in
+```
 ## Table of Contents
 
 - [Features](#features)
