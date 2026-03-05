@@ -32,6 +32,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://exam_user:exam_password@postgres:5432/exam_db
       ML_SERVICE_URL: http://ml-service:7860
+      MOODLE_BASE_URL: http://lms.ai.saveetha.in
       SECRET_KEY: "change_this_to_a_secure_random_string_in_production"
       ENVIRONMENT: production
     # Port 8000 is only accessible internally (proxied by frontend)

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     
     # Moodle - Configure for your Moodle instance
     # Default: College's Moodle at lms.ai.saveetha.in
-    moodle_base_url: str = Field(default="https://lms.ai.saveetha.in")
+    moodle_base_url: str = Field(default="http://lms.ai.saveetha.in")
     moodle_ws_endpoint: str = Field(default="/webservice/rest/server.php")
     moodle_upload_endpoint: str = Field(default="/webservice/upload.php")
     moodle_token_endpoint: str = Field(default="/login/token.php")
