@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ------------------------------------------
   # Database Service (PostgreSQL)
@@ -11,8 +9,7 @@ services:
       POSTGRES_USER: exam_user
       POSTGRES_PASSWORD: exam_password
       POSTGRES_DB: exam_db
-    ports:
-      - "5432:5432"
+    # Database is only accessible internally via Docker network
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -34,12 +31,10 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://exam_user:exam_password@postgres:5432/exam_db
-      REDIS_URL: redis://redis:6379/0
       ML_SERVICE_URL: http://ml-service:7860
       SECRET_KEY: "change_this_to_a_secure_random_string_in_production"
       ENVIRONMENT: production
-    ports:
-      - "8000:8000"
+    # Port 8000 is only accessible internally (proxied by frontend)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -50,14 +45,12 @@ services:
   # ------------------------------------------
   # Answer Sheet ML Inference (PyTorch/YOLO)
   # ------------------------------------------
-  # Default CPU-based ML Service
   ml-service:
     image: senthankumar/exam-ml-service:latest
     restart: unless-stopped
     environment:
       PORT: 7860
-    ports:
-      - "7860:7860"
+    # Port 7860 is only accessible internally via Docker network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()"]
       interval: 30s
@@ -66,13 +59,16 @@ services:
       start_period: 60s
 
   # ------------------------------------------
-  # Frontend Static Service (Nginx)
+  # API Gateway & Frontend (Nginx Reverse Proxy)
+  # THE ONLY EXTERNALLY EXPOSED PORT
   # ------------------------------------------
   frontend:
     image: senthankumar/exam-frontend:latest
     restart: unless-stopped
+    depends_on:
+      - middleware
     ports:
-      - "8080:80"
+      - "8000:80"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost"]
       interval: 30s

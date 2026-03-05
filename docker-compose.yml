@@ -26,8 +26,7 @@ services:
     environment:
       PORT: 7860
       PYTHONUNBUFFERED: "1"
-    ports:
-      - "${ML_SERVICE_PORT:-7860}:7860"
+    # Port 7860 is only accessible internally via Docker network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health').read()"]
       interval: 30s
@@ -48,8 +47,7 @@ services:
     environment:
       PORT: 7860
       PYTHONUNBUFFERED: "1"
-    ports:
-      - "${ML_SERVICE_PORT:-7860}:7860"
+    # Port 7860 is only accessible internally via Docker network
     deploy:
       resources:
         reservations:
@@ -99,8 +97,7 @@ services:
       SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@local.exam-middleware}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Exam Middleware Local}
-    ports:
-      - "${MIDDLEWARE_PORT:-8000}:8000"
+    # Port 8000 is only accessible internally via Docker network (proxied by frontend)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -109,13 +106,14 @@ services:
       start_period: 60s
 
   frontend:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     restart: unless-stopped
+    depends_on:
+      - middleware
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
-    volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
-      - ./assets:/usr/share/nginx/html/assets:ro
+      - "${APP_PORT:-8000}:80"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost"]
       interval: 30s
