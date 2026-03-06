@@ -189,7 +189,7 @@ async def get_dashboard(
     # Get pending papers for this student. Provide both register (when present) and Moodle identity.
     pending_artifacts = await artifact_service.get_pending_for_student(
         register_number=register_number,
-        moodle_user_id=session.moodle_user_id,
+        moodle_user_id=None, # Use username only, since ID varies by portal
         moodle_username=session.moodle_username
     )
     
@@ -597,8 +597,26 @@ async def submit_paper_by_uuid(
     
     logger.info(f"Submit attempt for {artifact_uuid} by register_number: {register_number}")
     
-    # Get the decrypted Moodle token
-    moodle_token = get_decrypted_token(session)
+    # Get the artifact first to know which subject code (and thus which portal) is needed
+    from app.api.routes.auth import get_moodle_user_id
+    artifact_service = ArtifactService(db)
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+    
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paper not found"
+        )
+    
+    # Get the decrypted Moodle token and portal-specific user ID
+    moodle_token = get_decrypted_token(session, artifact.parsed_subject_code)
+    moodle_user_id = get_moodle_user_id(session, artifact.parsed_subject_code)
+    
+    if not moodle_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The required portal for this subject was unreachable during login. Please log out and log in again."
+        )
     
     # Create submission service
     submission_service = SubmissionService(db)
@@ -607,7 +625,7 @@ async def submit_paper_by_uuid(
     success, message, result = await submission_service.submit_artifact(
         artifact_uuid=artifact_uuid,
         moodle_token=moodle_token,
-        moodle_user_id=session.moodle_user_id,
+        moodle_user_id=moodle_user_id,
         moodle_username=session.moodle_username,
         register_number=register_number,
         actor_ip=request.client.host if request.client else None,
@@ -684,8 +702,26 @@ async def submit_paper(
     
     logger.info(f"Submit request for {submission.artifact_uuid} by register_number: {register_number}")
     
-    # Get the decrypted Moodle token
-    moodle_token = get_decrypted_token(session)
+    # Get the artifact first to know which subject code (and thus which portal) is needed
+    from app.api.routes.auth import get_moodle_user_id
+    artifact_service = ArtifactService(db)
+    artifact = await artifact_service.get_by_uuid(submission.artifact_uuid)
+    
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paper not found"
+        )
+    
+    # Get the decrypted Moodle token and portal-specific user ID
+    moodle_token = get_decrypted_token(session, artifact.parsed_subject_code)
+    moodle_user_id = get_moodle_user_id(session, artifact.parsed_subject_code)
+    
+    if not moodle_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The required portal for this subject was unreachable during login. Please log out and log in again."
+        )
     
     # Create submission service
     submission_service = SubmissionService(db)
@@ -694,7 +730,7 @@ async def submit_paper(
     success, message, result = await submission_service.submit_artifact(
         artifact_uuid=submission.artifact_uuid,
         moodle_token=moodle_token,
-        moodle_user_id=session.moodle_user_id,
+        moodle_user_id=moodle_user_id,
         moodle_username=session.moodle_username,
         register_number=register_number,
         actor_ip=request.client.host if request.client else None,
@@ -782,7 +818,7 @@ async def get_submission_history(
     # Get all artifacts for this student (use Moodle identity for history view)
     pending = await artifact_service.get_pending_for_student(
         register_number=None,
-        moodle_user_id=session.moodle_user_id,
+        moodle_user_id=None, # Use username only
         moodle_username=session.moodle_username
     )
 

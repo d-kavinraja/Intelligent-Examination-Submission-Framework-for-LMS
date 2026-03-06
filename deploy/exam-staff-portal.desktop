@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Exam Staff Portal
+Comment=Launch the Exam Staff Portal in Kiosk Mode
+Exec=google-chrome --kiosk --incognito http://127.0.0.1:8000/portal/staff
+Type=Application
+Icon=scanner
+Terminal=false
+Categories=Education;

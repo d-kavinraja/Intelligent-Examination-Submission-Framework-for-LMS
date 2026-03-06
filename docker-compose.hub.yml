@@ -51,10 +51,14 @@ services:
       LOG_LEVEL: INFO
       CORS_ORIGINS: '["*"]'
       UPLOAD_DIR: /app/uploads
+    ports:
+      - "8000:8000"
     volumes:
       - uploads_data:/app/uploads
       - storage_data:/app/storage
-    # Port 8000 is only accessible internally (proxied by frontend)
+      - ./index.html:/app/index.html:ro
+      - ./assets:/app/assets:ro
+    # Port 8000 is directly exposed now
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/health"]
       interval: 30s
@@ -77,24 +81,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-  # ------------------------------------------
-  # API Gateway & Frontend (Nginx Reverse Proxy)
-  # THE ONLY EXTERNALLY EXPOSED PORT
-  # ------------------------------------------
-  frontend:
-    image: senthankumar/exam-frontend:latest
-    restart: unless-stopped
-    depends_on:
-      middleware:
-        condition: service_healthy
-    ports:
-      - "8000:80"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 networks:
   default:

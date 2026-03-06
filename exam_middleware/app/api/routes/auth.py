@@ -300,41 +300,79 @@ async def student_login(
     Student login using Moodle credentials
     
     This endpoint:
-    1. Authenticates with Moodle to get a web service token
-    2. Gets user information from Moodle
-    3. Creates a local session
+    1. Authenticates with all required Moodle portals simultaneously
+    2. Gets user information from Moodle for each successful login
+    3. Creates a local session with multi-tenant tokens
     4. Returns session information and pending papers
     
     NOTE: First time users must register their mapping via /auth/student/register-mapping
     """
-    client = MoodleClient()
+    from app.core.lms_registry import get_all_registered_portals
+    portals = get_all_registered_portals()
     
+    async def _login_portal(prefix, url):
+        portal_client = MoodleClient(base_url=url)
+        try:
+            resp = await portal_client.get_token(credentials.username, credentials.password)
+            site_info = await portal_client.get_site_info(token=resp["token"])
+            await portal_client.close()
+            return prefix, resp["token"], site_info
+        except Exception as e:
+            logger.warning(f"Login failed for portal {prefix} ({url}): {e}")
+            await portal_client.close()
+            return prefix, None, None
+
     try:
-        # Step 1: Get Moodle token
-        logger.info(f"Authenticating student: {credentials.username}")
+        # Step 1: Get Moodle tokens in parallel
+        logger.info(f"Authenticating student {credentials.username} across {len(portals)} portals: {list(portals.keys())}")
+        tasks = [_login_portal(prefix, url) for prefix, url in portals.items()]
+        results = await asyncio.gather(*tasks)
+
+        moodle_user_ids_dict = {}
+        encrypted_tokens_dict = {}
+        successful_tokens = []
         
-        token_response = await client.get_token(
-            username=credentials.username,
-            password=credentials.password
-        )
+        primary_user_id = None
+        primary_username = None
+        primary_fullname = ""
+
+        for prefix, token, site_info in results:
+            if token and site_info:
+                moodle_user_ids_dict[prefix] = site_info["userid"]
+                encrypted_tokens_dict[prefix] = token_encryption.encrypt(token)
+                successful_tokens.append(token)
+                
+                # "DEFAULT" portal takes precedence for session metadata
+                if prefix == "DEFAULT" or primary_user_id is None:
+                    primary_user_id = site_info["userid"]
+                    primary_username = site_info["username"]
+                    primary_fullname = site_info.get("fullname", "")
+                    
+        # If all logins failed
+        connection_failed = all(site_info is None for _, token, site_info in results)
+        if connection_failed:
+             raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot connect to LMS portals. Please check network."
+            )
+            
+        if not encrypted_tokens_dict:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed. Invalid login."
+            )
         
-        moodle_token = token_response["token"]
-        
-        # Step 2: Get user info
-        site_info = await client.get_site_info(token=moodle_token)
-        
-        moodle_user_id = site_info["userid"]
-        moodle_username = site_info["username"]
-        moodle_fullname = site_info.get("fullname", "")
+        # Keep variable names from original implementation
+        moodle_user_id = primary_user_id
+        moodle_username = primary_username
+        moodle_fullname = primary_fullname
         
         # Step 3: Validate mapping between Moodle username and provided register number
-        # Look up mapping table to ensure the Moodle account is allowed to claim the provided register number
         result_map = await db.execute(
             select(StudentUsernameRegister).where(StudentUsernameRegister.moodle_username == moodle_username)
         )
         mapping = result_map.scalar_one_or_none()
         if mapping is None:
-            # No explicit mapping found; guide user to register mapping first
             logger.warning(f"Login denied: no username->register mapping for {moodle_username}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -342,7 +380,7 @@ async def student_login(
             )
 
         if mapping.register_number != credentials.register_number:
-            logger.warning(f"Login denied: register mismatch for {moodle_username} (provided {credentials.register_number} expected {mapping.register_number})")
+            logger.warning(f"Login denied: register mismatch for {moodle_username} ((provided {credentials.register_number} expected {mapping.register_number}))")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Register number does not match the account. Access denied."
@@ -352,17 +390,19 @@ async def student_login(
         session_id = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
         
-        # Encrypt the token for storage
-        encrypted_token = token_encryption.encrypt(moodle_token)
+        # Fallback for old single-tenant column in DB definition
+        legacy_token = list(encrypted_tokens_dict.values())[0] if encrypted_tokens_dict else None
         
-        # Store session with register number
+        # Store session with register number and multi-tenant jsons
         session = StudentSession(
             session_id=session_id,
-            moodle_user_id=moodle_user_id,
+            moodle_user_id=moodle_user_id, # Legacy fallback
+            moodle_user_ids=moodle_user_ids_dict, # Fan-Out list
             moodle_username=moodle_username,
             moodle_fullname=moodle_fullname,
-            register_number=credentials.register_number,  # Store the provided register number
-            encrypted_token=encrypted_token,
+            register_number=credentials.register_number, 
+            encrypted_token=legacy_token, # Legacy fallback
+            encrypted_tokens=encrypted_tokens_dict, # Fan-Out list
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent", "")[:500],
             expires_at=expires_at
@@ -372,8 +412,8 @@ async def student_login(
         await db.commit()
 
         # Fire-and-forget: resolve any cmid-only subject mappings in the background
-        # using this student's Moodle token — doesn't block the login response.
-        asyncio.create_task(_resolve_pending_mappings(moodle_token))
+        if successful_tokens:
+            asyncio.create_task(_resolve_pending_mappings(successful_tokens[0]))
 
         # Step 4: Get pending papers count
         artifact_service = ArtifactService(db)
@@ -383,7 +423,7 @@ async def student_login(
             moodle_username=moodle_username
         )
         
-        logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Pending papers: {len(pending_papers)}")
+        logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Portals authenticated: {list(encrypted_tokens_dict.keys())}. Pending: {len(pending_papers)}")
         
         return StudentLoginResponse(
             success=True,
@@ -395,28 +435,14 @@ async def student_login(
             pending_submissions=len(pending_papers)
         )
         
-    except MoodleAPIError as e:
-        logger.warning(f"Moodle authentication failed for {credentials.username}: {e}")
-        # Distinguish connection errors (503) from auth failures (401)
-        if "Cannot connect" in e.message:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=e.message
-            )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {e.message}"
-        )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Unexpected error during student login: {e}")
+        logger.error(f"Unexpected error during student login: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred"
         )
-    finally:
-        await client.close()
 
 
 @router.post("/student/register-mapping", response_model=dict)
@@ -542,11 +568,48 @@ async def get_current_student_session(
     return session
 
 
-def get_decrypted_token(session: StudentSession) -> str:
+def get_decrypted_token(session: StudentSession, subject_code: str = None) -> str:
     """
-    Decrypt the Moodle token from session
+    Decrypt the Moodle token from session.
+    If subject_code is given, gets the specific portal token.
+    Otherwise returns the DEFAULT token.
     """
-    return token_encryption.decrypt(session.encrypted_token)
+    if getattr(session, "encrypted_tokens", None):
+        # Multi-tenant mode
+        from app.core.lms_registry import get_lms_prefix
+        prefix = get_lms_prefix(subject_code) if subject_code else "DEFAULT"
+        enc_token = session.encrypted_tokens.get(prefix) or session.encrypted_tokens.get("DEFAULT")
+        
+        # Fallback to any token if somehow prefix and DEFAULT are both missing
+        if not enc_token and session.encrypted_tokens:
+             enc_token = list(session.encrypted_tokens.values())[0]
+             
+        if enc_token:
+             return token_encryption.decrypt(enc_token)
+             
+    # Legacy fallback
+    if getattr(session, "encrypted_token", None) and session.encrypted_token:
+        return token_encryption.decrypt(session.encrypted_token)
+        
+    return ""
+
+
+def get_moodle_user_id(session: StudentSession, subject_code: str = None) -> int:
+    """
+    Get the Moodle User ID for the specific portal based on subject code.
+    """
+    if getattr(session, "moodle_user_ids", None):
+        from app.core.lms_registry import get_lms_prefix
+        prefix = get_lms_prefix(subject_code) if subject_code else "DEFAULT"
+        uid = session.moodle_user_ids.get(prefix) or session.moodle_user_ids.get("DEFAULT")
+        
+        if not uid and session.moodle_user_ids:
+             uid = list(session.moodle_user_ids.values())[0]
+             
+        if uid:
+             return int(uid)
+             
+    return getattr(session, "moodle_user_id", 0)
 
 
 @router.post("/student/logout")

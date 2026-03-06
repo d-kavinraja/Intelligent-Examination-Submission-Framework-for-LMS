@@ -115,6 +115,15 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN register_confidence INTEGER DEFAULT NULL"))
                 await conn.execute(text("ALTER TABLE examination_artifacts ADD COLUMN subject_confidence INTEGER DEFAULT NULL"))
 
+            # 1.5 Handle student_sessions table multi-tenant
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='student_sessions' AND column_name='moodle_user_ids'"))
+            if not res.fetchone():
+                logger.info("Adding multi-tenant JSON columns to student_sessions...")
+                await conn.execute(text("ALTER TABLE student_sessions ADD COLUMN moodle_user_ids JSON DEFAULT NULL"))
+                await conn.execute(text("ALTER TABLE student_sessions ADD COLUMN encrypted_tokens JSON DEFAULT NULL"))
+                await conn.execute(text("ALTER TABLE student_sessions ALTER COLUMN moodle_user_id DROP NOT NULL"))
+                await conn.execute(text("ALTER TABLE student_sessions ALTER COLUMN encrypted_token DROP NOT NULL"))
+
             # Migrate FK constraints to CASCADE on delete (for hard-delete support)
             try:
                 # audit_logs.artifact_id FK
@@ -368,12 +377,24 @@ app.include_router(
 )
 
 
-# Root endpoint
+# Mount assets directory for frontend
+try:
+    if os.path.exists("assets"):
+        app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+except Exception:
+    logger.warning("Assets directory not found, skipping mount")
+
+
+# Root endpoint (Serves Frontend SPA if available, otherwise API info)
 @app.get("/", tags=["Root"])
 async def root():
     """
-    Root endpoint - API information.
+    Root endpoint - Serves frontend index.html if available, else API info.
     """
+    from fastapi.responses import FileResponse
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+        
     return {
         "name": "Examination Middleware API",
         "version": "1.0.0",

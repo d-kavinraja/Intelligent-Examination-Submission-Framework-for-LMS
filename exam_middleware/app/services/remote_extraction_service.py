@@ -119,7 +119,13 @@ async def extract_from_bytes_with_fallback(file_bytes: bytes, filename: str) -> 
     logger.info("Falling back to local extraction")
     try:
         local_extractor = _get_local_extractor()
-        result = local_extractor.extract_from_bytes(file_bytes, filename)
+        
+        import asyncio
+        import functools
+        loop = asyncio.get_running_loop()
+        func = functools.partial(local_extractor.extract_from_bytes, file_bytes, filename)
+        result = await loop.run_in_executor(None, func)
+        
         # Ensure result has a success flag
         if "error" in result and "success" not in result:
             result["success"] = False

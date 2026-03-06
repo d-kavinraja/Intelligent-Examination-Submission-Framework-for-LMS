@@ -1,0 +1,16 @@
+[Unit]
+Description=Intelligent Exam Middleware (Docker Compose)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/santhankumar/Downloads/Intelligent-Examination-Submission-Framework-for-LMS
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+ExecStop=/usr/bin/docker compose down
+User=santhankumar
+Group=santhankumar
+
+[Install]
+WantedBy=multi-user.target

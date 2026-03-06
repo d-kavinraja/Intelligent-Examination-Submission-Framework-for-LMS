@@ -152,14 +152,24 @@ class AnswerSheetExtractor:
         # ---- YOLO (detection) ------------------------------------------------
         from ultralytics import YOLO
 
-        if not PRIMARY_YOLO_WEIGHTS.exists():
+        PRIMARY_YOLO_ONNX = PRIMARY_YOLO_WEIGHTS.with_suffix(".onnx")
+        if PRIMARY_YOLO_ONNX.exists():
+            self.primary_yolo = YOLO(str(PRIMARY_YOLO_ONNX), task='detect')
+            logger.info(f"Loaded optimized ONNX FP16 YOLO model: {PRIMARY_YOLO_ONNX}")
+        elif PRIMARY_YOLO_WEIGHTS.exists():
+            self.primary_yolo = YOLO(str(PRIMARY_YOLO_WEIGHTS))
+            logger.info(f"Loaded standard PT YOLO model: {PRIMARY_YOLO_WEIGHTS}")
+        else:
             raise FileNotFoundError(f"Primary YOLO weights not found: {PRIMARY_YOLO_WEIGHTS}")
-        self.primary_yolo = YOLO(str(PRIMARY_YOLO_WEIGHTS))
 
         self.fallback_yolo = None
-        if FALLBACK_YOLO_WEIGHTS.exists():
+        FALLBACK_YOLO_ONNX = FALLBACK_YOLO_WEIGHTS.with_suffix(".onnx")
+        if FALLBACK_YOLO_ONNX.exists():
+            self.fallback_yolo = YOLO(str(FALLBACK_YOLO_ONNX), task='detect')
+            logger.info("Fallback YOLO model loaded (ONNX).")
+        elif FALLBACK_YOLO_WEIGHTS.exists():
             self.fallback_yolo = YOLO(str(FALLBACK_YOLO_WEIGHTS))
-            logger.info("Fallback YOLO model loaded.")
+            logger.info("Fallback YOLO model loaded (PT).")
         else:
             logger.warning("Fallback YOLO weights not found — will use primary model only.")
 
@@ -203,7 +213,7 @@ class AnswerSheetExtractor:
         (cropped_ndarray, confidence) for register and subject regions.
         """
         np = self._np
-        h, w = image.shape[:2]
+        orig_h, orig_w = image.shape[:2]
         PADDING = 10  # px around each detection box (prevents edge chars from being cut)
         CONF_THRESH = 0.2  # match the working Streamlit threshold
 
@@ -211,33 +221,54 @@ class AnswerSheetExtractor:
             """Crop with padding, clamped to image boundaries."""
             px1 = max(0, x1 - PADDING)
             py1 = max(0, y1 - PADDING)
-            px2 = min(w, x2 + PADDING)
-            py2 = min(h, y2 + PADDING)
+            px2 = min(orig_w, x2 + PADDING)
+            py2 = min(orig_h, y2 + PADDING)
             return img[py1:py2, px1:px2]
 
-        results = self.primary_yolo(image)
+        max_dim = 1024
+        scale = min(max_dim / orig_w, max_dim / orig_h)
+        
+        yolo_input = image
+        if scale < 1.0:
+            new_w, new_h = int(orig_w * scale), int(orig_h * scale)
+            pil_img = self._Image.fromarray(image)
+            resized_pil = pil_img.resize((new_w, new_h), self._Image.Resampling.LANCZOS)
+            yolo_input = np.array(resized_pil)
+        
+        scale_x = orig_w / yolo_input.shape[1]
+        scale_y = orig_h / yolo_input.shape[0]
+
+        results = self.primary_yolo(yolo_input)
         boxes = results[0].boxes
         names = results[0].names
 
         reg_regions: list = []
         sub_regions: list = []
 
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            conf = float(box.conf[0])
-            label = names[int(box.cls[0])]
-            # Clamp to image boundaries
-            x1, y1 = max(0, x1), max(0, y1)
-            x2, y2 = min(w, x2), min(h, y2)
-            if x1 >= x2 or y1 >= y2:
-                continue
+        def _process_boxes(boxes_obj, names_dict, reg_list, sub_list):
+            for box in boxes_obj:
+                bx1, by1, bx2, by2 = map(float, box.xyxy[0])
+                conf = float(box.conf[0])
+                label = names_dict[int(box.cls[0])]
+                
+                # Scale back to original dimensions
+                x1, y1 = int(bx1 * scale_x), int(by1 * scale_y)
+                x2, y2 = int(bx2 * scale_x), int(by2 * scale_y)
+                
+                # Clamp to original boundaries
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(orig_w, x2), min(orig_h, y2)
+                if x1 >= x2 or y1 >= y2:
+                    continue
 
-            crop = _padded_crop(image, x1, y1, x2, y2)
+                crop = _padded_crop(image, x1, y1, x2, y2)
 
-            if label == "RegisterNumber" and conf > CONF_THRESH:
-                reg_regions.append((crop, conf))
-            elif label == "SubjectCode" and conf > CONF_THRESH:
-                sub_regions.append((crop, conf))
+                if label == "RegisterNumber" and conf > CONF_THRESH and not any(conf > CONF_THRESH for _, c in reg_list):
+                    reg_list.append((crop, conf))
+                elif label == "SubjectCode" and conf > CONF_THRESH and not any(conf > CONF_THRESH for _, c in sub_list):
+                    sub_list.append((crop, conf))
+
+        _process_boxes(boxes, names, reg_regions, sub_regions)
 
         # Fallback YOLO for BOTH register and subject if either is missing
         if (not reg_regions or not sub_regions) and self.fallback_yolo is not None:
@@ -248,24 +279,10 @@ class AnswerSheetExtractor:
                 missing.append("SubjectCode")
             logger.info(f"Primary YOLO missed regions — trying fallback: {missing}")
 
-            fb_results = self.fallback_yolo(image)
+            fb_results = self.fallback_yolo(yolo_input)
             fb_boxes = fb_results[0].boxes
             fb_names = fb_results[0].names
-            for box in fb_boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                conf = float(box.conf[0])
-                label = fb_names[int(box.cls[0])]
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(w, x2), min(h, y2)
-                if x1 >= x2 or y1 >= y2:
-                    continue
-
-                crop = _padded_crop(image, x1, y1, x2, y2)
-
-                if label == "RegisterNumber" and conf > CONF_THRESH and not reg_regions:
-                    reg_regions.append((crop, conf))
-                elif label == "SubjectCode" and conf > CONF_THRESH and not sub_regions:
-                    sub_regions.append((crop, conf))
+            _process_boxes(fb_boxes, fb_names, reg_regions, sub_regions)
 
         return reg_regions, sub_regions
 

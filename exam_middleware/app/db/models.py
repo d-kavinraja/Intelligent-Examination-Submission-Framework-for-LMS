@@ -220,7 +220,8 @@ class StudentSession(Base):
     session_id = Column(String(64), unique=True, nullable=False, index=True)
     
     # Moodle User Info (from core_webservice_get_site_info)
-    moodle_user_id = Column(BigInteger, nullable=False)
+    moodle_user_id = Column(BigInteger, nullable=True) # Legacy single-tenant
+    moodle_user_ids = Column(JSON, nullable=True) # Multi-tenant dict: {"AI": 405, "CS": 1022}
     moodle_username = Column(String(100), nullable=False)
     moodle_fullname = Column(String(255), nullable=True)
     
@@ -228,7 +229,8 @@ class StudentSession(Base):
     register_number = Column(String(20), nullable=True, index=True)
     
     # Encrypted Token Storage
-    encrypted_token = Column(Text, nullable=False)
+    encrypted_token = Column(Text, nullable=True) # Legacy single-tenant
+    encrypted_tokens = Column(JSON, nullable=True) # Multi-tenant dict: {"AI": "enc_...""}
     token_expires_at = Column(DateTime(timezone=True), nullable=True)
     
     # Session Tracking

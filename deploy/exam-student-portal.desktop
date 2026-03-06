@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Exam Student Portal
+Comment=Launch the Exam Student Portal in Kiosk Mode
+Exec=google-chrome --kiosk --incognito http://127.0.0.1:8000/portal/student
+Type=Application
+Icon=edit-paste
+Terminal=false
+Categories=Education;
