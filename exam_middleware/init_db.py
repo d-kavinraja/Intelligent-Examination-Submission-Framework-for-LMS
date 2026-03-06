@@ -71,6 +71,7 @@ async def seed_subject_mappings():
             "moodle_course_id": 3,
             "moodle_assignment_id": 4,
             "exam_session": "2024-1",
+            "target_site_url": "https://lms2.ai.saveetha.in",
             "is_active": True,
         },
         {
@@ -79,6 +80,7 @@ async def seed_subject_mappings():
             "moodle_course_id": 4,
             "moodle_assignment_id": 6,
             "exam_session": "2024-1",
+            "target_site_url": "https://lms2.ai.saveetha.in",
             "is_active": True,
         },
         {
@@ -87,6 +89,7 @@ async def seed_subject_mappings():
             "moodle_course_id": 2,
             "moodle_assignment_id": 2,
             "exam_session": "2024-1",
+            "target_site_url": "https://lms2.cse.saveetha.in",
             "is_active": True,
         },
     ]

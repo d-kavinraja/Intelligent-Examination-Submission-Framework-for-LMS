@@ -1087,7 +1087,8 @@
                         <strong>How to add a mapping:</strong>
                         <ol class="mb-0 mt-1">
                             <li>Open the Moodle assignment page. The URL looks like:
-                                <code>…/mod/assign/view.php?id=<strong>49</strong></code></li>
+                                <code>…/mod/assign/view.php?id=<strong>49</strong></code>
+                            </li>
                             <li>Copy that <code>id=</code> number and paste it in the <strong>Moodle URL id=</strong>
                                 field below.</li>
                             <li>Click <strong>Save Mapping</strong>. The real assignment ID resolves automatically when
@@ -1123,6 +1124,20 @@
                                 <label class="form-label">Exam Session</label>
                                 <input type="text" class="form-control" id="sm_exam_session"
                                     placeholder="e.g. 2025-2026" value="2025-2026">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Target LMS Site <span class="text-danger">*</span></label>
+                                <select class="form-select" id="sm_target_site_url" required>
+                                    <option value="" selected disabled>Select Target Site...</option>
+                                    <option value="https://lms2.ai.saveetha.in">AI SITE (lms2.ai.saveetha.in)</option>
+                                    <option value="https://lms2.cse.saveetha.in">CSE SITE (lms2.cse.saveetha.in)
+                                    </option>
+                                    <option value="https://lms2.ece.saveetha.in">ECE SITE (lms2.ece.saveetha.in)
+                                    </option>
+                                    <option value="https://lms2.eee.saveetha.in">EEE SITE (lms2.eee.saveetha.in)
+                                    </option>
+                                    <option value="http://lms.ai.saveetha.in">DEMO SITE (lms.ai.saveetha.in)</option>
+                                </select>
                             </div>
                         </div>
                         <div id="smAlert" class="alert mt-3" style="display: none;"></div>
@@ -3223,12 +3238,13 @@
                     container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
                     return;
                 }
-                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>cmid</th><th>Assignment ID</th><th>Assignment Name</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>Target Site</th><th>cmid</th><th>Assignment ID</th><th>Assignment Name</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
                 data.forEach(m => {
                     html += `<tr>
                         <td><span class="badge bg-primary">${m.subject_code}</span></td>
                         <td>${m.subject_name || '-'}</td>
                         <td><span class="badge ${m.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${m.exam_type || 'CIA1'}</span></td>
+                        <td><small class="text-muted">${m.target_site_url || 'Base LMS'}</small></td>
                         <td><span class="badge bg-secondary">${m.cmid || '-'}</span></td>
                         <td>${m.moodle_assignment_id
                             ? `<span class="badge bg-success">${m.moodle_assignment_id}</span>`
@@ -3263,6 +3279,7 @@
                 exam_type: document.getElementById('sm_exam_type').value,
                 cmid: parseInt(document.getElementById('sm_cmid').value.trim()),
                 exam_session: document.getElementById('sm_exam_session').value.trim() || '2025-2026',
+                target_site_url: document.getElementById('sm_target_site_url').value,
             };
             try {
                 const res = await fetch('/admin/mappings/auto', {

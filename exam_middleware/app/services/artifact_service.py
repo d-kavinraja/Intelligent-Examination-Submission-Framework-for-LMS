@@ -708,7 +708,8 @@ class SubjectMappingService:
         subject_name: Optional[str] = None,
         moodle_assignment_name: Optional[str] = None,
         exam_session: Optional[str] = None,
-        exam_type: str = "CIA1"
+        exam_type: str = "CIA1",
+        target_site_url: Optional[str] = None
     ) -> SubjectMapping:
         """Create a new subject mapping"""
         mapping = SubjectMapping(
@@ -719,6 +720,7 @@ class SubjectMappingService:
             moodle_assignment_id=moodle_assignment_id,
             moodle_assignment_name=moodle_assignment_name,
             exam_session=exam_session,
+            target_site_url=target_site_url,
             is_active=True
         )
         

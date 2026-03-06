@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import aiofiles
 import os
+import asyncio
 
 from app.core.config import settings
 from app.core.security import token_encryption
@@ -65,9 +66,10 @@ class MoodleClient:
         """Get or create HTTP client"""
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=self.timeout,
+                timeout=self.timeout,  # Use instance timeout (default 30s)
                 follow_redirects=True,
-                verify=False,  # Bypass SSL certificate verification for local/self-signed LMS environments
+                verify=False,
+                trust_env=False, # Disable system proxy which might be broken
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "application/json",
@@ -118,33 +120,39 @@ class MoodleClient:
         Authenticate user and get web service token
         
         Endpoint: /login/token.php
-        
-        Args:
-            username: Moodle username (register number)
-            password: Moodle password
-            service: Service name (default: moodle_mobile_app)
-            
-        Returns:
-            Dict with 'token' and optionally 'privatetoken'
-            
-        Raises:
-            MoodleAPIError: If authentication fails
         """
-        client = await self._get_client()
+        import urllib.parse
+        import urllib.request
+        import json
         
-        url = f"{self.base_url}/login/token.php"
         data = {
             "username": username,
             "password": password,
             "service": service or settings.moodle_service
         }
         
-        logger.info(f"Authenticating user: {username}")
+        # We use urllib here because httpx has connectivity issues (ConnectError) 
+        # with some Moodle configurations in this environment (possibly IPv6/Proxy related).
+        url = f"{self.base_url}/login/token.php?" + urllib.parse.urlencode(data)
         
+        logger.info(f"Authenticating user via urllib: {username}")
+        
+        def _fetch_token():
+            # Standard urllib call (verified to work in test_all_sites.py)
+            req = urllib.request.Request(url)
+            # Disable SSL verification if requested (though True is safer)
+            import ssl
+            ctx = ssl.create_default_context()
+            if not getattr(self, 'verify', True):
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
+                return json.loads(response.read().decode())
+
         try:
-            response = await client.post(url, data=data)
-            response.raise_for_status()
-            result = response.json()
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, _fetch_token)
             
             # Check for error in response
             if "error" in result:
@@ -162,17 +170,8 @@ class MoodleClient:
             logger.info(f"Successfully authenticated user: {username}")
             return result
             
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error during authentication: {e}")
-            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
-        except httpx.ConnectError as e:
-            logger.error(f"Cannot reach Moodle at {self.base_url}: {e}")
-            raise MoodleAPIError(
-                f"Cannot connect to Moodle LMS ({self.base_url}). "
-                "Please check your network connection or try again later."
-            )
         except Exception as e:
-            logger.error(f"Authentication error: {e}")
+            logger.error(f"Authentication error via urllib ({type(e).__name__}): {e}")
             raise MoodleAPIError(f"Authentication error: {e}")
     
     # =========================================

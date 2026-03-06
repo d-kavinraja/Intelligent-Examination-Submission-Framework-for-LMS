@@ -187,13 +187,12 @@ async def register_staff(
 # Helper: auto-resolve unresolved subject mappings
 # ============================================
 
-async def _resolve_pending_mappings(moodle_token: str) -> None:
+async def _resolve_pending_mappings(successful_tokens_by_url: dict) -> None:
     """
     Background task: resolve any SubjectMappings that have a cmid stored
     but no moodle_assignment_id yet (i.e., staff created the mapping before
-    any student had logged in).  Called after a student login succeeds.
+    any student had logged in). Called after a student login succeeds.
 
-    Uses the student's own Moodle token (no admin token required).
     Runs as a fire-and-forget asyncio task so it doesn't delay the login response.
     """
     from app.db.database import async_session_maker
@@ -203,7 +202,6 @@ async def _resolve_pending_mappings(moodle_token: str) -> None:
     logger.info("[resolve_mappings] Checking for unresolved subject mappings…")
     try:
         async with async_session_maker() as db:
-            # Find all mappings that have a cmid but no resolved assignment_id
             result = await db.execute(
                 select(SubjectMapping).where(
                     SubjectMapping.cmid.isnot(None),
@@ -219,69 +217,76 @@ async def _resolve_pending_mappings(moodle_token: str) -> None:
 
             logger.info(f"[resolve_mappings] Found {len(unresolved)} unresolved mapping(s).")
 
-            client = MoodleClient(token=moodle_token)
-            try:
-                # Get user_id from site_info, then fetch enrolled courses
-                site_info = await client.get_site_info(token=moodle_token)
-                user_id = site_info.get("userid")
+            # Group unresolved by target_site_url so we can batch calls per LMS
+            by_url = {}
+            for m in unresolved:
+                url = m.target_site_url or settings.moodle_base_url
+                if url not in by_url:
+                    by_url[url] = []
+                by_url[url].append(m)
+            
+            resolved_count = 0
+            
+            for url, mappings in by_url.items():
+                if url not in successful_tokens_by_url:
+                    logger.warning(f"[resolve_mappings] No token available for {url}, skipping {len(mappings)} mappings")
+                    continue
                 
-                if not user_id:
-                    logger.error("[resolve_mappings] Could not determine student user_id from token.")
-                    return
-
-                # Get enrolled courses using the student's token
-                courses_data = await client.get_user_courses(user_id)
-                courses = courses_data.get("courses", [])
-
-                if not courses:
-                    logger.warning("[resolve_mappings] Student has no enrolled courses — cannot resolve.")
-                    return
-
-                course_ids = [c["id"] for c in courses]
-                assignments_data = await client.get_assignments(course_ids)
-
-                # Build a cmid → (assignment_id, assignment_name, course_id) lookup map
-                cmid_map: dict = {}
-                for course_data in assignments_data.get("courses", []):
-                    c_id = course_data.get("id")
-                    for assignment in course_data.get("assignments", []):
-                        a_cmid = assignment.get("cmid")
-                        if a_cmid is not None:
-                            cmid_map[a_cmid] = {
-                                "assignment_id": assignment["id"],
-                                "assignment_name": assignment.get("name", ""),
-                                "course_id": c_id,
-                            }
-
-                # Resolve each unresolved mapping
-                resolved_count = 0
-                for mapping in unresolved:
-                    info = cmid_map.get(mapping.cmid)
-                    if info:
-                        mapping.moodle_assignment_id = info["assignment_id"]
-                        mapping.moodle_assignment_name = info["assignment_name"]
-                        mapping.moodle_course_id = info["course_id"]
-                        mapping.resolved_at = datetime.utcnow()
-                        resolved_count += 1
-                        logger.info(
-                            f"[resolve_mappings] Resolved {mapping.subject_code} ({mapping.exam_type}): "
-                            f"cmid={mapping.cmid} → assignment_id={info['assignment_id']} ({info['assignment_name']})"
-                        )
-                    else:
-                        logger.warning(
-                            f"[resolve_mappings] cmid={mapping.cmid} not found in student's enrolled courses "
-                            f"for {mapping.subject_code} ({mapping.exam_type})"
-                        )
-
-                if resolved_count:
-                    await db.commit()
-                    logger.info(f"[resolve_mappings] Committed {resolved_count} resolved mapping(s).")
-
-            except MoodleAPIError as e:
-                logger.warning(f"[resolve_mappings] Moodle API error: {e}")
-            finally:
-                await client.close()
-
+                token = successful_tokens_by_url[url]
+                client = MoodleClient(base_url=url, token=token, timeout=30.0)
+                try:
+                    site_info = await client.get_site_info(token=token)
+                    user_id = site_info.get("userid")
+                    if not user_id:
+                        logger.error(f"[resolve_mappings] Could not determine student user_id from token for {url}.")
+                        continue
+                        
+                    courses_data = await client.get_user_courses(user_id)
+                    courses = courses_data.get("courses", [])
+                    if not courses:
+                        logger.warning(f"[resolve_mappings] Student has no enrolled courses on {url} — cannot resolve.")
+                        continue
+                        
+                    course_ids = [c["id"] for c in courses]
+                    assignments_data = await client.get_assignments(course_ids)
+                    
+                    cmid_map: dict = {}
+                    for course_data in assignments_data.get("courses", []):
+                        c_id = course_data.get("id")
+                        for assignment in course_data.get("assignments", []):
+                            a_cmid = assignment.get("cmid")
+                            if a_cmid is not None:
+                                cmid_map[a_cmid] = {
+                                    "assignment_id": assignment["id"],
+                                    "assignment_name": assignment.get("name", ""),
+                                    "course_id": c_id,
+                                }
+                                
+                    for mapping in mappings:
+                        info = cmid_map.get(mapping.cmid)
+                        if info:
+                            mapping.moodle_assignment_id = info["assignment_id"]
+                            mapping.moodle_assignment_name = info["assignment_name"]
+                            mapping.moodle_course_id = info["course_id"]
+                            mapping.resolved_at = datetime.utcnow()
+                            resolved_count += 1
+                            logger.info(
+                                f"[resolve_mappings] Resolved {mapping.subject_code} ({mapping.exam_type}): "
+                                f"cmid={mapping.cmid} → assignment_id={info['assignment_id']} ({info['assignment_name']}) on {url}"
+                            )
+                        else:
+                            logger.warning(
+                                f"[resolve_mappings] cmid={mapping.cmid} not found in student's enrolled courses "
+                                f"for {mapping.subject_code} ({mapping.exam_type}) on {url}"
+                            )
+                except MoodleAPIError as e:
+                    logger.warning(f"[resolve_mappings] Moodle API error for {url}: {e}")
+                finally:
+                    await client.close()
+            
+            if resolved_count:
+                await db.commit()
+                logger.info(f"[resolve_mappings] Committed {resolved_count} resolved mapping(s).")
     except Exception as e:
         logger.error(f"[resolve_mappings] Unexpected error: {e}", exc_info=True)
 
@@ -298,150 +303,157 @@ async def student_login(
 ):
     """
     Student login using Moodle credentials
-    
-    This endpoint:
-    1. Authenticates with all required Moodle portals simultaneously
-    2. Gets user information from Moodle for each successful login
-    3. Creates a local session with multi-tenant tokens
-    4. Returns session information and pending papers
-    
-    NOTE: First time users must register their mapping via /auth/student/register-mapping
     """
-    from app.core.lms_registry import get_all_registered_portals
-    portals = get_all_registered_portals()
+    # Generate session ID and expiry upfront
+    session_id = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=1440)  # 24-hour session
     
-    async def _login_portal(prefix, url):
-        portal_client = MoodleClient(base_url=url)
-        try:
-            resp = await portal_client.get_token(credentials.username, credentials.password)
-            site_info = await portal_client.get_site_info(token=resp["token"])
-            await portal_client.close()
-            return prefix, resp["token"], site_info
-        except Exception as e:
-            logger.warning(f"Login failed for portal {prefix} ({url}): {e}")
-            await portal_client.close()
-            return prefix, None, None
-
     try:
-        # Step 1: Get Moodle tokens in parallel
-        logger.info(f"Authenticating student {credentials.username} across {len(portals)} portals: {list(portals.keys())}")
-        tasks = [_login_portal(prefix, url) for prefix, url in portals.items()]
-        results = await asyncio.gather(*tasks)
-
-        moodle_user_ids_dict = {}
-        encrypted_tokens_dict = {}
-        successful_tokens = []
-        
-        primary_user_id = None
-        primary_username = None
-        primary_fullname = ""
-
-        for prefix, token, site_info in results:
-            if token and site_info:
-                moodle_user_ids_dict[prefix] = site_info["userid"]
-                encrypted_tokens_dict[prefix] = token_encryption.encrypt(token)
-                successful_tokens.append(token)
-                
-                # "DEFAULT" portal takes precedence for session metadata
-                if prefix == "DEFAULT" or primary_user_id is None:
-                    primary_user_id = site_info["userid"]
-                    primary_username = site_info["username"]
-                    primary_fullname = site_info.get("fullname", "")
-                    
-        # If all logins failed
-        connection_failed = all(site_info is None for _, token, site_info in results)
-        if connection_failed:
-             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Cannot connect to LMS portals. Please check network."
-            )
-            
-        if not encrypted_tokens_dict:
-             raise HTTPException(
+        logger.info(f"Student login attempt: {credentials.username} with reg_no: {credentials.register_number}")
+        # Step 1: Base Authentication and get user info
+        base_url = settings.moodle_base_url
+        base_client = MoodleClient(base_url=base_url)
+        logger.info(f"Authenticating with Base LMS: {base_url}")
+        try:
+            resp = await base_client.get_token(credentials.username, credentials.password)
+            base_token = resp["token"]
+            logger.info("Base LMS token acquired successfully.")
+            base_site_info = await base_client.get_site_info(token=base_token)
+            logger.info(f"Base site info retrieved. UserId: {base_site_info.get('userid')}")
+        except Exception as e:
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed. Invalid login."
+                detail=f"Authentication with Base LMS failed: {str(e)}"
             )
+        finally:
+            await base_client.close()
+
+
+        primary_user_id = base_site_info["userid"]
+        primary_username = base_site_info["username"]
+        primary_fullname = base_site_info.get("fullname", "")
         
-        # Keep variable names from original implementation
-        moodle_user_id = primary_user_id
-        moodle_username = primary_username
-        moodle_fullname = primary_fullname
-        
-        # Step 3: Validate mapping between Moodle username and provided register number
+        # Use the existing db session (don't create a new one - avoids connection pool exhaustion)
+        logger.info(f"Checking StudentUsernameRegister mapping for {primary_username}...")
+        # Validate mapping between Moodle username and provided register number
         result_map = await db.execute(
-            select(StudentUsernameRegister).where(StudentUsernameRegister.moodle_username == moodle_username)
+            select(StudentUsernameRegister).where(StudentUsernameRegister.moodle_username == primary_username)
         )
         mapping = result_map.scalar_one_or_none()
+        
         if mapping is None:
-            logger.warning(f"Login denied: no username->register mapping for {moodle_username}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Please register your Moodle username first. Use /auth/student/register-mapping endpoint."
             )
-
         if mapping.register_number != credentials.register_number:
-            logger.warning(f"Login denied: register mismatch for {moodle_username} ((provided {credentials.register_number} expected {mapping.register_number}))")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Register number does not match the account. Access denied."
             )
 
-        # Step 4: Create session
-        session_id = secrets.token_urlsafe(32)
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
-        
-        # Fallback for old single-tenant column in DB definition
-        legacy_token = list(encrypted_tokens_dict.values())[0] if encrypted_tokens_dict else None
-        
-        # Store session with register number and multi-tenant jsons
-        session = StudentSession(
-            session_id=session_id,
-            moodle_user_id=moodle_user_id, # Legacy fallback
-            moodle_user_ids=moodle_user_ids_dict, # Fan-Out list
-            moodle_username=moodle_username,
-            moodle_fullname=moodle_fullname,
-            register_number=credentials.register_number, 
-            encrypted_token=legacy_token, # Legacy fallback
-            encrypted_tokens=encrypted_tokens_dict, # Fan-Out list
-            ip_address=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent", "")[:500],
-            expires_at=expires_at
-        )
-        
-        db.add(session)
-        await db.commit()
-
-        # Fire-and-forget: resolve any cmid-only subject mappings in the background
-        if successful_tokens:
-            asyncio.create_task(_resolve_pending_mappings(successful_tokens[0]))
-
-        # Step 4: Get pending papers count
+        # Identify Pending Papers dynamically
         artifact_service = ArtifactService(db)
         pending_papers = await artifact_service.get_pending_for_student(
             register_number=credentials.register_number,
-            moodle_user_id=moodle_user_id,
-            moodle_username=moodle_username
+            moodle_user_id=primary_user_id,
+            moodle_username=primary_username
         )
+            
+        # Load mappings to find target URLs
+        from app.db.models import SubjectMapping
+        subject_codes = list({p.parsed_subject_code for p in pending_papers if p.parsed_subject_code})
         
-        logger.info(f"Student {moodle_username} (reg: {credentials.register_number}) logged in. Portals authenticated: {list(encrypted_tokens_dict.keys())}. Pending: {len(pending_papers)}")
+        url_to_subjects = {base_url: set(["DEFAULT"])}
+        if subject_codes:
+            result_mappings = await db.execute(
+                select(SubjectMapping).where(SubjectMapping.subject_code.in_(subject_codes))
+            )
+            db_mappings = result_mappings.scalars().all()
+            for m in db_mappings:
+                target_url = m.target_site_url or base_url
+                if target_url not in url_to_subjects:
+                    url_to_subjects[target_url] = set()
+                url_to_subjects[target_url].add(m.subject_code)
+                
+        # Target cross-site auth
+        async def _login_portal(url):
+            if url == base_url:
+                return url, base_token, base_site_info
+            
+            portal_client = MoodleClient(base_url=url)
+            try:
+                # Add overall timeout (increased to 30 seconds for slow remote Moodle servers)
+                async with asyncio.timeout(30.0):
+                    resp = await portal_client.get_token(credentials.username, credentials.password)
+                    site_info = await portal_client.get_site_info(token=resp["token"])
+                await portal_client.close()
+                return url, resp["token"], site_info
+            except Exception as e:
+                logger.warning(f"Login failed for target url {url}: {e}")
+                await portal_client.close()
+                return url, None, None
+                
+        # Authenticate with targets in parallel
+        urls_to_auth = list(url_to_subjects.keys())
+        tasks = [_login_portal(url) for url in urls_to_auth]
+        results = await asyncio.gather(*tasks)
         
+        encrypted_tokens_dict = {}
+        moodle_user_ids_dict = {}
+        successful_tokens_by_url = {}
+        
+        for url, url_token, url_site_info in results:
+            if url_token and url_site_info:
+                enc = token_encryption.encrypt(url_token)
+                successful_tokens_by_url[url] = url_token
+                # Associate the token and userid to every subject_code hosted on this url
+                if url in url_to_subjects:
+                    for subj in url_to_subjects[url]:
+                        encrypted_tokens_dict[subj] = enc
+                        moodle_user_ids_dict[subj] = url_site_info["userid"]
+        new_session = StudentSession(
+            session_id=session_id,
+            moodle_user_id=primary_user_id,
+            moodle_user_ids=moodle_user_ids_dict,
+            moodle_username=primary_username,
+            moodle_fullname=primary_fullname,
+            register_number=credentials.register_number,
+            encrypted_token=token_encryption.encrypt(base_token),
+            encrypted_tokens=encrypted_tokens_dict,
+            ip_address=request.client.host if request.client else None,
+            expires_at=expires_at
+        )
+        db.add(new_session)
+        await db.commit()
+        
+        # Start background task to resolve mappings if needed
+        asyncio.create_task(_resolve_pending_mappings(successful_tokens_by_url))
+
         return StudentLoginResponse(
             success=True,
             session_id=session_id,
-            moodle_user_id=moodle_user_id,
-            moodle_username=moodle_username,
-            full_name=moodle_fullname,
+            moodle_user_id=primary_user_id,
+            moodle_username=primary_username,
+            full_name=primary_fullname,
             expires_at=expires_at,
             pending_submissions=len(pending_papers)
         )
-        
+
+
+    except asyncio.TimeoutError:
+        logger.error("Database or portal authentication TIMED OUT")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again."
+        )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Unexpected error during student login: {e}", exc_info=True)
+        logger.error(f"Unexpected error in student_login: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred"
+            detail=f"An unexpected error occurred: {str(e)}"
         )
 
 
@@ -575,12 +587,18 @@ def get_decrypted_token(session: StudentSession, subject_code: str = None) -> st
     Otherwise returns the DEFAULT token.
     """
     if getattr(session, "encrypted_tokens", None):
-        # Multi-tenant mode
-        from app.core.lms_registry import get_lms_prefix
-        prefix = get_lms_prefix(subject_code) if subject_code else "DEFAULT"
-        enc_token = session.encrypted_tokens.get(prefix) or session.encrypted_tokens.get("DEFAULT")
-        
-        # Fallback to any token if somehow prefix and DEFAULT are both missing
+        enc_token = None
+        if subject_code:
+            enc_token = session.encrypted_tokens.get(subject_code)
+            # Fallback to lms_registry for backwards compatibility
+            if not enc_token:
+                from app.core.lms_registry import get_lms_prefix
+                prefix = get_lms_prefix(subject_code)
+                enc_token = session.encrypted_tokens.get(prefix)
+                
+        if not enc_token:
+            enc_token = session.encrypted_tokens.get("DEFAULT")
+            
         if not enc_token and session.encrypted_tokens:
              enc_token = list(session.encrypted_tokens.values())[0]
              
@@ -599,10 +617,17 @@ def get_moodle_user_id(session: StudentSession, subject_code: str = None) -> int
     Get the Moodle User ID for the specific portal based on subject code.
     """
     if getattr(session, "moodle_user_ids", None):
-        from app.core.lms_registry import get_lms_prefix
-        prefix = get_lms_prefix(subject_code) if subject_code else "DEFAULT"
-        uid = session.moodle_user_ids.get(prefix) or session.moodle_user_ids.get("DEFAULT")
-        
+        uid = None
+        if subject_code:
+            uid = session.moodle_user_ids.get(subject_code)
+            if not uid:
+                from app.core.lms_registry import get_lms_prefix
+                prefix = get_lms_prefix(subject_code)
+                uid = session.moodle_user_ids.get(prefix)
+                
+        if not uid:
+            uid = session.moodle_user_ids.get("DEFAULT")
+            
         if not uid and session.moodle_user_ids:
              uid = list(session.moodle_user_ids.values())[0]
              

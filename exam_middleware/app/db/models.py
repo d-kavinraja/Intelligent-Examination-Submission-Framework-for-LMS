@@ -162,6 +162,9 @@ class SubjectMapping(Base):
     # is populated automatically in the background when a student logs in.
     cmid = Column(Integer, nullable=True, index=True)
 
+    # Multi-Site Architecture: Target Moodle URL where this subject is hosted
+    target_site_url = Column(String(255), nullable=True)
+
     # When was the cmid successfully resolved to a real assignment ID?
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 

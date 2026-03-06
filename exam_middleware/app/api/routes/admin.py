@@ -111,6 +111,7 @@ async def list_subject_mappings(
             moodle_assignment_id=m.moodle_assignment_id,
             moodle_assignment_name=m.moodle_assignment_name,
             exam_session=m.exam_session,
+            target_site_url=m.target_site_url,
             is_active=m.is_active,
             created_at=m.created_at,
             resolved_at=m.resolved_at,
@@ -145,7 +146,8 @@ async def create_subject_mapping(
         moodle_assignment_id=mapping.moodle_assignment_id,
         subject_name=mapping.subject_name,
         moodle_assignment_name=mapping.moodle_assignment_name,
-        exam_session=mapping.exam_session
+        exam_session=mapping.exam_session,
+        target_site_url=mapping.target_site_url
     )
     
     await db.commit()
@@ -158,6 +160,7 @@ async def create_subject_mapping(
         moodle_assignment_id=new_mapping.moodle_assignment_id,
         moodle_assignment_name=new_mapping.moodle_assignment_name,
         exam_session=new_mapping.exam_session,
+        target_site_url=new_mapping.target_site_url,
         is_active=new_mapping.is_active,
         created_at=new_mapping.created_at,
         last_verified_at=new_mapping.last_verified_at
@@ -420,6 +423,7 @@ async def auto_create_subject_mapping(
     subject_name = (payload.get("subject_name") or "").strip() or None
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
     exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
+    target_site_url = (payload.get("target_site_url") or "").strip() or None
 
     if not subject_code:
         raise HTTPException(
@@ -476,6 +480,7 @@ async def auto_create_subject_mapping(
                 moodle_assignment_id=resolved_assignment_id,
                 moodle_assignment_name=assignment_name,
                 exam_session=exam_session,
+                target_site_url=target_site_url,
                 is_active=True,
                 resolved_at=_dt.utcnow(),
             )
@@ -495,6 +500,7 @@ async def auto_create_subject_mapping(
                     "moodle_assignment_name": mapping.moodle_assignment_name,
                     "exam_type": mapping.exam_type,
                     "exam_session": mapping.exam_session,
+                    "target_site_url": mapping.target_site_url,
                 },
             }
         except MoodleAPIError as e:
@@ -513,6 +519,7 @@ async def auto_create_subject_mapping(
             moodle_assignment_id=None,  # Will be filled on student login
             moodle_assignment_name=None,
             exam_session=exam_session,
+            target_site_url=target_site_url,
             is_active=True,
             resolved_at=None,
         )
@@ -534,6 +541,7 @@ async def auto_create_subject_mapping(
                 "moodle_assignment_id": None,
                 "exam_type": mapping.exam_type,
                 "exam_session": mapping.exam_session,
+                "target_site_url": mapping.target_site_url,
             },
         }
 
@@ -549,6 +557,7 @@ async def auto_create_subject_mapping(
             moodle_assignment_id=int(assignment_id),
             moodle_assignment_name=subject_name or f"Assignment {assignment_id}",
             exam_session=exam_session,
+            target_site_url=target_site_url,
             is_active=True,
         )
         db.add(mapping)
@@ -566,6 +575,7 @@ async def auto_create_subject_mapping(
                 "moodle_assignment_id": mapping.moodle_assignment_id,
                 "exam_type": mapping.exam_type,
                 "exam_session": mapping.exam_session,
+                "target_site_url": mapping.target_site_url,
             },
         }
 

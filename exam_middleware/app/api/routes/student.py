@@ -222,7 +222,8 @@ async def get_dashboard(
             attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
             attempt_2_locked=getattr(artifact, 'attempt_2_locked', True),
             can_submit=assignment_id is not None,
-            message=None if assignment_id else "This subject is not mapped yet. Please contact admin."
+            message=None if assignment_id else "This subject is not mapped yet. Please contact admin.",
+            target_site_url=mapping.target_site_url if mapping else None
         ))
     
     # Build submitted papers list (include subject_name from mapping if available)
@@ -240,6 +241,7 @@ async def get_dashboard(
                 raw_filename=a.raw_filename,
                 original_filename=a.original_filename,
                 subject_name=mapping.subject_name if mapping else None,
+                target_site_url=mapping.target_site_url if mapping else None,
                 parsed_reg_no=a.parsed_reg_no,
                 parsed_subject_code=a.parsed_subject_code,
                 exam_type=a_exam_type,

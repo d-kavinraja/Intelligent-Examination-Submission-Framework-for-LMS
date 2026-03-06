@@ -92,15 +92,15 @@ class SubmissionService:
             }
         
         # Get assignment ID
-        assignment_id, error_msg = await self._resolve_assignment_id(artifact)
+        assignment_id, target_site_url, error_msg = await self._resolve_assignment_id(artifact)
         if not assignment_id:
             return False, error_msg or f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
-        
+
         # Update artifact with Moodle info
         artifact.moodle_user_id = moodle_user_id
         artifact.moodle_username = moodle_username
         artifact.moodle_assignment_id = assignment_id
-        
+
         # Log submission start
         await self.audit_service.log_action(
             action="submission_started",
@@ -110,16 +110,16 @@ class SubmissionService:
             actor_username=moodle_username,
             actor_ip=actor_ip,
             artifact_id=artifact.id,
-            description=f"Starting submission for assignment {assignment_id}"
+            description=f"Starting submission for assignment {assignment_id} on {target_site_url}"
         )
-        
+
         # Execute the 3-step submission process
         try:
             result = await self._execute_submission(
                 artifact=artifact,
                 assignment_id=assignment_id,
                 moodle_token=moodle_token,
-                lock_submission=lock_submission
+                target_site_url=target_site_url,
             )
             
             # Log the complete result for debugging
@@ -222,8 +222,8 @@ class SubmissionService:
             
             return False, f"Unexpected error: {str(e)}", None
     
-    async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Tuple[Optional[int], Optional[str]]:
-        """Resolve the Moodle assignment ID for an artifact. Returns (assignment_id, error_message)"""
+    async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+        """Resolve the Moodle assignment ID for an artifact. Returns (assignment_id, target_site_url, error_message)"""
         # Always try to get the latest mapping first to handle re-mappings/retries correctly
         if artifact.parsed_subject_code:
             exam_type = getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'
@@ -232,31 +232,32 @@ class SubmissionService:
                 if mapping.moodle_assignment_id:
                     # Update the artifact's field to keep it in sync with the latest mapping
                     artifact.moodle_assignment_id = mapping.moodle_assignment_id
-                    return mapping.moodle_assignment_id, None
+                    return mapping.moodle_assignment_id, mapping.target_site_url, None
                 elif mapping.cmid:
-                    return None, f"Mapping for {artifact.parsed_subject_code} is pending auto-resolution. Please try again in a few moments."
-        
+                    return None, mapping.target_site_url, f"Mapping for {artifact.parsed_subject_code} is pending auto-resolution. Please try again in a few moments."
+
         # Fallback to what was previously stored (or None)
         if artifact.moodle_assignment_id:
-            return artifact.moodle_assignment_id, None
-            
-        return None, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}"
+            return artifact.moodle_assignment_id, None, None
+
+        return None, None, f"No assignment mapping found for subject code: {artifact.parsed_subject_code}"
     
     async def _execute_submission(
         self,
         artifact: ExaminationArtifact,
         assignment_id: int,
         moodle_token: str,
-        lock_submission: bool
+        target_site_url: Optional[str] = None,
+        lock_submission: bool = True
     ) -> Dict[str, Any]:
         """
         Execute the 3-step submission process
-        
+
         Step 1: Upload file to draft area
         Step 2: Link draft to assignment
         Step 3: Finalize submission (optional)
         """
-        client = MoodleClient(token=moodle_token)
+        client = MoodleClient(base_url=target_site_url, token=moodle_token)
         result = {
             "assignment_id": assignment_id,
             "steps_completed": []

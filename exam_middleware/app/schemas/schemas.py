@@ -53,7 +53,7 @@ class StudentLoginRequest(BaseModel):
     """Student login using Moodle credentials"""
     username: str = Field(..., min_length=1, max_length=100, description="Moodle username")
     password: str = Field(..., min_length=1, description="Moodle password")
-    register_number: str = Field(..., min_length=12, max_length=12, description="12-digit university register number")
+    register_number: str = Field(..., min_length=8, max_length=15, description="University register number (8-15 digits)")
 
 
 class StudentLoginResponse(BaseModel):
@@ -151,6 +151,7 @@ class ArtifactResponse(BaseModel):
     raw_filename: str
     original_filename: str
     subject_name: Optional[str] = None
+    target_site_url: Optional[str] = None
     parsed_reg_no: Optional[str]
     parsed_subject_code: Optional[str]
     exam_type: str = "CIA1"
@@ -194,6 +195,7 @@ class StudentPendingPaper(BaseModel):
     attempt_2_locked: bool = True
     can_submit: bool
     message: Optional[str] = None
+    target_site_url: Optional[str] = None
 
 
 class StudentDashboardResponse(BaseModel):
@@ -251,6 +253,7 @@ class SubjectMappingBase(BaseModel):
     moodle_assignment_id: Optional[int] = None
     moodle_assignment_name: Optional[str] = None
     exam_session: Optional[str] = None
+    target_site_url: Optional[str] = None
 
 
 class SubjectMappingCreate(SubjectMappingBase):
