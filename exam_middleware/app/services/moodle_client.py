@@ -140,13 +140,12 @@ class MoodleClient:
         def _fetch_token():
             # Standard urllib call (verified to work in test_all_sites.py)
             req = urllib.request.Request(url)
-            # Disable SSL verification if requested (though True is safer)
+            # Disable SSL verification (self-signed / untrusted issuer on LMS server)
             import ssl
             ctx = ssl.create_default_context()
-            if not getattr(self, 'verify', True):
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+
             with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
                 return json.loads(response.read().decode())
 
