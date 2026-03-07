@@ -10,7 +10,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -413,6 +413,16 @@ async def root():
     }
 
 
+# Serve favicon from templates directory (fallback when static not configured)
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    from fastapi.responses import FileResponse
+    favicon_path = "app/templates/favicon.ico"
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    raise HTTPException(status_code=404)
+
+
 # Templates setup
 templates = Jinja2Templates(directory="app/templates")
 
@@ -446,4 +456,3 @@ if __name__ == "__main__":
         reload=True,
         log_level="info",
     )
-
