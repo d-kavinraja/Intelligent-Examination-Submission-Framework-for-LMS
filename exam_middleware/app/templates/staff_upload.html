@@ -892,6 +892,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" href="#" onclick="switchTab('reports', event)">
+                    <i class="bi bi-bar-chart-fill me-1"></i> Reports
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" href="#" onclick="switchTab('subjectMappings', event)">
                     <i class="bi bi-book-fill me-1"></i> Subject Mappings
                 </a>
@@ -1072,7 +1077,209 @@
             </div>
         </div>
 
-        <!-- Subject Mappings Section (Tab 2) -->
+        <!-- Reports Section (Tab 2) -->
+        <div id="reportsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bar-chart-fill me-2"></i>
+                        Examination Reports & Analytics
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Reports Summary Stats -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card total">
+                                <div class="stats-number" id="reportsTotalCount">0</div>
+                                <small><i class="bi bi-files me-1"></i>Total Papers</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card valid">
+                                <div class="stats-number" id="reportsSubmittedCount">0</div>
+                                <small><i class="bi bi-cloud-upload me-1"></i>Submitted</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card invalid">
+                                <div class="stats-number" id="reportsPendingCount">0</div>
+                                <small><i class="bi bi-hourglass-split me-1"></i>Pending</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card uploaded">
+                                <div class="stats-number" id="reportsFailedCount">0</div>
+                                <small><i class="bi bi-x-circle me-1"></i>Failed</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card total">
+                                <div class="stats-number" id="reportsAttempt2Count">0</div>
+                                <small><i class="bi bi-arrow-repeat me-1"></i>Attempt 2</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <div class="stats-card valid">
+                                <div class="stats-number" id="reportsSuccessRate">0%</div>
+                                <small><i class="bi bi-percent me-1"></i>Success Rate</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="card border mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>Filter Options</h6>
+                            <div class="row g-3">
+                                <!-- Date Range -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">From Date</label>
+                                    <input type="date" class="form-control" id="reportFromDate">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">To Date</label>
+                                    <input type="date" class="form-control" id="reportToDate">
+                                </div>
+
+                                <!-- Status Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Status</label>
+                                    <select class="form-select" id="reportStatusFilter">
+                                        <option value="">All Statuses</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="processing">Processing</option>
+                                        <option value="submitted">Submitted</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="superseded">Superseded</option>
+                                    </select>
+                                </div>
+
+                                <!-- Exam Type Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Exam Type</label>
+                                    <select class="form-select" id="reportExamTypeFilter">
+                                        <option value="">All Types</option>
+                                        <option value="CIA1">CIA-1</option>
+                                        <option value="CIA2">CIA-2</option>
+                                    </select>
+                                </div>
+
+                                <!-- Attempt Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Attempt</label>
+                                    <select class="form-select" id="reportAttemptFilter">
+                                        <option value="">All Attempts</option>
+                                        <option value="1">Attempt 1</option>
+                                        <option value="2">Attempt 2</option>
+                                    </select>
+                                </div>
+
+                                <!-- Register Number Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Register Number</label>
+                                    <input type="text" class="form-control" id="reportRegNoFilter" placeholder="e.g., 611221104088">
+                                </div>
+
+                                <!-- Subject Code Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Subject Code</label>
+                                    <input type="text" class="form-control" id="reportSubjectFilter" placeholder="e.g., 19AI405">
+                                </div>
+
+                                <!-- Confidence Threshold -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Min Confidence</label>
+                                    <select class="form-select" id="reportConfidenceFilter">
+                                        <option value="">All</option>
+                                        <option value="90">90% and above</option>
+                                        <option value="80">80% and above</option>
+                                        <option value="70">70% and above</option>
+                                    </select>
+                                </div>
+
+                                <!-- Auto-Processed Filter -->
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Processing Type</label>
+                                    <select class="form-select" id="reportProcessingTypeFilter">
+                                        <option value="">All Types</option>
+                                        <option value="manual">Manual Upload</option>
+                                        <option value="auto">Auto-Processed</option>
+                                    </select>
+                                </div>
+
+                                <!-- Search -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Search</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control" id="reportSearchInput" placeholder="Search filename, register no, subject...">
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="col-md-6 d-flex align-items-end gap-2">
+                                    <button class="btn btn-primary flex-grow-1" onclick="applyReportsFilter()">
+                                        <i class="bi bi-search me-1"></i> Apply Filters
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="clearReportsFilters()">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Reset
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="exportReportData()">
+                                        <i class="bi bi-download me-1"></i> Export
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reports Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="reportsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-nowrap">Filename</th>
+                                    <th class="text-nowrap">Register No.</th>
+                                    <th class="text-nowrap">Subject</th>
+                                    <th class="text-nowrap">Exam Type</th>
+                                    <th class="text-nowrap text-center">Attempt</th>
+                                    <th class="text-nowrap">Status</th>
+                                    <th class="text-nowrap">Confidence</th>
+                                    <th class="text-nowrap">Uploaded</th>
+                                    <th class="text-nowrap text-center" style="width: 220px;">Type & Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-hourglass-split fs-1"></i>
+                                        <p class="mt-2">Loading reports...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="reportsLoadingState" style="display: none;" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 text-muted">Loading reports...</p>
+                    </div>
+
+                    <!-- No Results State -->
+                    <div id="reportsNoResults" style="display: none;" class="text-center py-4">
+                        <i class="bi bi-inbox fs-1 text-muted"></i>
+                        <p class="mt-2 text-muted">No reports match your filters</p>
+                    </div>
+
+                    <!-- Result Count -->
+                    <div id="reportsResultCount" class="text-muted small mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Mappings Section (Tab 3) -->
         <div id="subjectMappingsSection" style="display: none;">
             <div class="card">
                 <div class="card-header">
@@ -1966,6 +2173,16 @@
                     renderPendingFiles(e.target.value);
                 });
             }
+
+            // Attach reports filter listeners
+            const reportFilters = ['reportFromDate', 'reportToDate', 'reportStatusFilter', 'reportExamTypeFilter', 'reportAttemptFilter', 'reportRegNoFilter', 'reportSubjectFilter', 'reportConfidenceFilter', 'reportProcessingTypeFilter', 'reportSearchInput'];
+            reportFilters.forEach(filterId => {
+                const element = document.getElementById(filterId);
+                if (element) {
+                    element.addEventListener('change', applyReportsFilter);
+                    element.addEventListener('input', applyReportsFilter);
+                }
+            });
         });
 
         // Toggle attempt 2 lock/unlock handler (delegated)
@@ -3213,18 +3430,328 @@
 
             document.getElementById('uploadSection').style.display = tab === 'upload' ? 'block' : 'none';
             document.getElementById('uploadSection').classList.toggle('active', tab === 'upload');
+            document.getElementById('reportsSection').style.display = tab === 'reports' ? 'block' : 'none';
             document.getElementById('subjectMappingsSection').style.display = tab === 'subjectMappings' ? 'block' : 'none';
             document.getElementById('studentMappingsSection').style.display = tab === 'studentMappings' ? 'block' : 'none';
             document.getElementById('smartScanSection').style.display = tab === 'smartScan' ? 'block' : 'none';
 
+            if (tab === 'reports') loadReports();
             if (tab === 'subjectMappings') loadSubjectMappings();
             if (tab === 'studentMappings') loadStudentMappings();
             if (tab === 'smartScan') checkExtractionStatus();
         }
 
         // ============================================
-        // Subject Mappings CRUD
+        // Reports Section with Advanced Filtering
         // ============================================
+        let allReportData = [];
+
+        async function loadReports() {
+            const tableBody = document.getElementById('reportsTableBody');
+            const loadingState = document.getElementById('reportsLoadingState');
+            
+            loadingState.style.display = 'block';
+            tableBody.innerHTML = '';
+
+            try {
+                const res = await fetch('/upload/all', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error('Failed to load reports');
+                }
+
+                const data = await res.json();
+                let artifacts = [];
+
+                // Handle different response structures
+                if (Array.isArray(data)) {
+                    artifacts = data;
+                } else if (data.artifacts && Array.isArray(data.artifacts)) {
+                    artifacts = data.artifacts;
+                } else if (data.files && Array.isArray(data.files)) {
+                    artifacts = data.files;
+                } else if (data.data && Array.isArray(data.data)) {
+                    artifacts = data.data;
+                }
+
+                allReportData = artifacts;
+                updateReportsStats();
+                renderReportsTable(artifacts);
+                loadingState.style.display = 'none';
+
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Error loading reports: ${error.message}
+                        </td>
+                    </tr>
+                `;
+                loadingState.style.display = 'none';
+            }
+        }
+
+        function updateReportsStats() {
+            const total = allReportData.length;
+            const submitted = allReportData.filter(a => (a.status || '').toLowerCase() === 'submitted').length;
+            const pending = allReportData.filter(a => (a.status || '').toLowerCase() === 'pending').length;
+            const failed = allReportData.filter(a => (a.status || '').toLowerCase() === 'failed').length;
+            const attempt2 = allReportData.filter(a => (a.attempt_number || 1) === 2).length;
+            const successRate = total > 0 ? Math.round((submitted / total) * 100) : 0;
+
+            document.getElementById('reportsTotalCount').textContent = total;
+            document.getElementById('reportsSubmittedCount').textContent = submitted;
+            document.getElementById('reportsPendingCount').textContent = pending;
+            document.getElementById('reportsFailedCount').textContent = failed;
+            document.getElementById('reportsAttempt2Count').textContent = attempt2;
+            document.getElementById('reportsSuccessRate').textContent = successRate + '%';
+        }
+
+        function applyReportsFilter() {
+            const fromDate = document.getElementById('reportFromDate').value;
+            const toDate = document.getElementById('reportToDate').value;
+            const status = document.getElementById('reportStatusFilter').value;
+            const examType = document.getElementById('reportExamTypeFilter').value;
+            const attempt = document.getElementById('reportAttemptFilter').value;
+            const regNo = document.getElementById('reportRegNoFilter').value.toLowerCase();
+            const subject = document.getElementById('reportSubjectFilter').value.toLowerCase();
+            const confidence = document.getElementById('reportConfidenceFilter').value;
+            const processingType = document.getElementById('reportProcessingTypeFilter').value;
+            const searchQuery = document.getElementById('reportSearchInput').value.toLowerCase();
+
+            let filtered = allReportData.filter(item => {
+                // Date range filter
+                if (fromDate || toDate) {
+                    const itemDate = new Date(item.uploaded_at || item.created_at || '');
+                    if (fromDate && itemDate < new Date(fromDate)) return false;
+                    if (toDate) {
+                        const toDateObj = new Date(toDate);
+                        toDateObj.setHours(23, 59, 59); // Include entire day
+                        if (itemDate > toDateObj) return false;
+                    }
+                }
+
+                // Status filter
+                if (status && (item.status || '').toLowerCase() !== status.toLowerCase()) return false;
+
+                // Exam type filter
+                if (examType && (item.exam_type || '') !== examType) return false;
+
+                // Attempt filter
+                if (attempt && (item.attempt_number || 1).toString() !== attempt) return false;
+
+                // Register number filter
+                if (regNo && !(item.register_number || item.parsed_reg_no || '').toLowerCase().includes(regNo)) return false;
+
+                // Subject code filter
+                if (subject && !(item.subject_code || item.parsed_subject_code || '').toLowerCase().includes(subject)) return false;
+
+                // Confidence threshold filter
+                if (confidence) {
+                    const minConf = parseInt(confidence);
+                    const regConf = item.register_confidence || 0;
+                    const subConf = item.subject_confidence || 0;
+                    if (regConf < minConf && subConf < minConf) return false;
+                }
+
+                // Processing type filter
+                if (processingType) {
+                    const isAuto = item.auto_processed === true;
+                    if (processingType === 'auto' && !isAuto) return false;
+                    if (processingType === 'manual' && isAuto) return false;
+                }
+
+                // General search
+                if (searchQuery) {
+                    const searchableText = [
+                        (item.filename || item.original_filename || ''),
+                        (item.register_number || item.parsed_reg_no || ''),
+                        (item.subject_code || item.parsed_subject_code || ''),
+                        (item.status || ''),
+                        (item.exam_type || '')
+                    ].join(' ').toLowerCase();
+                    if (!searchableText.includes(searchQuery)) return false;
+                }
+
+                return true;
+            });
+
+            renderReportsTable(filtered);
+            document.getElementById('reportsResultCount').textContent = `Showing ${filtered.length} of ${allReportData.length} records`;
+        }
+
+        function clearReportsFilters() {
+            document.getElementById('reportFromDate').value = '';
+            document.getElementById('reportToDate').value = '';
+            document.getElementById('reportStatusFilter').value = '';
+            document.getElementById('reportExamTypeFilter').value = '';
+            document.getElementById('reportAttemptFilter').value = '';
+            document.getElementById('reportRegNoFilter').value = '';
+            document.getElementById('reportSubjectFilter').value = '';
+            document.getElementById('reportConfidenceFilter').value = '';
+            document.getElementById('reportProcessingTypeFilter').value = '';
+            document.getElementById('reportSearchInput').value = '';
+            renderReportsTable(allReportData);
+            document.getElementById('reportsResultCount').textContent = `Showing ${allReportData.length} of ${allReportData.length} records`;
+        }
+
+        function renderReportsTable(data) {
+            const tableBody = document.getElementById('reportsTableBody');
+            const noResults = document.getElementById('reportsNoResults');
+
+            if (!data || data.length === 0) {
+                tableBody.style.display = 'none';
+                noResults.style.display = 'block';
+                return;
+            }
+
+            tableBody.style.display = 'table-row-group';
+            noResults.style.display = 'none';
+
+            let html = '';
+            data.forEach(item => {
+                const filename = item.filename || item.original_filename || '-';
+                const regNo = item.register_number || item.parsed_reg_no || '-';
+                const subject = item.subject_code || item.parsed_subject_code || '-';
+                const status = item.status || 'unknown';
+                const examType = item.exam_type || 'CIA1';
+                const attemptNum = item.attempt_number || 1;
+                const uploadDate = item.uploaded_at ? new Date(item.uploaded_at).toLocaleString() : (item.created_at ? new Date(item.created_at).toLocaleString() : '-');
+                const regConf = item.register_confidence || 0;
+                const subConf = item.subject_confidence || 0;
+                const isAuto = item.auto_processed === true;
+
+                const statusBadge = getStatusBadge(status);
+
+                // Confidence display
+                let confHtml = '';
+                if (regConf || subConf) {
+                    const confClass = (regConf >= 80 && subConf >= 80) ? 'text-success' : 'text-warning';
+                    confHtml = `<span class="${confClass}"><strong>Reg:</strong> ${regConf}% | <strong>Sub:</strong> ${subConf}%</span>`;
+                } else {
+                    confHtml = '<span class="text-muted">-</span>';
+                }
+
+                // Processing type badge - styled nicely
+                const procBadge = isAuto 
+                    ? '<span class="badge bg-info text-dark px-3 py-2 fw-semibold"><i class="bi bi-robot me-2"></i>Auto</span>' 
+                    : '<span class="badge bg-secondary text-white px-3 py-2 fw-semibold"><i class="bi bi-person me-2"></i>Manual</span>';
+
+                html += `
+                    <tr>
+                        <td class="text-nowrap text-truncate" style="max-width: 250px;" title="${filename}">
+                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>${filename}
+                        </td>
+                        <td class="text-nowrap"><span class="badge bg-secondary">${regNo}</span></td>
+                        <td class="text-nowrap"><span class="badge bg-primary">${subject}</span></td>
+                        <td class="text-nowrap"><span class="badge ${examType === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white">${examType}</span></td>
+                        <td class="text-nowrap text-center"><span class="badge ${attemptNum === 1 ? 'bg-success' : 'bg-warning text-dark'}">#${attemptNum}</span></td>
+                        <td class="text-nowrap">${statusBadge}</td>
+                        <td class="text-nowrap"><small>${confHtml}</small></td>
+                        <td class="text-nowrap"><small class="text-muted">${uploadDate}</small></td>
+                        <td class="text-nowrap">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+                                ${procBadge}
+                                <button class="btn btn-sm btn-outline-primary" style="width: 100%; margin-top: 0.25rem;" title="View Details" onclick="alert('Details view coming soon!')">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+        }
+
+        function exportReportData() {
+            const fromDate = document.getElementById('reportFromDate').value;
+            const toDate = document.getElementById('reportToDate').value;
+            const status = document.getElementById('reportStatusFilter').value;
+            const examType = document.getElementById('reportExamTypeFilter').value;
+            const attempt = document.getElementById('reportAttemptFilter').value;
+            const regNo = document.getElementById('reportRegNoFilter').value.toLowerCase();
+            const subject = document.getElementById('reportSubjectFilter').value.toLowerCase();
+            const confidence = document.getElementById('reportConfidenceFilter').value;
+            const processingType = document.getElementById('reportProcessingTypeFilter').value;
+            const searchQuery = document.getElementById('reportSearchInput').value.toLowerCase();
+
+            let filtered = allReportData.filter(item => {
+                if (fromDate || toDate) {
+                    const itemDate = new Date(item.uploaded_at || item.created_at || '');
+                    if (fromDate && itemDate < new Date(fromDate)) return false;
+                    if (toDate) {
+                        const toDateObj = new Date(toDate);
+                        toDateObj.setHours(23, 59, 59);
+                        if (itemDate > toDateObj) return false;
+                    }
+                }
+                if (status && (item.status || '').toLowerCase() !== status.toLowerCase()) return false;
+                if (examType && (item.exam_type || '') !== examType) return false;
+                if (attempt && (item.attempt_number || 1).toString() !== attempt) return false;
+                if (regNo && !(item.register_number || item.parsed_reg_no || '').toLowerCase().includes(regNo)) return false;
+                if (subject && !(item.subject_code || item.parsed_subject_code || '').toLowerCase().includes(subject)) return false;
+                if (confidence) {
+                    const minConf = parseInt(confidence);
+                    const regConf = item.register_confidence || 0;
+                    const subConf = item.subject_confidence || 0;
+                    if (regConf < minConf && subConf < minConf) return false;
+                }
+                if (processingType) {
+                    const isAuto = item.auto_processed === true;
+                    if (processingType === 'auto' && !isAuto) return false;
+                    if (processingType === 'manual' && isAuto) return false;
+                }
+                if (searchQuery) {
+                    const searchableText = [
+                        (item.filename || item.original_filename || ''),
+                        (item.register_number || item.parsed_reg_no || ''),
+                        (item.subject_code || item.parsed_subject_code || ''),
+                        (item.status || ''),
+                        (item.exam_type || '')
+                    ].join(' ').toLowerCase();
+                    if (!searchableText.includes(searchQuery)) return false;
+                }
+                return true;
+            });
+
+            // Convert to CSV
+            const headers = ['Filename', 'Register No', 'Subject', 'Exam Type', 'Attempt', 'Status', 'Register Confidence', 'Subject Confidence', 'Uploaded At'];
+            const rows = filtered.map(item => [
+                item.filename || item.original_filename || '',
+                item.register_number || item.parsed_reg_no || '',
+                item.subject_code || item.parsed_subject_code || '',
+                item.exam_type || '',
+                item.attempt_number || 1,
+                item.status || '',
+                item.register_confidence || 0,
+                item.subject_confidence || 0,
+                item.uploaded_at || item.created_at || ''
+            ]);
+
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `examination-reports-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
         async function loadSubjectMappings() {
             const container = document.getElementById('subjectMappingsList');
             container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Loading...</p></div>';
