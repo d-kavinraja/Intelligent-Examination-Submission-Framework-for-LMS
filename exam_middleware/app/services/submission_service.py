@@ -33,6 +33,78 @@ class SubmissionService:
         self.artifact_service = ArtifactService(db)
         self.mapping_service = SubjectMappingService(db)
         self.audit_service = AuditService(db)
+
+    async def _apply_admin_post_submit_restrictions(
+        self,
+        assignment_id: int,
+        moodle_user_id: int,
+        target_site_url: Optional[str],
+    ) -> Dict[str, Any]:
+        """
+        After successful student submission, try to prevent further edits
+        using manager/admin APIs.
+
+        Uses LOCAL_MOODLE_ADMIN_TOKEN (or MOODLE_ADMIN_TOKEN as fallback).
+        This is best-effort and should not fail the student submission.
+        """
+        effective_url = (target_site_url or settings.moodle_base_url or "").rstrip("/")
+        result: Dict[str, Any] = {
+            "attempted": False,
+            "success": False,
+            "target_site_url": effective_url,
+            "actions": [],
+            "errors": [],
+        }
+
+        admin_token = (
+            (getattr(settings, "local_moodle_admin_token", None) or "").strip()
+            or (settings.moodle_admin_token or "").strip()
+        )
+        if not admin_token:
+            result["reason"] = "admin_token_missing"
+            logger.info("No admin token configured — skipping post-submit lock")
+            return result
+
+        result["attempted"] = True
+        logger.info(
+            f"Attempting admin post-submit lock for assignment={assignment_id}, "
+            f"user={moodle_user_id}, site={effective_url}"
+        )
+        client = MoodleClient(base_url=effective_url, token=admin_token)
+        try:
+            # Action 1: Set the user-flag 'locked' on this assignment
+            try:
+                flags_res = await client.set_user_flags_locked(
+                    assignment_id=assignment_id,
+                    user_id=moodle_user_id,
+                    locked=True,
+                    token=admin_token,
+                )
+                result["actions"].append({"name": "mod_assign_set_user_flags", "result": flags_res})
+                logger.info(f"set_user_flags_locked succeeded: {flags_res}")
+            except Exception as e:
+                logger.warning(f"set_user_flags_locked failed: {e}")
+                result["errors"].append(f"set_user_flags_failed: {e}")
+
+            # Action 2: Lock submissions via the dedicated bulk-lock API
+            try:
+                lock_res = await client.lock_submission_for_users(
+                    assignment_id=assignment_id,
+                    user_ids=[moodle_user_id],
+                    token=admin_token,
+                )
+                result["actions"].append({"name": "mod_assign_lock_submissions", "result": lock_res})
+                logger.info(f"lock_submission_for_users succeeded: {lock_res}")
+            except Exception as e:
+                logger.warning(f"lock_submission_for_users failed: {e}")
+                result["errors"].append(f"lock_submissions_failed: {e}")
+
+            result["success"] = len(result["actions"]) > 0
+            if not result["success"]:
+                result["reason"] = "all_admin_lock_actions_failed"
+            return result
+        finally:
+            await client.close()
     
     async def submit_artifact(
         self,
@@ -96,6 +168,8 @@ class SubmissionService:
         if not assignment_id:
             return False, error_msg or f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
 
+        effective_target_site_url = target_site_url or settings.moodle_base_url
+
         # Update artifact with Moodle info
         artifact.moodle_user_id = moodle_user_id
         artifact.moodle_username = moodle_username
@@ -119,7 +193,7 @@ class SubmissionService:
                 artifact=artifact,
                 assignment_id=assignment_id,
                 moodle_token=moodle_token,
-                target_site_url=target_site_url,
+                target_site_url=effective_target_site_url,
             )
             
             # Log the complete result for debugging
@@ -132,6 +206,20 @@ class SubmissionService:
                 moodle_submission_id=result.get("submission_id"),
                 lms_transaction_id=result.get("transaction_id")
             )
+
+            # Apply admin lock to prevent further edits after submit.
+            # Best-effort: failure here should not mark submission as failed.
+            admin_lock_result = await self._apply_admin_post_submit_restrictions(
+                assignment_id=assignment_id,
+                moodle_user_id=moodle_user_id,
+                target_site_url=effective_target_site_url,
+            )
+            result["admin_lock"] = admin_lock_result
+            if admin_lock_result.get("attempted") and not admin_lock_result.get("success"):
+                logger.warning(
+                    f"Post-submit admin lock failed for assignment {assignment_id}, "
+                    f"user {moodle_user_id}: {admin_lock_result}"
+                )
             
             # If this is attempt 2, ensure attempt 1 is marked SUPERSEDED
             if getattr(artifact, 'attempt_number', 1) == 2 and artifact.parsed_reg_no and artifact.parsed_subject_code:

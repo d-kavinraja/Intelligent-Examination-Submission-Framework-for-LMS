@@ -781,6 +781,90 @@ class MoodleClient:
             
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def set_user_flags_locked(
+        self,
+        assignment_id: int,
+        user_id: int,
+        locked: bool = True,
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Set assignment user flags (lock/unlock) for a specific user.
+
+        Function: mod_assign_set_user_flags
+        Requires teacher/manager capability.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "mod_assign_set_user_flags",
+            "moodlewsrestformat": "json",
+            "assignmentid": str(assignment_id),
+            # Moodle expects an array of user-flag objects
+            "userflags[0][userid]": str(user_id),
+            "userflags[0][locked]": "1" if locked else "0",
+        }
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "mod_assign_set_user_flags")
+            logger.info(
+                f"Set user flags for assignment={assignment_id}, user={user_id}, locked={locked}"
+            )
+            return {"success": True, "data": result}
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def lock_submission_for_users(
+        self,
+        assignment_id: int,
+        user_ids: List[int],
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Lock assignment submissions for the specified users.
+
+        Function: mod_assign_lock_submissions
+        Requires teacher/manager capability.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "mod_assign_lock_submissions",
+            "moodlewsrestformat": "json",
+            "assignmentid": str(assignment_id),
+        }
+        for i, uid in enumerate(user_ids):
+            params[f"userids[{i}]"] = str(uid)
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "mod_assign_lock_submissions")
+            logger.info(
+                f"Locked submissions for assignment={assignment_id}, users={user_ids}"
+            )
+            return {"success": True, "data": result}
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
     # =========================================
     # Get Submission Status

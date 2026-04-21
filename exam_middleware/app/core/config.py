@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # OPTIONAL: Admin token only needed for admin operations
     # Students use their own Moodle tokens for submissions
     moodle_admin_token: Optional[str] = None
+    # OPTIONAL: Admin token used only for local Moodle post-submit restrictions
+    # Set via env var LOCAL_MOODLE_ADMIN_TOKEN
+    local_moodle_admin_token: Optional[str] = None
 
     # Email Notifications (SendGrid preferred, SMTP fallback)
     sendgrid_api_key: str = Field(default="")
