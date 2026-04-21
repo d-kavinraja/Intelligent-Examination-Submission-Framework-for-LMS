@@ -311,22 +311,39 @@ async def student_login(
     try:
         logger.info(f"Student login attempt: {credentials.username} with reg_no: {credentials.register_number}")
         # Step 1: Base Authentication and get user info
-        base_url = settings.moodle_base_url
-        base_client = MoodleClient(base_url=base_url)
-        logger.info(f"Authenticating with Base LMS: {base_url}")
-        try:
-            resp = await base_client.get_token(credentials.username, credentials.password)
-            base_token = resp["token"]
-            logger.info("Base LMS token acquired successfully.")
-            base_site_info = await base_client.get_site_info(token=base_token)
-            logger.info(f"Base site info retrieved. UserId: {base_site_info.get('userid')}")
-        except Exception as e:
+        base_url_candidates = []
+        configured_base_url = settings.moodle_base_url.rstrip("/")
+        base_url_candidates.append(configured_base_url)
+        if configured_base_url != "http://localhost":
+            base_url_candidates.append("http://localhost")
+
+        base_url = None
+        base_token = None
+        base_site_info = None
+        last_base_error = None
+
+        for candidate_base_url in base_url_candidates:
+            base_client = MoodleClient(base_url=candidate_base_url)
+            logger.info(f"Authenticating with Base LMS: {candidate_base_url}")
+            try:
+                resp = await base_client.get_token(credentials.username, credentials.password)
+                base_token = resp["token"]
+                base_site_info = await base_client.get_site_info(token=base_token)
+                base_url = candidate_base_url
+                logger.info(f"Base LMS token acquired successfully from {candidate_base_url}.")
+                logger.info(f"Base site info retrieved. UserId: {base_site_info.get('userid')}")
+                break
+            except Exception as e:
+                last_base_error = e
+                logger.warning(f"Base LMS login failed for {candidate_base_url}: {e}")
+            finally:
+                await base_client.close()
+
+        if not base_token or not base_site_info or not base_url:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Authentication with Base LMS failed: {str(e)}"
+                detail=f"Authentication with Base LMS failed: {last_base_error}"
             )
-        finally:
-            await base_client.close()
 
 
         primary_user_id = base_site_info["userid"]

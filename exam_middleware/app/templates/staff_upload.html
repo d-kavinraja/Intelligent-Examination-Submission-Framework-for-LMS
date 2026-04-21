@@ -1179,13 +1179,15 @@
                                 <!-- Register Number Filter -->
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Register Number</label>
-                                    <input type="text" class="form-control" id="reportRegNoFilter" placeholder="e.g., 611221104088">
+                                    <input type="text" class="form-control" id="reportRegNoFilter"
+                                        placeholder="e.g., 611221104088">
                                 </div>
 
                                 <!-- Subject Code Filter -->
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Subject Code</label>
-                                    <input type="text" class="form-control" id="reportSubjectFilter" placeholder="e.g., 19AI405">
+                                    <input type="text" class="form-control" id="reportSubjectFilter"
+                                        placeholder="e.g., 19AI405">
                                 </div>
 
                                 <!-- Confidence Threshold -->
@@ -1214,7 +1216,8 @@
                                     <label class="form-label fw-semibold">Search</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                        <input type="text" class="form-control" id="reportSearchInput" placeholder="Search filename, register no, subject...">
+                                        <input type="text" class="form-control" id="reportSearchInput"
+                                            placeholder="Search filename, register no, subject...">
                                     </div>
                                 </div>
 
@@ -1343,6 +1346,7 @@
                                     </option>
                                     <option value="https://lms2.eee.saveetha.in">EEE SITE (lms2.eee.saveetha.in)
                                     </option>
+                                    <option value="http://localhost/">LOCAL MOODLE (http://localhost/)</option>
                                     <option value="http://lms.ai.saveetha.in">DEMO SITE (lms.ai.saveetha.in)</option>
                                 </select>
                             </div>
@@ -3449,7 +3453,7 @@
         async function loadReports() {
             const tableBody = document.getElementById('reportsTableBody');
             const loadingState = document.getElementById('reportsLoadingState');
-            
+
             loadingState.style.display = 'block';
             tableBody.innerHTML = '';
 
@@ -3642,8 +3646,8 @@
                 }
 
                 // Processing type badge - styled nicely
-                const procBadge = isAuto 
-                    ? '<span class="badge bg-info text-dark px-3 py-2 fw-semibold"><i class="bi bi-robot me-2"></i>Auto</span>' 
+                const procBadge = isAuto
+                    ? '<span class="badge bg-info text-dark px-3 py-2 fw-semibold"><i class="bi bi-robot me-2"></i>Auto</span>'
                     : '<span class="badge bg-secondary text-white px-3 py-2 fw-semibold"><i class="bi bi-person me-2"></i>Manual</span>';
 
                 html += `
