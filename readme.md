@@ -91,6 +91,7 @@ docker compose -f docker-compose.hub.yml up -d
 - **AI Extraction** - YOLO + CRNN models extract metadata from scanned answer sheets via HuggingFace Spaces
 - **Student Portal** - Students verify and submit their own papers
 - **Moodle Integration** - Direct submission to assignment modules
+- **Submission Lock** - Prevents students from editing/deleting/re-uploading after submission (**no admin tokens required**)
 - **Real-time Dashboard** - Auto-refreshing stats, reports, and file listings
 - **Audit Trail** - Complete chain of custody logging
 
@@ -99,7 +100,8 @@ docker compose -f docker-compose.hub.yml up -d
 
 ### Security & Reliability
 - **JWT Authentication** - Secure staff access
-- **AES-256 Encryption** - Protected Moodle token storage (Fernet)
+- **AES-256 Encryption** - Protected Moodle token & assignment password storage (Fernet)
+- **Submission Finality** - `exam_submissions` table + Moodle settings block re-uploads
 - **Idempotent Operations** - Safe re-uploads with transaction IDs
 - **Database-Backed Storage** - Self-healing file persistence for cloud deployments
 - **File Validation** - Hash verification & format checks
@@ -121,6 +123,7 @@ The key challenges include:
 2. **Human Error**: Manual processes are prone to errors such as uploading the wrong file to a student's profile or mislabeling files.
 3. **Security & Integrity**: Direct database manipulation or unverified bulk uploads can compromise the chain of custody.
 4. **Student Verification**: Students often lack a mechanism to verify that their specific physical paper was scanned and submitted correctly before grading begins.
+5. **Post-Submission Tampering**: After submitting answer papers in the exam hall, students can log into Moodle, click "Edit submission", and upload a different answer paper — compromising exam integrity.
 
 ---
 
@@ -169,11 +172,15 @@ The system utilizes a **3-Step "Upload-Verify-Push" Workflow**:
 <details>
 <summary><b>Phase 3: Student Operations</b></summary>
 
-1. **Login** - Student uses Moodle credentials
+1. **Login** - Student uses Moodle credentials (selects Moodle domain)
 2. **Dashboard** - View all papers tagged with their Register Number
 3. **Review** - Preview PDF to verify it's their paper
 4. **Submit** - One-click submission to Moodle
-5. **Confirmation** - Status updates to `SUBMITTED_TO_LMS`
+5. **Lock** - Middleware records submission in `exam_submissions` table (blocks future re-submission)
+6. **Finalize** - `submit_for_grading` API call locks the Moodle submission
+7. **Confirmation** - Status updates to `SUBMITTED_TO_LMS`
+
+> **Note**: Students only see the Submit button. No passwords or admin tokens are involved. The lock is enforced server-side.
 
 </details>
 
@@ -234,6 +241,7 @@ erDiagram
     StaffUser ||--o{ ExaminationArtifact : "uploads"
     SubjectMapping ||--o{ ExaminationArtifact : "maps"
     ExaminationArtifact ||--o| SubmissionQueue : "queued"
+    ExaminationArtifact ||--o| ExamSubmission : "locks"
     StudentSession ||--o{ ExaminationArtifact : "submits"
     StudentUsernameRegister ||--o{ StudentSession : "validates"
     
@@ -251,7 +259,18 @@ erDiagram
         int id PK
         string subject_code UK
         int moodle_assignment_id
+        text assignment_password_encrypted
         boolean is_active
+    }
+    
+    ExamSubmission {
+        int id PK
+        string student_id
+        string subject_code
+        string exam_type
+        string status
+        timestamp submitted_at
+        timestamp locked_at
     }
     
     AuditLog {
@@ -271,7 +290,8 @@ erDiagram
 | Table | Description | Key Columns |
 |:------|:------------|:------------|
 | `examination_artifacts` | Core scanned paper records | `artifact_uuid`, `parsed_reg_no`, `workflow_status` |
-| `subject_mappings` | Subject to Moodle mapping | `subject_code`, `moodle_assignment_id` |
+| `subject_mappings` | Subject to Moodle mapping | `subject_code`, `moodle_assignment_id`, `assignment_password_encrypted` |
+| `exam_submissions` | **Submission lock tracking** | `student_id`, `subject_code`, `exam_type`, `status` |
 | `staff_users` | Staff accounts | `username`, `hashed_password`, `role` |
 | `student_sessions` | Active student sessions | `session_id`, `encrypted_token` |
 | `student_username_register` | Username to Register No mapping | `moodle_username`, `register_number` |
@@ -619,18 +639,72 @@ The application automatically detects missing columns on startup and applies sch
 - Add service: **FileUpload** (short name: `fileupload`)
 - Add functions:
   - `core_webservice_get_site_info`
+  - `mod_assign_get_assignments`
+  - `mod_assign_get_submission_status`
   - `mod_assign_save_submission`
   - `mod_assign_submit_for_grading`
   - `core_user_get_users_by_field`
 
-**3. Create Token**
-- `Site administration` → `Server` → `Web services` → `Manage tokens`
-- Create token for admin user with **FileUpload** service
-- Copy token to `.env` as `MOODLE_ADMIN_TOKEN`
-
-**4. Enable Upload**
+**3. Enable Upload**
 - Ensure `webservice/upload.php` is accessible
-- Set max upload size ≥ 50MB in `Site administration` → `Security` → `Site security settings`
+- Set max upload size >= 50MB in `Site administration` → `Security` → `Site security settings`
+
+### Submission Lock — Moodle Administration Settings
+
+> **IMPORTANT**: No admin tokens are used for submission locking. The lock is enforced entirely through **Moodle Assignment settings** (configured by the admin in the Moodle Administration UI) and the **middleware's `exam_submissions` database table**.
+>
+> Students never see any password, and the Student Portal UI remains exactly the same.
+
+**How it works (two layers, zero admin tokens):**
+
+| Layer | Mechanism | Purpose |
+|:------|:----------|:--------|
+| **Middleware** | `exam_submissions` table tracks every successful submission | Blocks re-submission attempts at the API level |
+| **Moodle Admin UI** | Assignment settings configured by admin | Prevents editing even if student logs into Moodle directly |
+
+#### Step 1: Configure Each Assignment (Moodle Admin UI)
+
+Go to: **Moodle → Course → Assignment → Edit settings → Submission settings**
+
+| Setting | Value | Why |
+|:--------|:------|:----|
+| **Require students to click the submit button** | **Yes** | Enables the submit→finalize workflow. The middleware calls `mod_assign_submit_for_grading` to lock it. |
+| **Require that students accept the submission statement** | **Yes** | Extra confirmation barrier that prevents casual re-submission. |
+| **Attempts reopened** | **Never** | Moodle will **never** automatically reopen a submission for editing. |
+| **Maximum attempts** | **1** | One attempt only. After submission, no edits allowed. |
+
+#### Step 2: Set Time Boundaries
+
+| Setting | Value | Why |
+|:--------|:------|:----|
+| **Cut-off date** | Set to exam end time | No submissions accepted after this time. |
+| **Maximum number of uploaded files** | **1** | One file per submission. |
+
+#### Step 3: Set Assignment Password (Optional — For Extra Security)
+
+If you want only the middleware (not students directly) to be able to submit:
+
+1. Go to **Assignment → Edit settings → Restrict access → Add restriction → Password**
+2. Set a password
+3. Enter the **same password** in the **Staff Portal → Subject Mapping → Assignment Password** field
+4. The middleware automatically uses this password during submission — students never see it
+
+#### Step 4: Verify Student Role Permissions
+
+Go to: **Site administration → Users → Permissions → Define roles → Student**
+
+| Capability | Setting | Why |
+|:-----------|:--------|:----|
+| `mod/assign:submit` | **Allow** | Students can submit via the middleware |
+| `mod/assign:editownsubmission` | **Prohibit / Not set** | **CRITICAL**: If this is "Allow", students can edit after submission. Remove it! |
+
+#### Step 5: Verify the Lock
+
+After a student submits through the portal:
+
+1. **In Moodle**: Go to Assignment → View submissions → The student should show **"Submitted for grading"**
+2. **Student cannot** click "Edit submission" (grayed out or hidden)
+3. **In Middleware**: Trying to submit again → *"This exam has already been submitted and locked"*
 
 ---
 
@@ -775,6 +849,8 @@ sequenceDiagram
 |:--------|:---------------|:--------|
 | **Password Hashing** | bcrypt | 12 rounds, salt per password |
 | **Token Encryption** | AES-256 (Fernet) | Moodle tokens encrypted at rest |
+| **Assignment Password** | AES-256 (Fernet) | Encrypted before storage, never exposed in API responses |
+| **Submission Lock** | `exam_submissions` table | Prevents re-submission at middleware level (no admin tokens) |
 | **JWT Tokens** | python-jose | Short-lived, signed tokens |
 | **File Validation** | python-magic | MIME type verification |
 | **File Integrity** | SHA-256 | Hash stored for verification |
@@ -868,6 +944,18 @@ curl http://localhost:8000/health
 ---
 
 ## Recent Updates
+
+### Version 1.5.0 (2026-04-30)
+
+#### Submission Lock System — Prevent Post-Submission Tampering
+
+> **No admin tokens are used.** The lock is enforced through Moodle Administration UI settings + middleware database tracking.
+
+- **`exam_submissions` table**: New database table tracks every finalized submission. Once a student submits, any re-submission attempt is immediately blocked by the middleware — no API workaround possible.
+- **`submit_for_grading` workflow**: The middleware calls Moodle's `mod_assign_submit_for_grading` to finalize the submission. Combined with Moodle assignment settings (attempts=1, click-to-submit=yes, reopened=never), students **cannot edit, delete, or re-upload** even if they log into Moodle directly.
+- **Assignment Password support**: Staff can set an optional password on subject mappings. The password is encrypted (AES-256/Fernet) and stored securely. The middleware uses it transparently during submission — students never see it.
+- **Staff Portal UI**: New password field with show/hide toggle in the Subject Mapping form. New Password column with lock indicator (🔒/🔓) in the mapping list.
+- **Files changed**: `models.py`, `main.py`, `submission_service.py`, `schemas.py`, `admin.py`, `staff_upload.html`
 
 ### Version 1.4.0 (2026-02-28)
 

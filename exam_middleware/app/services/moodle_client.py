@@ -807,9 +807,8 @@ class MoodleClient:
             "wsfunction": "mod_assign_set_user_flags",
             "moodlewsrestformat": "json",
             "assignmentid": str(assignment_id),
-            # Moodle expects an array of user-flag objects
-            "userflags[0][userid]": str(user_id),
-            "userflags[0][locked]": "1" if locked else "0",
+            "userid": str(user_id),
+            "locked": "1" if locked else "0",
         }
 
         try:

@@ -165,6 +165,10 @@ class SubjectMapping(Base):
     # Multi-Site Architecture: Target Moodle URL where this subject is hosted
     target_site_url = Column(String(255), nullable=True)
 
+    # Encrypted assignment password (used for password-protected Moodle assignments)
+    # Encrypted via Fernet before storage; decrypted only during submission flow.
+    assignment_password_encrypted = Column(Text, nullable=True)
+
     # When was the cmid successfully resolved to a real assignment ID?
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -365,4 +369,43 @@ class StudentUsernameRegister(Base):
 
     __table_args__ = (
         UniqueConstraint('moodle_username', 'register_number', name='uq_username_register'),
+    )
+
+
+class ExamSubmission(Base):
+    """
+    Tracks finalized exam submissions to prevent re-submission.
+    Once status is COMPLETED, the middleware will reject any further
+    submission attempts for the same (student, subject, exam_type).
+    """
+    __tablename__ = "exam_submissions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Student identity
+    student_id = Column(String(20), nullable=False, index=True)  # University register number
+    moodle_user_id = Column(BigInteger, nullable=True)
+    moodle_username = Column(String(100), nullable=True)
+
+    # What was submitted
+    subject_code = Column(String(20), nullable=False)
+    assignment_id = Column(Integer, nullable=True)  # Moodle assignment ID
+    exam_type = Column(String(10), nullable=False, default="CIA1")
+    artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="SET NULL"), nullable=True)
+
+    # Submission lifecycle
+    status = Column(String(20), nullable=False, default="PENDING")  # PENDING, COMPLETED
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    locked_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Metadata
+    target_site_url = Column(String(255), nullable=True)
+    transaction_id = Column(String(100), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('student_id', 'subject_code', 'exam_type', name='uq_exam_submission'),
+        Index('ix_exam_sub_student', 'student_id', 'subject_code', 'exam_type'),
     )

@@ -186,6 +186,20 @@ async def lifespan(app: FastAPI):
             except Exception as ee:
                 logger.debug(f"Enum update skipped or failed: {ee}")
 
+            # 5. Handle subject_mappings: add assignment_password_encrypted
+            res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='subject_mappings' AND column_name='assignment_password_encrypted'"))
+            if not res.fetchone():
+                logger.info("Adding assignment_password_encrypted to subject_mappings...")
+                await conn.execute(text("ALTER TABLE subject_mappings ADD COLUMN assignment_password_encrypted TEXT DEFAULT NULL"))
+
+            # 6. Ensure exam_submissions table exists (created by Base.metadata.create_all above,
+            #    but guard against edge cases where the model was added after initial DB creation)
+            res = await conn.execute(text("SELECT to_regclass('public.exam_submissions')"))
+            if res.scalar() is None:
+                logger.info("Creating exam_submissions table...")
+                from app.db.models import ExamSubmission
+                await conn.run_sync(lambda sync_conn: ExamSubmission.__table__.create(sync_conn, checkfirst=True))
+
         except Exception as e:
             logger.error(f"Migration error during startup: {e}")
             

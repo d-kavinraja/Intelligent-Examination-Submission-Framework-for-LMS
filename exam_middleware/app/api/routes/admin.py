@@ -112,6 +112,7 @@ async def list_subject_mappings(
             moodle_assignment_name=m.moodle_assignment_name,
             exam_session=m.exam_session,
             target_site_url=m.target_site_url,
+            has_password=bool(m.assignment_password_encrypted),
             is_active=m.is_active,
             created_at=m.created_at,
             resolved_at=m.resolved_at,
@@ -424,6 +425,14 @@ async def auto_create_subject_mapping(
     exam_session = (payload.get("exam_session") or "").strip() or "2025-2026"
     exam_type = (payload.get("exam_type") or "CIA1").strip().upper()
     target_site_url = (payload.get("target_site_url") or "").strip() or None
+    assignment_password = (payload.get("assignment_password") or "").strip() or None
+
+    # Encrypt assignment password if provided
+    encrypted_password = None
+    if assignment_password:
+        from app.core.security import token_encryption
+        encrypted_password = token_encryption.encrypt(assignment_password)
+        logger.info(f"Assignment password encrypted for {subject_code} ({exam_type})")
 
     if not subject_code:
         raise HTTPException(
@@ -481,6 +490,7 @@ async def auto_create_subject_mapping(
                 moodle_assignment_name=assignment_name,
                 exam_session=exam_session,
                 target_site_url=target_site_url,
+                assignment_password_encrypted=encrypted_password,
                 is_active=True,
                 resolved_at=_dt.utcnow(),
             )
@@ -520,6 +530,7 @@ async def auto_create_subject_mapping(
             moodle_assignment_name=None,
             exam_session=exam_session,
             target_site_url=target_site_url,
+            assignment_password_encrypted=encrypted_password,
             is_active=True,
             resolved_at=None,
         )
@@ -558,6 +569,7 @@ async def auto_create_subject_mapping(
             moodle_assignment_name=subject_name or f"Assignment {assignment_id}",
             exam_session=exam_session,
             target_site_url=target_site_url,
+            assignment_password_encrypted=encrypted_password,
             is_active=True,
         )
         db.add(mapping)

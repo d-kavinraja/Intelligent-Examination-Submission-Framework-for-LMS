@@ -259,12 +259,14 @@ class SubjectMappingBase(BaseModel):
 class SubjectMappingCreate(SubjectMappingBase):
     """Create subject mapping"""
     moodle_course_idnumber: Optional[str] = None
+    assignment_password: Optional[str] = None  # Plaintext; encrypted before storage
 
 
 class SubjectMappingResponse(SubjectMappingBase):
     """Subject mapping response"""
     id: int
     is_active: bool
+    has_password: bool = False  # True when assignment_password_encrypted is set
     created_at: datetime
     resolved_at: Optional[datetime] = None
     last_verified_at: Optional[datetime]

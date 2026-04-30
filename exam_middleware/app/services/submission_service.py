@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import ExaminationArtifact, WorkflowStatus
+from app.db.models import ExaminationArtifact, WorkflowStatus, ExamSubmission
 from app.services.moodle_client import MoodleClient, MoodleAPIError
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
 from app.core.security import token_encryption
@@ -34,7 +34,20 @@ class SubmissionService:
         self.mapping_service = SubjectMappingService(db)
         self.audit_service = AuditService(db)
 
-    async def _apply_admin_post_submit_restrictions(
+    @staticmethod
+    def _is_local_moodle_url(url: Optional[str]) -> bool:
+        """Return True only for localhost/127.0.0.1 Moodle targets."""
+        if not url:
+            return False
+        normalized = url.rstrip("/").lower()
+        return normalized in {
+            "http://localhost",
+            "https://localhost",
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+        }
+
+    async def _apply_local_admin_post_submit_restrictions(
         self,
         assignment_id: int,
         moodle_user_id: int,
@@ -42,9 +55,8 @@ class SubmissionService:
     ) -> Dict[str, Any]:
         """
         After successful student submission, try to prevent further edits
-        using manager/admin APIs.
+        using manager/admin APIs for local Moodle only.
 
-        Uses LOCAL_MOODLE_ADMIN_TOKEN (or MOODLE_ADMIN_TOKEN as fallback).
         This is best-effort and should not fail the student submission.
         """
         effective_url = (target_site_url or settings.moodle_base_url or "").rstrip("/")
@@ -56,23 +68,21 @@ class SubmissionService:
             "errors": [],
         }
 
+        if not self._is_local_moodle_url(effective_url):
+            result["reason"] = "not_local_site"
+            return result
+
         admin_token = (
             (getattr(settings, "local_moodle_admin_token", None) or "").strip()
             or (settings.moodle_admin_token or "").strip()
         )
         if not admin_token:
-            result["reason"] = "admin_token_missing"
-            logger.info("No admin token configured — skipping post-submit lock")
+            result["reason"] = "local_admin_token_missing"
             return result
 
         result["attempted"] = True
-        logger.info(
-            f"Attempting admin post-submit lock for assignment={assignment_id}, "
-            f"user={moodle_user_id}, site={effective_url}"
-        )
         client = MoodleClient(base_url=effective_url, token=admin_token)
         try:
-            # Action 1: Set the user-flag 'locked' on this assignment
             try:
                 flags_res = await client.set_user_flags_locked(
                     assignment_id=assignment_id,
@@ -81,12 +91,9 @@ class SubmissionService:
                     token=admin_token,
                 )
                 result["actions"].append({"name": "mod_assign_set_user_flags", "result": flags_res})
-                logger.info(f"set_user_flags_locked succeeded: {flags_res}")
             except Exception as e:
-                logger.warning(f"set_user_flags_locked failed: {e}")
                 result["errors"].append(f"set_user_flags_failed: {e}")
 
-            # Action 2: Lock submissions via the dedicated bulk-lock API
             try:
                 lock_res = await client.lock_submission_for_users(
                     assignment_id=assignment_id,
@@ -94,9 +101,7 @@ class SubmissionService:
                     token=admin_token,
                 )
                 result["actions"].append({"name": "mod_assign_lock_submissions", "result": lock_res})
-                logger.info(f"lock_submission_for_users succeeded: {lock_res}")
             except Exception as e:
-                logger.warning(f"lock_submission_for_users failed: {e}")
                 result["errors"].append(f"lock_submissions_failed: {e}")
 
             result["success"] = len(result["actions"]) > 0
@@ -162,6 +167,31 @@ class SubmissionService:
                 "already_submitted": True,
                 "submitted_at": artifact.submit_timestamp.isoformat() if artifact.submit_timestamp else None
             }
+
+        # Check exam_submissions table: prevent any re-submission for this student+subject+exam
+        from sqlalchemy import select, and_
+        existing_sub = await self.db.execute(
+            select(ExamSubmission).where(
+                and_(
+                    ExamSubmission.student_id == register_number,
+                    ExamSubmission.subject_code == artifact.parsed_subject_code,
+                    ExamSubmission.exam_type == (getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'),
+                    ExamSubmission.status == "COMPLETED",
+                )
+            )
+        )
+        completed_record = existing_sub.scalar_one_or_none()
+        if completed_record:
+            logger.warning(
+                f"Blocked re-submission: student={register_number}, "
+                f"subject={artifact.parsed_subject_code}, exam={artifact.exam_type} "
+                f"— already COMPLETED at {completed_record.submitted_at}"
+            )
+            return False, "This exam has already been submitted and locked. Re-submission is not allowed.", {
+                "already_submitted": True,
+                "locked": True,
+                "submitted_at": completed_record.submitted_at.isoformat() if completed_record.submitted_at else None,
+            }
         
         # Get assignment ID
         assignment_id, target_site_url, error_msg = await self._resolve_assignment_id(artifact)
@@ -207,9 +237,9 @@ class SubmissionService:
                 lms_transaction_id=result.get("transaction_id")
             )
 
-            # Apply admin lock to prevent further edits after submit.
+            # Local Moodle only: apply admin lock to prevent further edits after submit.
             # Best-effort: failure here should not mark submission as failed.
-            admin_lock_result = await self._apply_admin_post_submit_restrictions(
+            admin_lock_result = await self._apply_local_admin_post_submit_restrictions(
                 assignment_id=assignment_id,
                 moodle_user_id=moodle_user_id,
                 target_site_url=effective_target_site_url,
@@ -220,7 +250,52 @@ class SubmissionService:
                     f"Post-submit admin lock failed for assignment {assignment_id}, "
                     f"user {moodle_user_id}: {admin_lock_result}"
                 )
-            
+
+            # Record in exam_submissions table as COMPLETED to block future re-submissions
+            from sqlalchemy import select, and_
+            es_result = await self.db.execute(
+                select(ExamSubmission).where(
+                    and_(
+                        ExamSubmission.student_id == register_number,
+                        ExamSubmission.subject_code == artifact.parsed_subject_code,
+                        ExamSubmission.exam_type == (getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'),
+                    )
+                )
+            )
+            exam_sub = es_result.scalar_one_or_none()
+            now = datetime.utcnow()
+            if exam_sub:
+                exam_sub.status = "COMPLETED"
+                exam_sub.submitted_at = now
+                exam_sub.locked_at = now
+                exam_sub.assignment_id = assignment_id
+                exam_sub.artifact_id = artifact.id
+                exam_sub.moodle_user_id = moodle_user_id
+                exam_sub.moodle_username = moodle_username
+                exam_sub.target_site_url = effective_target_site_url
+                exam_sub.transaction_id = result.get("transaction_id")
+            else:
+                exam_sub = ExamSubmission(
+                    student_id=register_number,
+                    moodle_user_id=moodle_user_id,
+                    moodle_username=moodle_username,
+                    subject_code=artifact.parsed_subject_code,
+                    assignment_id=assignment_id,
+                    exam_type=getattr(artifact, 'exam_type', 'CIA1') or 'CIA1',
+                    artifact_id=artifact.id,
+                    status="COMPLETED",
+                    submitted_at=now,
+                    locked_at=now,
+                    target_site_url=effective_target_site_url,
+                    transaction_id=result.get("transaction_id"),
+                )
+                self.db.add(exam_sub)
+            await self.db.flush()
+            logger.info(
+                f"Recorded exam_submission COMPLETED: student={register_number}, "
+                f"subject={artifact.parsed_subject_code}, exam={artifact.exam_type}"
+            )
+
             # If this is attempt 2, ensure attempt 1 is marked SUPERSEDED
             if getattr(artifact, 'attempt_number', 1) == 2 and artifact.parsed_reg_no and artifact.parsed_subject_code:
                 from sqlalchemy import select, and_

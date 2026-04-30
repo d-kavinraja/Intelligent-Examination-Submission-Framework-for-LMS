@@ -1350,6 +1350,18 @@
                                     <option value="http://lms.ai.saveetha.in">DEMO SITE (lms.ai.saveetha.in)</option>
                                 </select>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Assignment Password <small class="text-muted">(optional)</small></label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="sm_assignment_password"
+                                        placeholder="Moodle assignment password" autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary" type="button" id="smTogglePwdBtn"
+                                        onclick="togglePasswordVisibility()" title="Show/Hide password">
+                                        <i class="bi bi-eye" id="smPwdIcon"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">If the Moodle assignment requires a password to submit</small>
+                            </div>
                         </div>
                         <div id="smAlert" class="alert mt-3" style="display: none;"></div>
                         <button type="submit" class="btn btn-primary mt-3" id="smSubmitBtn">
@@ -3769,8 +3781,11 @@
                     container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><p class="mt-2">No subject mappings yet</p></div>';
                     return;
                 }
-                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>Target Site</th><th>cmid</th><th>Assignment ID</th><th>Assignment Name</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Subject Code</th><th>Subject Name</th><th>Exam Type</th><th>Target Site</th><th>cmid</th><th>Assignment ID</th><th>Assignment Name</th><th>Password</th><th>Session</th><th>Actions</th></tr></thead><tbody>';
                 data.forEach(m => {
+                    const pwdBadge = m.has_password
+                        ? '<span class="badge bg-success" title="Password set"><i class="bi bi-lock-fill me-1"></i>Set</span>'
+                        : '<span class="badge bg-secondary" title="No password"><i class="bi bi-unlock me-1"></i>None</span>';
                     html += `<tr>
                         <td><span class="badge bg-primary">${m.subject_code}</span></td>
                         <td>${m.subject_name || '-'}</td>
@@ -3781,6 +3796,7 @@
                             ? `<span class="badge bg-success">${m.moodle_assignment_id}</span>`
                             : `<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pending (auto-resolves on student login)</span>`}</td>
                         <td>${m.moodle_assignment_name || (m.moodle_assignment_id ? '-' : '<em class="text-muted">unresolved</em>')}</td>
+                        <td>${pwdBadge}</td>
                         <td>${m.exam_session || '-'}</td>
                         <td><button class="btn btn-sm btn-outline-danger" onclick="deleteSubjectMapping(${m.id})"><i class="bi bi-trash"></i></button></td>
                     </tr>`;
@@ -3795,6 +3811,19 @@
 
         // Clear lookup result helper (kept for compatibility, no-op now)
         function clearLookupResult() { }
+
+        // Toggle password visibility for assignment password field
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('sm_assignment_password');
+            const icon = document.getElementById('smPwdIcon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                pwdInput.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        }
 
         async function addSubjectMapping(event) {
             event.preventDefault();
@@ -3811,6 +3840,7 @@
                 cmid: parseInt(document.getElementById('sm_cmid').value.trim()),
                 exam_session: document.getElementById('sm_exam_session').value.trim() || '2025-2026',
                 target_site_url: document.getElementById('sm_target_site_url').value,
+                assignment_password: document.getElementById('sm_assignment_password').value.trim() || null,
             };
             try {
                 const res = await fetch('/admin/mappings/auto', {
