@@ -653,44 +653,46 @@ The application automatically detects missing columns on startup and applies sch
 
 ### Submission Lock — Automated Admin Token Method
 
-> **RECOMMENDED METHOD**: This method uses an Admin Token to automatically lock individual submissions. It is highly surgical—it **only** locks the specific exam paper submitted and **does not affect other assignments or users** in Moodle.
+The middleware implements a **dual-token locking mechanism** to ensure exam finality. This method is highly surgical—it **only** locks the specific exam paper submitted and **does not affect other assignments or users** in Moodle.
 
-**How it works:**
-1.  **Student** submits their paper via the Student Portal.
-2.  **Middleware** completes the upload to Moodle.
-3.  **Middleware** uses the `MOODLE_ADMIN_TOKEN` to immediately trigger `mod_assign_lock_submissions` for that specific student and assignment.
-4.  **Result:** The student can no longer "Edit" or "Remove" that specific submission, but they can still work on their other non-exam assignments normally.
+#### Technical Locking Workflow
+
+The middleware orchestrates a 3-step secure submission process using two different tokens:
+
+```mermaid
+sequenceDiagram
+    participant Student as Student Portal
+    participant MW as Middleware (Backend)
+    participant DB as Postgres DB
+    participant Moodle as Moodle LMS
+
+    Student->>MW: Click "Submit Answer Paper"
+    MW->>DB: Check if already COMPLETED (Block if true)
+    
+    Note over MW,Moodle: [Step 1: Student Context]
+    MW->>Moodle: mod_assign_save_submission (Student Token)
+    MW->>Moodle: mod_assign_submit_for_grading (Student Token)
+    
+    Note over MW,Moodle: [Step 2: Admin/Locking Context]
+    MW->>Moodle: mod_assign_lock_submissions (Admin Token)
+    MW->>Moodle: mod_assign_set_user_flags [locked=1] (Admin Token)
+    
+    MW->>DB: Record status as COMPLETED
+    MW-->>Student: Return Success & Locked Status
+```
+
+1.  **Student Identity (Student Token):** The middleware first uses the student's own Moodle token to upload the file and finalize the submission. This ensures the paper is correctly attributed to the student.
+2.  **Administrative Lock (Admin Token):** Immediately after the upload, the middleware switches to the `MOODLE_ADMIN_TOKEN` (Manager/Teacher level). It makes an administrative call to Moodle to "Lock" that student's submission.
+3.  **Middleware Guard:** Finally, it records the `COMPLETED` status in the local `exam_submissions` database table, providing a second layer of protection against duplicate API calls.
 
 #### Setup Requirements:
 1.  **Admin Token:** Provide a token for a user with "Manager" or "Teacher" permissions in `.env` as `MOODLE_ADMIN_TOKEN`.
-2.  **Moodle Functions:** Ensure `mod_assign_set_user_flags` and `mod_assign_lock_submissions` are enabled in your Moodle Web Service.
+2.  **Moodle Functions:** The following functions **must** be enabled in your Moodle Web Service:
+    *   `mod_assign_set_user_flags`
+    *   `mod_assign_lock_submissions`
+    *   `mod_assign_submit_for_grading`
 
 ---
-
-### Manual Moodle Configuration (Alternative)
-
-If you do not want to use an Admin Token, you can configure these settings manually in the Moodle UI for each Exam Assignment.
-
-| Layer | Mechanism | Purpose |
-|:------|:----------|:--------|
-| **Middleware** | `exam_submissions` table tracks every successful submission | Blocks re-submission attempts at the API level |
-| **Moodle Admin UI** | Assignment settings configured by admin | Prevents editing even if student logs into Moodle directly |
-
-#### Step 1: Configure Each Assignment (Moodle Admin UI)
-
-Go to: **Moodle → Course → Assignment → Edit settings → Submission settings**
-
-| Setting | Value | Why |
-|:--------|:------|:----|
-| **Require students to click the submit button** | **Yes** | Enables the submit→finalize workflow. The middleware calls `mod_assign_submit_for_grading` to lock it. |
-| **Maximum attempts** | **1** | One attempt only. After submission, no edits allowed. |
-
-#### Step 2: Set Permission Overrides (Only if needed)
-
-To hide the "Edit" button completely for a specific exam:
-1.  Go to the **Exam Assignment** in Moodle.
-2.  Click **More > Permissions**.
-3.  Set **"Edit own submission"** to **Prohibit** for the Student role.
 
 ---
 
