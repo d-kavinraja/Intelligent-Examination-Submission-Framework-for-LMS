@@ -91,7 +91,7 @@ docker compose -f docker-compose.hub.yml up -d
 - **AI Extraction** - YOLO + CRNN models extract metadata from scanned answer sheets via HuggingFace Spaces
 - **Student Portal** - Students verify and submit their own papers
 - **Moodle Integration** - Direct submission to assignment modules
-- **Submission Lock** - Prevents students from editing/deleting/re-uploading after submission (**no admin tokens required**)
+- **Automated Submission Lock** - Uses an Admin Token to instantly lock individual submissions (**does not affect other assignments**)
 - **Real-time Dashboard** - Auto-refreshing stats, reports, and file listings
 - **Audit Trail** - Complete chain of custody logging
 
@@ -101,7 +101,7 @@ docker compose -f docker-compose.hub.yml up -d
 ### Security & Reliability
 - **JWT Authentication** - Secure staff access
 - **AES-256 Encryption** - Protected Moodle token & assignment password storage (Fernet)
-- **Submission Finality** - `exam_submissions` table + Moodle settings block re-uploads
+- **Submission Finality** - `exam_submissions` table + Automated Admin Lock block re-uploads
 - **Idempotent Operations** - Safe re-uploads with transaction IDs
 - **Database-Backed Storage** - Self-healing file persistence for cloud deployments
 - **File Validation** - Hash verification & format checks
@@ -643,19 +643,33 @@ The application automatically detects missing columns on startup and applies sch
   - `mod_assign_get_submission_status`
   - `mod_assign_save_submission`
   - `mod_assign_submit_for_grading`
+  - `mod_assign_set_user_flags` (Required for Automated Locking)
+  - `mod_assign_lock_submissions` (Required for Automated Locking)
   - `core_user_get_users_by_field`
 
 **3. Enable Upload**
 - Ensure `webservice/upload.php` is accessible
 - Set max upload size >= 50MB in `Site administration` → `Security` → `Site security settings`
 
-### Submission Lock — Moodle Administration Settings
+### Submission Lock — Automated Admin Token Method
 
-> **IMPORTANT**: No admin tokens are used for submission locking. The lock is enforced entirely through **Moodle Assignment settings** (configured by the admin in the Moodle Administration UI) and the **middleware's `exam_submissions` database table**.
->
-> Students never see any password, and the Student Portal UI remains exactly the same.
+> **RECOMMENDED METHOD**: This method uses an Admin Token to automatically lock individual submissions. It is highly surgical—it **only** locks the specific exam paper submitted and **does not affect other assignments or users** in Moodle.
 
-**How it works (two layers, zero admin tokens):**
+**How it works:**
+1.  **Student** submits their paper via the Student Portal.
+2.  **Middleware** completes the upload to Moodle.
+3.  **Middleware** uses the `MOODLE_ADMIN_TOKEN` to immediately trigger `mod_assign_lock_submissions` for that specific student and assignment.
+4.  **Result:** The student can no longer "Edit" or "Remove" that specific submission, but they can still work on their other non-exam assignments normally.
+
+#### Setup Requirements:
+1.  **Admin Token:** Provide a token for a user with "Manager" or "Teacher" permissions in `.env` as `MOODLE_ADMIN_TOKEN`.
+2.  **Moodle Functions:** Ensure `mod_assign_set_user_flags` and `mod_assign_lock_submissions` are enabled in your Moodle Web Service.
+
+---
+
+### Manual Moodle Configuration (Alternative)
+
+If you do not want to use an Admin Token, you can configure these settings manually in the Moodle UI for each Exam Assignment.
 
 | Layer | Mechanism | Purpose |
 |:------|:----------|:--------|
@@ -669,42 +683,14 @@ Go to: **Moodle → Course → Assignment → Edit settings → Submission setti
 | Setting | Value | Why |
 |:--------|:------|:----|
 | **Require students to click the submit button** | **Yes** | Enables the submit→finalize workflow. The middleware calls `mod_assign_submit_for_grading` to lock it. |
-| **Require that students accept the submission statement** | **Yes** | Extra confirmation barrier that prevents casual re-submission. |
-| **Attempts reopened** | **Never** | Moodle will **never** automatically reopen a submission for editing. |
 | **Maximum attempts** | **1** | One attempt only. After submission, no edits allowed. |
 
-#### Step 2: Set Time Boundaries
+#### Step 2: Set Permission Overrides (Only if needed)
 
-| Setting | Value | Why |
-|:--------|:------|:----|
-| **Cut-off date** | Set to exam end time | No submissions accepted after this time. |
-| **Maximum number of uploaded files** | **1** | One file per submission. |
-
-#### Step 3: Set Assignment Password (Optional — For Extra Security)
-
-If you want only the middleware (not students directly) to be able to submit:
-
-1. Go to **Assignment → Edit settings → Restrict access → Add restriction → Password**
-2. Set a password
-3. Enter the **same password** in the **Staff Portal → Subject Mapping → Assignment Password** field
-4. The middleware automatically uses this password during submission — students never see it
-
-#### Step 4: Verify Student Role Permissions
-
-Go to: **Site administration → Users → Permissions → Define roles → Student**
-
-| Capability | Setting | Why |
-|:-----------|:--------|:----|
-| `mod/assign:submit` | **Allow** | Students can submit via the middleware |
-| `mod/assign:editownsubmission` | **Prohibit / Not set** | **CRITICAL**: If this is "Allow", students can edit after submission. Remove it! |
-
-#### Step 5: Verify the Lock
-
-After a student submits through the portal:
-
-1. **In Moodle**: Go to Assignment → View submissions → The student should show **"Submitted for grading"**
-2. **Student cannot** click "Edit submission" (grayed out or hidden)
-3. **In Middleware**: Trying to submit again → *"This exam has already been submitted and locked"*
+To hide the "Edit" button completely for a specific exam:
+1.  Go to the **Exam Assignment** in Moodle.
+2.  Click **More > Permissions**.
+3.  Set **"Edit own submission"** to **Prohibit** for the Student role.
 
 ---
 

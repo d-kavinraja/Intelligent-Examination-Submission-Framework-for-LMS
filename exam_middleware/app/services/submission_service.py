@@ -55,8 +55,8 @@ class SubmissionService:
     ) -> Dict[str, Any]:
         """
         After successful student submission, try to prevent further edits
-        using manager/admin APIs for local Moodle only.
-
+        using manager/admin APIs.
+        
         This is best-effort and should not fail the student submission.
         """
         effective_url = (target_site_url or settings.moodle_base_url or "").rstrip("/")
@@ -68,16 +68,13 @@ class SubmissionService:
             "errors": [],
         }
 
-        if not self._is_local_moodle_url(effective_url):
-            result["reason"] = "not_local_site"
-            return result
-
         admin_token = (
             (getattr(settings, "local_moodle_admin_token", None) or "").strip()
             or (settings.moodle_admin_token or "").strip()
         )
+        
         if not admin_token:
-            result["reason"] = "local_admin_token_missing"
+            result["reason"] = "admin_token_missing"
             return result
 
         result["attempted"] = True
