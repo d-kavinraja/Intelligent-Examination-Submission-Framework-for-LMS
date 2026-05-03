@@ -2,11 +2,6 @@
 
 # Intelligent Examination Submission Framework for LMS
 
-# Access DB : 
-```
-docker exec -it $(docker ps -q -f name=postgres) psql -U exam_user -d exam_db
-```                                           
-
 ### Examination Middleware (LMS-SAE Bridge)
 
 <p align="center">
@@ -40,10 +35,6 @@ docker exec -it $(docker ps -q -f name=postgres) psql -U exam_user -d exam_db
 
 ---
 
-
-```
-docker exec -it middleware-1 ping lms.ai.saveetha.in
-```
 ## Table of Contents
 
 - [Features](#features)
@@ -71,16 +62,433 @@ docker exec -it middleware-1 ping lms.ai.saveetha.in
 
 ---
 
+## Codebase & Execution Flow Analysis
+
+### Complete System Architecture Overview
+
+This intelligent examination submission framework operates as a sophisticated multi-stage pipeline that bridges physical examination papers with a Learning Management System. The system comprises three primary layers: **Input/Ingestion Layer**, **Processing/Validation Layer**, and **Output/Submission Layer**.
+
+#### 1. SETUP & INITIALIZATION PROCESS
+
+The setup process initializes the complete system infrastructure:
+
+**Environment Configuration** (`exam_middleware/app/core/config.py`):
+- PostgreSQL database connection parameters
+- Moodle LMS configuration (base URL, WebService endpoints, token management)
+- Email service setup (SendGrid or SMTP fallback)
+- ML service configuration (local YOLO+CRNN or remote HuggingFace Spaces)
+- File storage paths and validation rules
+- Security keys for encryption and JWT authentication
+
+**Database Initialization** (`exam_middleware/init_db.py`):
+- Creates core tables: `examination_artifacts`, `subject_mappings`, `staff_users`, `student_sessions`, `audit_logs`, `exam_submissions`
+- Establishes relationships and indexes for optimal query performance
+- Creates default admin user (username: `admin`, password: `admin123`)
+- Seeds initial subject-to-assignment mappings
+- Implements auto-migration system for schema updates (CIA exam types, attempt tracking)
+
+**Service Dependencies**:
+- FastAPI application initialization with middleware stack (CORS, GZip compression)
+- Database engine creation with async connection pooling
+- OAuth2 authentication scheme setup
+- Router registration (auth, upload, student, admin, health)
+
+#### 2. DATA PIPELINE & INGESTION PROCESS
+
+The data pipeline consists of five sequential stages:
+
+**Stage 1: File Reception** (`exam_middleware/app/api/routes/upload.py` - `upload_single_file` & `upload_bulk`):
+- Staff authenticates using JWT tokens
+- Files submitted through REST endpoint (`/upload/single` or `/upload/bulk`)
+- Multipart form-data processing with async file streaming
+- Configurable exam type tagging (CIA1, CIA2, END_SEM)
+
+**Stage 2: Filename Parsing & Validation** (`exam_middleware/app/services/file_processor.py`):
+- Regex-based pattern matching: `^(\d{12})_([A-Z0-9]{2,10})\.(pdf|jpg|jpeg|png)$`
+- Register number extraction (12-digit student ID)
+- Subject code parsing (flexible patterns supporting variations)
+- File format validation (PDF, JPG, PNG, BMP, TIFF)
+- File size constraints (default max 50MB)
+- MIME type verification and sanitization
+
+**Stage 3: File Storage & Hashing** (`exam_middleware/app/services/file_processor.py` - `save_file`):
+- Async file I/O with `aiofiles` for non-blocking operations
+- SHA-256 hash computation for integrity verification and deduplication
+- Files organized into subdirectories: `pending/`, `processed/`, `failed/`, `temp/`
+- Alternative persistent storage: File content stored in PostgreSQL BYTEA column for cloud deployment resilience
+- Normalized path storage (forward slashes for cross-platform compatibility)
+
+**Stage 4: Database Artifact Creation** (`exam_middleware/app/services/artifact_service.py` - `create_artifact`):
+- Idempotent operation using transaction ID generation
+- Creates `ExaminationArtifact` record with workflow status: `PENDING`
+- Stores parsed metadata (register number, subject code, exam type)
+- Tracks file blob path, hash, size, and MIME type
+- Records uploader information for audit trail
+- Initializes JSONB transaction log for state transitions
+
+**Stage 5: Background Processing**:
+- Async notification service queues student email notifications
+- Audit logging records upload action with actor details (staff username, IP, timestamp)
+- Optional AI extraction can be triggered (scanner agent or HF Spaces)
+
+#### 3. CORE LOGIC & BUSINESS RULES
+
+**Artifact Lifecycle Management** (`ExaminationArtifact` state machine):
+```
+PENDING 
+  → PENDING_REVIEW (manual review)
+  → VALIDATED (filename parsed successfully)
+  → READY_FOR_REVIEW (AI extraction confidence acceptable)
+  → LOCKED_BY_USER (student locks for verification)
+  → UPLOADING (draft area preparation)
+  → SUBMITTING (submission to Moodle in progress)
+  → SUBMITTED_TO_LMS (final submission confirmed)
+  → COMPLETED (grading finished)
+  
+Alternative paths:
+  → FAILED (validation or parsing failed)
+  → DELETED (removal by admin)
+  → SUPERSEDED (replaced by newer attempt)
+  → QUEUED (during Moodle maintenance)
+```
+
+**Multi-Attempt Handling**:
+- Single `exam_type` (CIA1, CIA2, END_SEM) can have max 2 attempts per student
+- Each attempt tracked with unique `attempt_number` and `attempt_2_locked` flag
+- Admin controls attempt unlock via `attempt_2_locked` boolean
+- Unique constraint: `(parsed_reg_no, parsed_subject_code, exam_type, attempt_number)` ensures data integrity
+- Attempt 2 creation generates distinct transaction ID to bypass attempt 1 collision logic
+
+**Subject Mapping Resolution** (`exam_middleware/app/services/artifact_service.py` - `SubjectMappingService`):
+- Maps subject codes (e.g., `19AI405`) to Moodle assignment IDs
+- Subject mapping configuration stored in database
+- Bidirectional lookup: subject code → assignment ID → course ID
+- Supports polymorphic mapping (multiple exam types per subject)
+
+**File Persistence Strategy**:
+- **Primary**: File system storage in `uploads/` directories with organized subdirectories
+- **Fallback**: BYTEA (binary large object) column in PostgreSQL for cloud deployments
+- **Resilience**: File lookup with intelligent path resolution across relative/absolute paths
+- **Last-resort**: Filename reconstruction pattern: `{register_no}_{subject_code}.{ext}`
+
+#### 4. MACHINE LEARNING - TRAINING & INFERENCE PIPELINE
+
+**ML Model Architecture Overview**:
+
+The system uses a hybrid YOLO + CRNN pipeline for optical character recognition:
+
+**YOLO (You Only Look Once) Component**:
+- Pre-trained YOLOv8 object detection model
+- Detects and localizes text regions on scanned answer sheets
+- Identifies register number field and subject code field
+- Bounding box extraction for region-of-interest cropping
+- Model weights: `exam_middleware/models/improved_weights.pt` (primary) or `weights.pt` (fallback)
+
+**CRNN (Convolutional Recurrent Neural Network) Architecture** (`exam_middleware/app/services/extraction_service.py`):
+```
+Input: Grayscale image patch (height: variable, width: variable)
+│
+├─ CNN Feature Extraction:
+│  ├─ Conv2d(1, 64) + BatchNorm2d(64) + ReLU + MaxPool2d(2,2)
+│  ├─ Conv2d(64, 128) + BatchNorm2d(128) + ReLU + MaxPool2d(2,2) + Dropout(0.3)
+│  ├─ Conv2d(128, 256) + BatchNorm2d(256) + ReLU
+│  ├─ Conv2d(256, 256) + BatchNorm2d(256) + ReLU + MaxPool2d(2,1)
+│  ├─ Conv2d(256, 512) + BatchNorm2d(512) + ReLU
+│  ├─ Conv2d(512, 512) + BatchNorm2d(512) + ReLU + MaxPool2d(2,1) + Dropout(0.3)
+│  └─ Conv2d(512, 512, kernel_size=2,1) + BatchNorm2d(512) + ReLU
+│
+├─ RNN Sequence Learning:
+│  └─ LSTM(512 → 256, bidirectional=True, num_layers=2, Dropout=0.3)
+│
+├─ Dropout Regularization: Dropout(0.5)
+│
+└─ Output FC Layer: Linear(512 → num_classes)
+   Output: Character-level predictions for OCR
+```
+
+**Training Configuration** (inferred from model weights):
+- **Register Number CRNN**: Trained on 12-digit numeric patterns
+  - Model: `exam_middleware/models/best_crnn_model(git).pth`
+  - Alphabet: Digits 0-9
+  - CTC loss for sequence-to-sequence learning
+  
+- **Subject Code CRNN**: Trained on alphanumeric patterns
+  - Model: `exam_middleware/models/best_subject_model_final.pth`
+  - Alphabet: Digits + Letters (A-Z)
+  - Handles variable-length subject codes (2-10 characters)
+
+**Inference Pipeline** (`exam_middleware/app/services/extraction_service.py` & `hf_space/app.py`):
+
+1. **Local Extraction** (default mode):
+   - Models loaded on application startup
+   - Image preprocessing: grayscale conversion, normalization
+   - YOLO detection → crops text regions
+   - CRNN inference on each region
+   - CTC decoding → character sequence
+   - Post-processing: validation, confidence thresholding
+
+2. **Remote Inference** (HuggingFace Spaces fallback):
+   - HTTP POST to remote ML service endpoint
+   - Base64 image encoding for transmission
+   - Async HTTP client with configurable timeout
+   - Response parsing: extracted text + confidence scores
+   - Fallback to filename parsing if ML fails
+
+**Confidence Scoring**:
+- Per-character confidence tracking through softmax outputs
+- Register number confidence: average of 12-digit predictions
+- Subject code confidence: average of variable-length predictions
+- Stored in database: `register_confidence` (0-100%), `subject_confidence` (0-100%)
+- Threshold-based filtering: confidence < 60% marked for manual review
+
+**HuggingFace Spaces Deployment** (`hf_space/app.py`):
+- Independent FastAPI service for ML inference
+- Identical CRNN architecture and model loading logic
+- Endpoints:
+  - `/extract` (POST): Submit image → receive extracted text + confidence
+  - `/health` (GET): Service availability check
+- Advantages: Isolates GPU computation, scales independently, free tier support
+
+#### 5. STUDENT PORTAL - VERIFICATION & SUBMISSION FLOW
+
+**Authentication & Session Management** (`exam_middleware/app/api/routes/auth.py`):
+
+*Step 1: Moodle Token Exchange*:
+- Student enters Moodle username and password
+- System calls Moodle API: `/login/token.php`
+- Receives temporary Moodle session token
+- Token encrypted with Fernet (AES-256) before storage
+
+*Step 2: Session Creation*:
+- Queries Moodle: `core_webservice_get_site_info` → fetches Moodle user ID and full name
+- Queries student username register: `student_username_register` table
+- Extracts register number from Moodle full name (regex: `\b(\d{12})\b`)
+- Creates `StudentSession` record with encrypted token
+- Session timeout: configurable (default 1 hour)
+
+*Step 3: Identity Verification*:
+- Subsequent requests validated via session token decryption
+- Register number cross-reference: student can only view papers tagged with their number
+- Moodle credentials verified on each session renewal
+
+**Student Dashboard** (`exam_middleware/app/api/routes/student.py` - `get_dashboard`):
+
+*Artifact Filtering Logic*:
+1. Queries `ExaminationArtifact` table filtered by `parsed_reg_no = student_register_number`
+2. Includes only artifacts with `workflow_status` in submission-eligible states
+3. Groups by exam type (CIA1, CIA2, END_SEM) and attempts
+4. For each artifact, resolves:
+   - Subject name via `SubjectMapping` table
+   - Assignment information (Moodle assignment ID, course ID)
+   - File availability (disk vs. database storage)
+
+*Dashboard Response Structure*:
+```json
+{
+  "success": true,
+  "student_info": {
+    "register_number": "212223240065",
+    "moodle_username": "student@college",
+    "full_name": "Student Name"
+  },
+  "papers_by_exam": {
+    "CIA1": [
+      {
+        "artifact_uuid": "uuid-string",
+        "subject_name": "Machine Learning",
+        "subject_code": "19AI405",
+        "exam_type": "CIA1",
+        "attempt_number": 1,
+        "workflow_status": "READY_FOR_REVIEW",
+        "file_available": true,
+        "submission_status": "not_submitted",
+        "preview_url": "/student/artifact/uuid/preview",
+        "submit_url": "/student/artifact/uuid/submit"
+      }
+    ]
+  },
+  "submission_summary": {
+    "total_papers": 8,
+    "submitted": 5,
+    "pending": 3
+  }
+}
+```
+
+**File Preview** (`exam_middleware/app/api/routes/student.py` - `preview_artifact`):
+- Resolves file path from multiple possible locations
+- Streams PDF/image with appropriate MIME type
+- Supports Range requests for large files
+- Serves from disk if available, falls back to database BYTEA storage
+
+**Submission Workflow** (`exam_middleware/app/services/submission_service.py` - `submit_artifact`):
+
+*Phase 1: Pre-Submission Validation*:
+- Artifact ownership verification (register number match)
+- Workflow status check (must be submittable state)
+- Check existing submission: query `ExamSubmission` table to prevent duplicate submissions
+- Moodle assignment ID validation
+
+*Phase 2: Draft Area Upload* (`core_files_upload`):
+- Retrieves file from disk or database
+- Calls Moodle API: `core_files_upload`
+- Uploads to Moodle user's draft area
+- Receives `moodle_draft_item_id` for next step
+- Stores draft item ID for retry logic
+
+*Phase 3: Assignment Association* (`mod_assign_save_submission`):
+- Calls Moodle API with:
+  - Assignment ID (from subject mapping)
+  - User ID (from student session)
+  - Draft item ID (from previous step)
+  - Submission data (file reference)
+- Moodle links file to student's assignment submission
+- Receives submission confirmation
+
+*Phase 4: Submission Finalization* (`mod_assign_submit_for_grading`):
+- Calls Moodle API: `mod_assign_submit_for_grading`
+- Marks submission as "Submitted" in Moodle
+- Prevents student from editing submission in Moodle UI
+
+*Phase 5: Lock Creation & Audit*:
+- Creates `ExamSubmission` record with transaction ID (idempotency)
+- Updates `ExaminationArtifact` status to `SUBMITTED_TO_LMS`
+- Records submission timestamp and metadata
+- Triggers admin lock (if token available):
+  - Calls `mod_assign_set_user_flags` (locked=true)
+  - Calls `mod_assign_lock_submissions` to prevent further edits
+  - Best-effort: non-critical if admin token unavailable
+
+*Phase 6: Audit & Notifications*:
+- Logs submission action with actor details
+- Sends confirmation email to student
+- Updates submission cache for dashboard refresh
+
+**Error Handling & Retry Logic**:
+- Transactional approach: validates all steps before committing database changes
+- Moodle API error handling: captures exception, errorcode, message, debuginfo
+- Retry mechanism: transaction ID prevents duplicate submissions if request retried
+- Graceful degradation: submission succeeds even if admin lock fails
+
+#### 6. EVALUATION & QUALITY ASSURANCE
+
+**Confidence Score Validation**:
+- CRNN models output per-character confidence values
+- Confidence calculation: average of softmax outputs across sequence
+- Register number confidence: requires ≥60% for auto-accept
+- Subject code confidence: requires ≥70% for auto-accept
+- Below-threshold extractions marked for manual staff review
+
+**Data Quality Metrics**:
+- **Parsing Accuracy**: Regex pattern success rate on filename formats
+- **Extraction Accuracy**: ML model confidence vs. manual ground truth
+- **Submission Success Rate**: Artifacts successfully submitted ÷ total uploaded
+- **Moodle Integration Success**: API call success rate, error frequency
+
+**Audit Trail Verification** (`AuditLog` table):
+- Every action logged: upload, validation, extraction, submission
+- Immutable transaction history stored as JSONB
+- Traces actor (staff/student), timestamp, IP address, action details
+- Enables post-submission integrity verification
+
+**System Health Monitoring**:
+- Health check endpoint: `/health`
+- Database connectivity validation
+- ML service availability check
+- Moodle LMS connectivity status
+- File system accessibility verification
+
+#### 7. DEPLOYMENT & PRODUCTION SETUP
+
+**Deployment Targets**:
+
+**Option A: Render.com (Cloud)** (recommended):
+- Free tier with auto-scaling
+- PostgreSQL database hosting included
+- Environment variables configuration
+- Render YAML specification (`render.yaml`)
+- Automatic HTTPS/SSL certificates
+
+**Option B: Local Development**:
+- Direct Python execution with `python run.py`
+- Local PostgreSQL instance
+- Optional Redis for session management
+- HuggingFace Spaces for remote ML inference
+
+**Deployment Configuration** (`exam_middleware/run.py`):
+- Port detection from environment (Render: PORT env var, local: 8000)
+- Environment mode detection: Production vs. Development
+- Logging configuration: stdout for production, file + stdout for development
+- UTF-8 encoding enforcement for Windows compatibility
+- Auto-reload disabled in production
+
+**Scaling Considerations**:
+- Async operations throughout (FastAPI + asyncpg)
+- Database connection pooling for optimal resource usage
+- File I/O non-blocking (aiofiles)
+- HTTP calls async (httpx, aiohttp)
+- Background task queue (Celery integration available)
+- Horizontal scaling: Render auto-scales based on load
+
+**Security Hardening**:
+- CORS middleware restricts cross-origin requests
+- GZip compression reduces bandwidth
+- HTTPS enforcement in production
+- JWT token expiration (configurable, default 60 minutes)
+- Fernet encryption for sensitive data (Moodle tokens)
+- Rate limiting available (via FastAPI extensions)
+- CSRF protection for form submissions
+
+**Database Backups**:
+- Render PostgreSQL daily snapshots
+- Manual export option: `exam_middleware/scripts/db/backup_render_db.sh`
+- Local restoration: `exam_middleware/scripts/db/restore_snapshot_local.sh`
+- Migration scripts tracked in `exam_middleware/migrations/` and `exam_middleware/scripts/`
+
+**Monitoring & Logging**:
+- Application logs: `exam_middleware.log` (local) or stdout (production)
+- SQLAlchemy logging suppressed to reduce noise
+- Structured logging with timestamps, levels, module names
+- Error tracking with detailed context
+- Moodle API integration logging with request/response details
+
+#### 8. SCANNER AGENT - AUTOMATED INGESTION
+
+**Purpose**: Watches local folder for scanned papers and automatically uploads to server
+
+**Configuration** (`exam_middleware/scanner_agent.py`):
+```python
+SERVER_URL = "http://localhost:8000"  # Middleware server
+STAFF_USERNAME = "admin"
+STAFF_PASSWORD = "admin123"
+WATCH_FOLDER = r"C:\Users\SEC\Downloads\SCANNED-PAPERS"
+DEFAULT_EXAM_TYPE = "CIA1"
+POLL_INTERVAL = 3  # seconds
+FILE_STABLE_WAIT = 1  # ensure file writing complete
+QUEUE_DELAY = 3  # between uploads
+MAX_RETRIES = 2
+```
+
+**Workflow**:
+1. Monitors WATCH_FOLDER for new files (3-second poll interval)
+2. Detects file creation via modification timestamp
+3. Waits for file stability (1 second no changes) before processing
+4. Queues file for upload with retry logic
+5. Authenticates as staff member (JWT token)
+6. POSTs file to `/extract/scan-upload` endpoint
+7. Verifies unique artifact UUID returned
+8. Archives original file (moves to subdirectory)
+9. Processes next queued file (3-second delay between uploads)
+
+**Windows Console Optimization**:
+- Disables Quick Edit mode that freezes process on mouse click
+- Implements system API calls for terminal control
+- Non-fatal if Windows API unavailable
+
+---
+
 ## Features
 
-```
-curl -O "https://raw.githubusercontent.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS/complete-application-setup-local-remote/docker-compose.hub.yml?v=2"
-```
-
-
-```
-docker compose -f docker-compose.hub.yml up -d
-```
 <table>
 <tr>
 <td width="50%">
@@ -484,19 +892,10 @@ Due to Render's ephemeral filesystem, this project implements a **Database-Backe
 - If the local disk is wiped (e.g., during a service restart), the system automatically serves files from the database
 
 ### ML Inference Architecture
-Heavy ML models (YOLO + CRNN) are **not** installed on Render. Instead, inference is offloaded to a separate **HuggingFace Spaces** service:
+Heavy ML models (YOLO + CRNN) are offloaded to a separate **HuggingFace Spaces** service:
 - **HF Space URL**: `https://kavinraja-ml-service.hf.space`
 - The Render app calls this via HTTP for register number / subject code extraction
 - If the HF Space is unavailable, extraction falls back to filename parsing only
-
-### Key Deployment Files
-- **`Dockerfile.render`**: Lightweight Python 3.11-slim image (no ML dependencies)
-- **`render.yaml`**: Blueprint for one-click deployment including PostgreSQL
-
-### One-Click Deploy
-1. In Render, select **New → Blueprint**
-2. Connect your repository
-3. Render will automatically detect `render.yaml` and provision the Web Service and Managed PostgreSQL
 
 ### Auto-Migrations
 The application automatically detects missing columns on startup and applies schema fixes without manual DDL.
@@ -739,7 +1138,6 @@ Intelligent-Examination-Submission-Framework-for-LMS/
 │   ├── models/                    # ML model weights (local only)
 │   ├── scripts/                   # SQL migration scripts
 │   ├── tests/                     # Test suite
-│   ├── Dockerfile.render          # Render deployment container
 │   ├── init_db.py                 # DB initialization
 │   ├── run.py                     # App runner
 │   ├── scanner_agent.py           # Ricoh scanner integration
@@ -749,7 +1147,6 @@ Intelligent-Examination-Submission-Framework-for-LMS/
 │
 └── hf_space/                      # HuggingFace Spaces ML service
     ├── app.py                     # FastAPI ML inference server
-    ├── Dockerfile                 # HF Space container
     └── requirements.txt           # ML dependencies (torch, ultralytics)
 ```
 
@@ -954,14 +1351,12 @@ curl http://localhost:8000/health
 - **Manual refresh preserved**: Refresh buttons remain for immediate on-demand refresh
 
 #### Cleanup
-- **Removed unused Docker files**: `Dockerfile.prod`, `docker-compose.yml`, and `DOCKER.md` removed from exam_middleware (deployment uses `Dockerfile.render` via Render)
 - **Updated documentation**: Corrected GitHub URLs, removed references to non-existent Celery/Redis/Flower services, aligned with actual application state
 
 ### Version 1.3.0 (2026-02-21)
 
 #### Persistent Storage & Cloud Readiness
 - **Database-Backed File Persistence**: Self-healing storage layer — uploads mirrored to PostgreSQL BYTEA
-- **Render.com Optimization**: `render.yaml` and `Dockerfile.render` for one-click cloud deployment
 - **Auto-Migrations**: Automatic schema fixes on startup
 
 #### Security & Reliability
