@@ -15,6 +15,7 @@
   <meta property="og:description"
     content="AI-powered bridge for digitizing and submitting physical examination answer sheets to Moodle LMS">
   <link rel="canonical" href="https://d-kavinraja.github.io/Intelligent-Examination-Submission-Framework-for-LMS/">
+  <link rel="icon" type="image/png" href="https://guileless-jalebi-7d5aff.netlify.app/sec.jpg">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -2470,6 +2471,301 @@
     .demo-btns .btn-ghost:hover {
       background: rgba(255, 255, 255, 0.25);
     }
+
+    /* ============================================
+       EXECUTION FLOW & CODEBASE SECTION
+    ============================================ */
+    .execution-section {
+      background: linear-gradient(135deg, var(--bg) 0%, rgba(8, 145, 178, 0.03) 100%);
+    }
+
+    .flow-steps-container {
+      display: grid;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .flow-step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      transition: var(--transition);
+      border-left: 4px solid var(--primary);
+    }
+
+    @media (min-width: 768px) {
+      .flow-step-card {
+        padding: 2rem;
+      }
+    }
+
+    .flow-step-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: transparent;
+      border-left-color: var(--primary);
+    }
+
+    .flow-step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .flow-step-num {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .flow-step-card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .flow-step-card p {
+      margin: 0.75rem 0;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .flow-step-card ul,
+    .flow-step-card ol {
+      margin: 1rem 0;
+      margin-left: 1.5rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    .flow-step-card li {
+      margin-bottom: 0.5rem;
+    }
+
+    .flow-step-card strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .code-block {
+      background: var(--bg-dark);
+      color: var(--primary-light);
+      padding: 1rem;
+      border-radius: var(--radius);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+      border: 1px solid rgba(8, 145, 178, 0.2);
+    }
+
+    .flow-list {
+      list-style: none;
+      padding: 0;
+      margin: 1rem 0;
+    }
+
+    .flow-list li {
+      padding: 0.5rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    .flow-list li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .grid-2col {
+      display: grid;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .grid-2col {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .grid-2col h4 {
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .grid-2col ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .grid-2col li {
+      padding: 0.5rem 0;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .tech-highlights {
+      border-radius: var(--radius-lg);
+    }
+
+    .project-structure code {
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       FOLDER STRUCTURE SECTION
+    ============================================ */
+    .folder-structure {
+      display: grid;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .folder-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      transition: var(--transition);
+    }
+
+    .folder-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary);
+    }
+
+    .folder-card h3 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .folder-card-head {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .folder-icon {
+      font-size: 1.25rem;
+    }
+
+    .folder-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .structure-columns {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 900px) {
+      .structure-columns {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    .structure-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+
+    .structure-card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+
+    .structure-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .structure-list li {
+      display: grid;
+      grid-template-columns: 1.25rem auto;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+
+    .structure-list.compact {
+      font-size: 0.78rem;
+    }
+
+    .tree-icon {
+      flex-shrink: 0;
+      min-width: 1.25rem;
+      display: inline-block;
+    }
+
+    .tree-name {
+      color: var(--text);
+      font-weight: 600;
+      margin-right: 0.35rem;
+    }
+
+    .tree-desc {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    @media (max-width: 639px) {
+      .structure-list {
+        font-size: 0.75rem;
+      }
+    }
+
+    .key-files {
+      animation: fadeUp 0.6s ease-out both;
+    }
+
+    .key-files h3 {
+      font-size: 1.125rem;
+      font-weight: 700;
+    }
+
+    .key-files h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .key-files code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--primary);
+    }
+
   </style>
 </head>
 
@@ -2478,18 +2774,15 @@
   <header id="header">
     <div class="container">
       <a href="#" class="logo">
-        <div class="logo-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-        </div>
+        <img src="https://guileless-jalebi-7d5aff.netlify.app/sec.jpg" alt="SEC Logo" style="height: 36px; width: auto; margin-right: 0.75rem;" />
         <span class="logo-text">IESF-LMS</span>
       </a>
       <nav>
         <a href="#features">Features</a>
         <a href="#architecture">Architecture</a>
         <a href="#workflow">Workflow</a>
+        <a href="#execution-flow">Technical</a>
+        <a href="#development">Development</a>
         <a href="#api">API</a>
         <a href="#deployment">Deployment</a>
         <a href="#installation">Setup</a>
@@ -2516,6 +2809,8 @@
     <a href="#features" onclick="closeMenu()">Features</a>
     <a href="#architecture" onclick="closeMenu()">Architecture</a>
     <a href="#workflow" onclick="closeMenu()">Workflow</a>
+    <a href="#execution-flow" onclick="closeMenu()">Technical</a>
+    <a href="#development" onclick="closeMenu()">Development</a>
     <a href="#api" onclick="closeMenu()">API</a>
     <a href="#deployment" onclick="closeMenu()">Deployment</a>
     <a href="#installation" onclick="closeMenu()">Setup</a>
@@ -2538,10 +2833,11 @@
           </div>
 
           <h1 class="anim-up d2">Intelligent Examination <span class="gradient-text">Submission Framework</span></h1>
-          <p class="hero-subtitle anim-up d3">For Learning Management Systems</p>
+          <p class="hero-subtitle anim-up d3">AI-Powered Bridge for LMS Integration</p>
           <p class="hero-desc anim-up d4">
-            An AI-powered bridge between physical examination papers and Moodle LMS. Features Smart Scan using YOLO
-            &amp; CRNN models, CIA exam management, attempt control, and automated email notifications.
+            Digitize and submit physical examination answer sheets to Moodle LMS with AI-powered metadata extraction, 
+            student verification, secure submission workflows, and complete audit trails. Features YOLO+CRNN object 
+            detection, CIA exam management, multi-attempt support, and enterprise-grade security.
           </p>
 
           <div class="hero-buttons anim-up d5">
@@ -3520,7 +3816,7 @@ curl https://exam-middleware.onrender.com/health</pre>
 
       <div class="deploy-grid">
         <div class="deploy-card anim-up d1">
-          <h3><span>&#128640;</span> Render.com</h3>
+          <h3> Render.com</h3>
           <p>FastAPI application deployed as a Docker web service with managed PostgreSQL. Auto-seeding admin user,
             database-backed file storage for ephemeral filesystem.</p>
           <code>https://exam-middleware.onrender.com</code>
@@ -3643,45 +3939,7 @@ python init_db.py</pre>
     </div>
   </section>
 
-  <!-- Project Structure -->
-  <section class="arch-section">
-    <div class="container">
-      <div class="section-head anim-up">
-        <span class="section-label">Codebase</span>
-        <h2>Project <span class="hl">Structure</span></h2>
-        <p>Clean, modular architecture following Python best practices</p>
-      </div>
-
-      <div class="structure-card anim-up d1">
-        <div class="structure-head">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-          </svg>
-          exam_middleware/
-        </div>
-        <div class="tree">
-          <span class="tree-folder">app/</span>
-          <span class="tree-folder">api/routes/</span>
-          <span class="tree-file">admin.py, auth.py, extract.py, health.py, student.py, upload.py</span>
-          <span class="tree-folder">core/</span> <span class="tree-desc">config.py, security.py</span>
-          <span class="tree-folder">db/</span> <span class="tree-desc">database.py, models.py</span>
-          <span class="tree-folder">schemas/</span> <span class="tree-desc">schemas.py</span>
-          <span class="tree-folder">services/</span>
-          <span class="tree-file">artifact_service.py, extraction_service.py, remote_extraction_service.py</span>
-          <span class="tree-file">file_processor.py, mail_service.py, moodle_client.py</span>
-          <span class="tree-file">notification_service.py, submission_service.py</span>
-          <span class="tree-folder">templates/</span> <span class="tree-desc">staff_upload.html,
-            student_portal.html</span>
-          <span class="tree-folder">utils/</span> <span class="tree-desc">encryption.py</span>
-          <span class="tree-file">main.py</span> <span class="tree-desc">FastAPI application entry</span>
-          <span class="tree-folder">models/</span> <span class="tree-desc">YOLO + CRNN model weights</span>
-          <span class="tree-file">scanner_agent.py</span> <span class="tree-desc">Smart Scan background agent</span>
-          <span class="tree-file">init_db.py, run.py, requirements.txt, Dockerfile, render.yaml</span>
-        </div>
-      </div>
-    </div>
-  </section>
+ 
 
   <!-- Moodle Config -->
   <section class="moodle-section">
@@ -3803,6 +4061,154 @@ python init_db.py</pre>
     </div>
   </section>
 
+  <!-- Execution Flow & Codebase -->
+  <section id="execution-flow" class="execution-section">
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">Technical Deep Dive</span>
+        <h2>Execution Flow &amp; <span class="hl">Codebase Architecture</span></h2>
+        <p>Complete analysis of the system's multi-stage pipeline from setup through deployment</p>
+      </div>
+
+      <!-- Flow steps -->
+      <div class="flow-steps-container">
+        <div class="flow-step-card anim-up d1">
+          <div class="flow-step-header">
+            <div class="flow-step-num">1</div>
+            <h3>Setup & Initialization</h3>
+          </div>
+          <p><strong>Environment Configuration:</strong> PostgreSQL, Moodle LMS, Email services, ML inference, file storage</p>
+          <p><strong>Database Initialization:</strong> Creates core tables (ExaminationArtifact, SubjectMapping, StaffUser, StudentSession, AuditLog)</p>
+          <p><strong>Service Dependencies:</strong> FastAPI app with middleware stack, async connection pooling, OAuth2 setup</p>
+          <div class="code-block">
+            <code>python init_db.py  # Auto-creates tables + admin user (admin/admin123)</code>
+          </div>
+        </div>
+
+        <div class="flow-step-card anim-up d2">
+          <div class="flow-step-header">
+            <div class="flow-step-num">2</div>
+            <h3>Data Pipeline - Ingestion (5 Stages)</h3>
+          </div>
+          <ul class="flow-list">
+            <li><strong>Stage 1 - File Reception:</strong> Staff uploads via REST API with JWT authentication</li>
+            <li><strong>Stage 2 - Filename Parsing:</strong> Regex extraction of register number (12 digits) & subject code</li>
+            <li><strong>Stage 3 - File Storage:</strong> SHA-256 hashing, async file I/O, persistent DB storage (BYTEA)</li>
+            <li><strong>Stage 4 - Artifact Creation:</strong> Idempotent operation with transaction IDs, workflow status = PENDING</li>
+            <li><strong>Stage 5 - Background Processing:</strong> Email notifications, audit logging</li>
+          </ul>
+          <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.875rem;">
+            <strong>File Organization:</strong> uploads/pending, uploads/processed, uploads/failed, uploads/temp
+          </p>
+        </div>
+
+        <div class="flow-step-card anim-up d3">
+          <div class="flow-step-header">
+            <div class="flow-step-num">3</div>
+            <h3>Core Logic & Business Rules</h3>
+          </div>
+          <p><strong>Artifact State Machine:</strong> PENDING → VALIDATED → READY_FOR_REVIEW → SUBMITTED_TO_LMS → COMPLETED</p>
+          <p><strong>Multi-Attempt Support:</strong> Max 2 attempts per exam type (CIA1, CIA2), admin-controlled unlock</p>
+          <p><strong>Subject Mapping:</strong> Bidirectional lookup: subject code → assignment ID → course ID</p>
+          <p><strong>File Persistence:</strong> Primary: filesystem | Fallback: PostgreSQL BYTEA (cloud resilience)</p>
+        </div>
+
+        <div class="flow-step-card anim-up d4">
+          <div class="flow-step-header">
+            <div class="flow-step-num">4</div>
+            <h3>ML Pipeline - YOLO + CRNN</h3>
+          </div>
+          <p><strong>YOLO Component:</strong> YOLOv8 object detection for text region localization on answer sheets</p>
+          <div style="background: var(--bg); padding: 1rem; border-radius: var(--radius); margin: 1rem 0; font-family: monospace; font-size: 0.75rem;">
+            <p><strong>CRNN Architecture:</strong><br/>
+            6-layer CNN (conv + batchnorm + relu + maxpool) → 2-layer LSTM (512→256, bidirectional) → FC(512→classes)<br/>
+            <strong>Models:</strong><br/>
+            • Register Number: best_crnn_model(git).pth | Accuracy: 12-digit numeric prediction<br/>
+            • Subject Code: best_subject_model_final.pth | Accuracy: 2-10 char alphanumeric
+            </p>
+          </div>
+          <p><strong>Inference:</strong> Local extraction (default) or remote HuggingFace Spaces (HTTP fallback)</p>
+          <p><strong>Confidence Scoring:</strong> Register confidence ≥60%, Subject confidence ≥70%</p>
+        </div>
+
+        <div class="flow-step-card anim-up d5">
+          <div class="flow-step-header">
+            <div class="flow-step-num">5</div>
+            <h3>Student Portal - Verification & Submission</h3>
+          </div>
+          <p><strong>Authentication:</strong> Moodle token exchange → session creation → register number extraction</p>
+          <p><strong>Dashboard:</strong> Grouped artifacts by exam type, real-time submission status</p>
+          <p><strong>3-Phase Submission Workflow:</strong></p>
+          <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+            <li>Draft upload to Moodle (core_files_upload)</li>
+            <li>Assignment association (mod_assign_save_submission)</li>
+            <li>Submission finalization + admin lock (mod_assign_submit_for_grading)</li>
+          </ol>
+          <p style="margin-top: 1rem;">
+            <strong>Error Handling:</strong> Transactional approach with idempotent retry logic via transaction IDs
+          </p>
+        </div>
+
+        <div class="flow-step-card anim-up d6">
+          <div class="flow-step-header">
+            <div class="flow-step-num">6</div>
+            <h3>Deployment & Production</h3>
+          </div>
+          <p><strong>Render.com Cloud:</strong> Auto-scaling, PostgreSQL managed hosting, environment variable config</p>
+          <p><strong>Async Architecture:</strong> FastAPI + asyncpg for non-blocking database ops, aiofiles for file I/O</p>
+          <p><strong>Security Hardening:</strong> CORS middleware, GZip compression, JWT tokens, Fernet encryption, rate limiting</p>
+          <p><strong>Database Backups:</strong> Daily snapshots, manual export/restore scripts included</p>
+          <p style="margin-top: 1rem;"><strong>ML Inference:</strong> Offloaded to HuggingFace Spaces (lightweight Render deployment)</p>
+        </div>
+      </div>
+
+      <!-- Technology Highlights -->
+      <div class="tech-highlights anim-up d1" style="margin-top: 3rem;">
+        <div style="background: var(--primary-bg); border-left: 4px solid var(--primary); padding: 1.5rem; border-radius: var(--radius-lg);">
+          <h3 style="color: var(--primary); margin-bottom: 1rem;">Key Technologies & Implementation Details</h3>
+          
+          <div class="grid-2col">
+            <div>
+              <h4 style="color: var(--text); font-size: 0.95rem; margin-bottom: 0.75rem;">Core Services</h4>
+              <ul style="list-style: none; font-size: 0.875rem;">
+                <li>✓ <strong>FastAPI 0.104+</strong> - Async REST API with auto-documentation</li>
+                <li>✓ <strong>SQLAlchemy 2.0</strong> - Async ORM for database operations</li>
+                <li>✓ <strong>asyncpg</strong> - High-performance PostgreSQL driver</li>
+                <li>✓ <strong>httpx</strong> - Async HTTP client for Moodle API calls</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--text); font-size: 0.95rem; margin-bottom: 0.75rem;">Security & Encryption</h4>
+              <ul style="list-style: none; font-size: 0.875rem;">
+                <li>✓ <strong>bcrypt</strong> - Password hashing (staff authentication)</li>
+                <li>✓ <strong>PyJWT</strong> - JWT token generation & validation</li>
+                <li>✓ <strong>Fernet (cryptography)</strong> - AES-256 Moodle token encryption</li>
+                <li>✓ <strong>SHA-256</strong> - File integrity hashing</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--text); font-size: 0.95rem; margin-bottom: 0.75rem;">ML & Computer Vision</h4>
+              <ul style="list-style: none; font-size: 0.875rem;">
+                <li>✓ <strong>PyTorch 2.0.1</strong> - Deep learning framework</li>
+                <li>✓ <strong>YOLOv8 (ultralytics)</strong> - Object detection</li>
+                <li>✓ <strong>OpenCV</strong> - Image processing & preprocessing</li>
+                <li>✓ <strong>Torchvision</strong> - Image transformations</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--text); font-size: 0.95rem; margin-bottom: 0.75rem;">Email & Notifications</h4>
+              <ul style="list-style: none; font-size: 0.875rem;">
+                <li>✓ <strong>SendGrid API</strong> - Primary email service</li>
+                <li>✓ <strong>SMTP</strong> - Fallback for local development</li>
+                <li>✓ <strong>Async mail</strong> - Non-blocking email delivery</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Contributors -->
   <section>
     <div class="container">
@@ -3831,15 +4237,118 @@ python init_db.py</pre>
     </div>
   </section>
 
-  <!-- Live Demo Banner -->
+  <!-- Development & Folder Structure -->
+  <section id="development">
+    <div class="container">
+      <div class="section-head anim-up">
+        <span class="section-label">Project Organization</span>
+        <h2>Development <span class="hl">Structure</span></h2>
+        <p>Complete folder organization and project layout for development and deployment</p>
+      </div>
+
+      <!-- Folder Structure Visualization -->
+      <div class="folder-structure anim-up d1">
+        <div class="folder-card">
+          <div class="folder-card-head">
+            <h3>exam_middleware/ <span class="folder-icon">📁</span></h3>
+            <p class="folder-desc">Primary FastAPI middleware with database, services, and submission pipeline.</p>
+          </div>
+
+          <div class="structure-columns">
+            <div class="structure-card">
+              <h4>App Core</h4>
+              <ul class="structure-list">
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">app/</span><span class="tree-desc">FastAPI entry, templates, schemas</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">main.py</span><span class="tree-desc">Application lifespan + router mount</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">core/</span><span class="tree-desc">config.py, security.py, lms_registry.py</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">db/</span><span class="tree-desc">database.py + models.py</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">schemas/</span><span class="tree-desc">Pydantic request/response models</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">templates/</span><span class="tree-desc">HTML UI templates</span></span></li>
+              </ul>
+            </div>
+
+            <div class="structure-card">
+              <h4>APIs & Services</h4>
+              <ul class="structure-list">
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">api/routes/</span><span class="tree-desc">admin, auth, extract, health, student, upload</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">services/</span><span class="tree-desc">artifact, submission, extraction, moodle, mail</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">artifact_service.py</span><span class="tree-desc">Exam paper management</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">submission_service.py</span><span class="tree-desc">Moodle submission flow</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">extraction_service.py</span><span class="tree-desc">Local ML inference</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">remote_extraction_service.py</span><span class="tree-desc">HF Spaces fallback</span></span></li>
+              </ul>
+            </div>
+
+            <div class="structure-card">
+              <h4>Ops & Data</h4>
+              <ul class="structure-list">
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">uploads/</span><span class="tree-desc">pending, processed, failed, temp</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">models/</span><span class="tree-desc">YOLO + CRNN weights</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">migrations/</span><span class="tree-desc">SQL schema updates</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">scripts/db/</span><span class="tree-desc">backup + restore utilities</span></span></li>
+                <li><span class="tree-icon">📂</span><span><span class="tree-name">tests/</span><span class="tree-desc">unit + integration tests</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">init_db.py</span><span class="tree-desc">DB initialization</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">run.py</span><span class="tree-desc">Application startup</span></span></li>
+                <li><span class="tree-icon">📄</span><span><span class="tree-name">scanner_agent.py</span><span class="tree-desc">Scanner integration</span></span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="folder-card">
+          <div class="folder-card-head">
+            <h3>hf_space/ <span class="folder-icon">📁</span></h3>
+            <p class="folder-desc">HuggingFace Spaces ML inference service.</p>
+          </div>
+          <ul class="structure-list compact">
+            <li><span class="tree-icon">📄</span><span><span class="tree-name">app.py</span><span class="tree-desc">FastAPI ML inference server</span></span></li>
+            <li><span class="tree-icon">📄</span><span><span class="tree-name">requirements.txt</span><span class="tree-desc">torch, ultralytics, opencv, pillow</span></span></li>
+            <li><span class="tree-icon">📄</span><span><span class="tree-name">README.md</span><span class="tree-desc">setup instructions</span></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Key Files Overview -->
+      <div class="key-files anim-up d2" style="margin-top: 2rem;">
+        <div style="background: linear-gradient(135deg, rgba(8, 145, 178, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%); border-radius: var(--radius-lg); padding: 2rem; border: 1px solid var(--primary-bg);">
+          <h3 style="margin-bottom: 1.5rem; color: var(--text);">Key Configuration Files</h3>
+          
+          <div style="display: grid; gap: 1.5rem;">
+            <div style="border-left: 4px solid var(--primary); padding-left: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem; color: var(--text);"><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">.env.example</code></h4>
+              <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">
+                Configuration template with DATABASE_URL, SECRET_KEY, MOODLE_BASE_URL, ENCRYPTION_KEY, SENDGRID_API_KEY, etc.
+              </p>
+            </div>
+
+            <div style="border-left: 4px solid var(--secondary); padding-left: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem; color: var(--text);"><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">requirements.txt</code></h4>
+              <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">
+                FastAPI, SQLAlchemy, asyncpg, httpx, torch, ultralytics, cryptography, python-jose, aiofiles, pillow
+              </p>
+            </div>
+
+            <div style="border-left: 4px solid var(--success); padding-left: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem; color: var(--text);"><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">render.yaml</code></h4>
+              <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">
+                Infrastructure-as-code for Render.com deployment with Web Service and PostgreSQL configuration
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reconstructing Banner -->
   <div class="demo-banner">
     <div class="container">
-      <h2 class="anim-up">Try the Live Demo</h2>
-      <p class="anim-up d1">Deployed on MoodleCloud for stable testing</p>
-      <div class="demo-btns anim-up d2">
-        <a href="/portal/staff" class="btn btn-lg">Staff Portal</a>
-        <a href="/portal/student" class="btn btn-lg">Student Portal</a>
-        <a href="/docs" target="_blank" class="btn btn-ghost btn-lg">API Docs</a>
+      <h2 class="anim-up">🔄 Reconstructing</h2>
+      <p class="anim-up d1">Infrastructure being deployed on <strong>Render.com</strong> with managed PostgreSQL, auto-scaling, and 24/7 uptime.</p>
+      <p class="anim-up d2" style="color: rgba(255, 255, 255, 0.9); font-size: 0.95rem; margin-top: 0.5rem;">The application features a robust FastAPI backend with async architecture, real-time extraction via HuggingFace Spaces, and seamless Moodle LMS integration. Current status: <span style="color: #FFD700; font-weight: 600;">In Progress</span></p>
+      <div class="demo-btns anim-up d3" style="margin-top: 1.5rem;">
+        <a href="/docs" target="_blank" class="btn btn-lg">API Documentation</a>
+        <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="btn btn-ghost btn-lg">View on GitHub</a>
       </div>
     </div>
   </div>
@@ -3850,12 +4359,7 @@ python init_db.py</pre>
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="#" class="logo">
-            <div class="logo-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
-                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </div>
+            <img src="https://guileless-jalebi-7d5aff.netlify.app/sec.jpg" alt="SEC Logo" style="height: 36px; width: auto; margin-right: 0.75rem;" />
             <span class="logo-text" style="color: white;">IESF-LMS</span>
           </a>
           <p>An intelligent, AI-powered bridge for digitizing and submitting physical examination answer sheets to
@@ -3876,6 +4380,8 @@ python init_db.py</pre>
             <li><a href="#features">Features</a></li>
             <li><a href="#architecture">Architecture</a></li>
             <li><a href="#workflow">Workflow</a></li>
+            <li><a href="#execution-flow">Technical</a></li>
+            <li><a href="#development">Development</a></li>
             <li><a href="#api">API</a></li>
             <li><a href="#deployment">Deployment</a></li>
             <li><a href="#installation">Setup</a></li>
