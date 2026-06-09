@@ -5,7 +5,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy static frontend files to the default Nginx public directory
 COPY index.html /usr/share/nginx/html/index.html
-COPY assets /usr/share/nginx/html/assets
 
 # Expose port and start Nginx
 EXPOSE 80
