@@ -209,6 +209,20 @@ async def get_dashboard(
         
         # Check if we have a valid assignment mapping
         assignment_id = await mapping_service.get_assignment_id(artifact.parsed_subject_code, exam_type) if artifact.parsed_subject_code else None
+        attempt_number = getattr(artifact, 'attempt_number', 1) or 1
+        attempt_2_locked = getattr(artifact, 'attempt_2_locked', True)
+        workflow_status = artifact.workflow_status
+        is_retained_attempt = workflow_status == WorkflowStatusEnum.SUPERSEDED or (
+            getattr(workflow_status, "value", workflow_status) == "SUPERSEDED"
+        )
+        can_submit = assignment_id is not None and not (attempt_number == 2 and attempt_2_locked) and not is_retained_attempt
+        message = None
+        if not assignment_id:
+            message = "This subject is not mapped yet. Please contact admin."
+        elif is_retained_attempt:
+            message = "Attempt 1 is retained for reference after Attempt 2 replacement."
+        elif attempt_number == 2 and attempt_2_locked:
+            message = "Attempt 2 is locked. Staff must unlock it before submission."
         
         pending_papers.append(StudentPendingPaper(
             artifact_uuid=str(artifact.artifact_uuid),
@@ -219,10 +233,10 @@ async def get_dashboard(
             uploaded_at=artifact.uploaded_at,
             workflow_status=artifact.workflow_status.value.lower() if artifact.workflow_status else None,
             exam_type=exam_type,
-            attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
-            attempt_2_locked=getattr(artifact, 'attempt_2_locked', True),
-            can_submit=assignment_id is not None,
-            message=None if assignment_id else "This subject is not mapped yet. Please contact admin.",
+            attempt_number=attempt_number,
+            attempt_2_locked=attempt_2_locked,
+            can_submit=can_submit,
+            message=message,
             target_site_url=mapping.target_site_url if mapping else None
         ))
     

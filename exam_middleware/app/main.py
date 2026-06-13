@@ -199,6 +199,21 @@ async def lifespan(app: FastAPI):
                 logger.info("Creating exam_submissions table...")
                 from app.db.models import ExamSubmission
                 await conn.run_sync(lambda sync_conn: ExamSubmission.__table__.create(sync_conn, checkfirst=True))
+            else:
+                # Add attempt_number to exam_submissions
+                res = await conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='exam_submissions' AND column_name='attempt_number'"))
+                if not res.fetchone():
+                    logger.info("Adding attempt_number to exam_submissions...")
+                    await conn.execute(text("ALTER TABLE exam_submissions ADD COLUMN attempt_number INTEGER NOT NULL DEFAULT 1"))
+                    
+                    # Update unique constraint
+                    try:
+                        await conn.execute(text("DROP INDEX IF EXISTS ix_exam_sub_student"))
+                        await conn.execute(text("ALTER TABLE exam_submissions DROP CONSTRAINT IF EXISTS uq_exam_submission"))
+                        await conn.execute(text("ALTER TABLE exam_submissions ADD CONSTRAINT uq_exam_submission UNIQUE (student_id, subject_code, exam_type, attempt_number)"))
+                        await conn.execute(text("CREATE INDEX ix_exam_sub_student ON exam_submissions (student_id, subject_code, exam_type, attempt_number)"))
+                    except Exception as ce:
+                        logger.debug(f"Constraint update (exam_submissions) skipped or already done: {ce}")
 
         except Exception as e:
             logger.error(f"Migration error during startup: {e}")

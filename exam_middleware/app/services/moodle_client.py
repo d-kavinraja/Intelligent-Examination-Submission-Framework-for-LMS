@@ -864,6 +864,47 @@ class MoodleClient:
             return {"success": True, "data": result}
         except httpx.HTTPStatusError as e:
             raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
+
+    async def unlock_submissions(
+        self,
+        assignment_id: int,
+        user_ids: List[int],
+        token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Unlock assignment submissions for the specified users.
+
+        Function: mod_assign_unlock_submissions
+        Requires teacher/manager capability.
+        """
+        client = await self._get_client()
+        ws_token = token or self.token
+
+        if not ws_token:
+            raise MoodleAPIError("No token provided")
+
+        url = f"{self.base_url}/webservice/rest/server.php"
+        params = {
+            "wstoken": ws_token,
+            "wsfunction": "mod_assign_unlock_submissions",
+            "moodlewsrestformat": "json",
+            "assignmentid": str(assignment_id),
+        }
+        for i, uid in enumerate(user_ids):
+            params[f"userids[{i}]"] = str(uid)
+
+        try:
+            response = await client.post(url, data=params)
+            response.raise_for_status()
+            result = response.json()
+
+            self._check_error_response(result, "mod_assign_unlock_submissions")
+            logger.info(
+                f"Unlocked submissions for assignment={assignment_id}, users={user_ids}"
+            )
+            return {"success": True, "data": result}
+        except httpx.HTTPStatusError as e:
+            raise MoodleAPIError(f"HTTP error: {e.response.status_code}")
     
     # =========================================
     # Get Submission Status

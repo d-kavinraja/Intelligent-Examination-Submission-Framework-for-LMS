@@ -157,6 +157,22 @@ class SubmissionService:
                 description=f"User attempted to submit artifact belonging to {artifact.parsed_reg_no}"
             )
             return False, "You can only submit your own papers", None
+
+        # Attempt window validation
+        attempt_ok, attempt_message, attempt_details = await self.validate_attempt_submission_window(artifact)
+        if not attempt_ok:
+            await self.audit_service.log_action(
+                action="attempt_submission_blocked",
+                action_category="submit",
+                actor_type="student",
+                actor_id=str(moodle_user_id),
+                actor_username=moodle_username,
+                actor_ip=actor_ip,
+                artifact_id=artifact.id,
+                description=attempt_message,
+                request_data=attempt_details,
+            )
+            return False, attempt_message, attempt_details
         
         # Check if already submitted
         if artifact.workflow_status in [WorkflowStatus.COMPLETED, WorkflowStatus.SUBMITTED_TO_LMS]:
@@ -165,7 +181,7 @@ class SubmissionService:
                 "submitted_at": artifact.submit_timestamp.isoformat() if artifact.submit_timestamp else None
             }
 
-        # Check exam_submissions table: prevent any re-submission for this student+subject+exam
+        # Check exam_submissions table: prevent any re-submission for this student+subject+exam+attempt
         from sqlalchemy import select, and_
         existing_sub = await self.db.execute(
             select(ExamSubmission).where(
@@ -173,6 +189,7 @@ class SubmissionService:
                     ExamSubmission.student_id == register_number,
                     ExamSubmission.subject_code == artifact.parsed_subject_code,
                     ExamSubmission.exam_type == (getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'),
+                    ExamSubmission.attempt_number == getattr(artifact, 'attempt_number', 1),
                     ExamSubmission.status == "COMPLETED",
                 )
             )
@@ -196,6 +213,33 @@ class SubmissionService:
             return False, error_msg or f"No assignment mapping found for subject code: {artifact.parsed_subject_code}", None
 
         effective_target_site_url = target_site_url or settings.moodle_base_url
+
+        unlock_result: Dict[str, Any] = {}
+        if (getattr(artifact, "attempt_number", 1) or 1) == 2:
+            unlock_result = await self.unlock_previous_attempt_for_replacement(
+                artifact=artifact,
+                assignment_id=assignment_id,
+                moodle_user_id=moodle_user_id,
+                target_site_url=effective_target_site_url,
+            )
+            if not unlock_result.get("success"):
+                message = (
+                    "Attempt 2 cannot be submitted because Moodle could not unlock "
+                    "or revert the Attempt 1 submission. Ask staff to verify the "
+                    "Moodle admin token and assignment permissions, then try again."
+                )
+                await self.audit_service.log_action(
+                    action="attempt_2_moodle_unlock_failed",
+                    action_category="error",
+                    actor_type="student",
+                    actor_id=str(moodle_user_id),
+                    actor_username=moodle_username,
+                    actor_ip=actor_ip,
+                    artifact_id=artifact.id,
+                    description=message,
+                    response_data=unlock_result,
+                )
+                return False, message, unlock_result
 
         # Update artifact with Moodle info
         artifact.moodle_user_id = moodle_user_id
@@ -226,6 +270,8 @@ class SubmissionService:
             # Log the complete result for debugging
             logger.info(f"Submission result: {result}")
             logger.info(f"Steps completed: {result.get('steps_completed', [])}")
+            if unlock_result:
+                result["attempt_2_unlock"] = unlock_result
             
             # Mark as completed (only after all verification and submit steps)
             await self.artifact_service.mark_submitted(
@@ -256,6 +302,7 @@ class SubmissionService:
                         ExamSubmission.student_id == register_number,
                         ExamSubmission.subject_code == artifact.parsed_subject_code,
                         ExamSubmission.exam_type == (getattr(artifact, 'exam_type', 'CIA1') or 'CIA1'),
+                        ExamSubmission.attempt_number == getattr(artifact, 'attempt_number', 1),
                     )
                 )
             )
@@ -279,6 +326,7 @@ class SubmissionService:
                     subject_code=artifact.parsed_subject_code,
                     assignment_id=assignment_id,
                     exam_type=getattr(artifact, 'exam_type', 'CIA1') or 'CIA1',
+                    attempt_number=getattr(artifact, 'attempt_number', 1) or 1,
                     artifact_id=artifact.id,
                     status="COMPLETED",
                     submitted_at=now,
@@ -293,33 +341,22 @@ class SubmissionService:
                 f"subject={artifact.parsed_subject_code}, exam={artifact.exam_type}"
             )
 
-            # If this is attempt 2, ensure attempt 1 is marked SUPERSEDED
-            if getattr(artifact, 'attempt_number', 1) == 2 and artifact.parsed_reg_no and artifact.parsed_subject_code:
-                from sqlalchemy import select, and_
-                attempt1_q = await self.db.execute(
-                    select(ExaminationArtifact).where(
-                        and_(
-                            ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
-                            ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
-                            ExaminationArtifact.exam_type == artifact.exam_type,
-                            ExaminationArtifact.attempt_number == 1,
-                            ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
-                            ExaminationArtifact.workflow_status != WorkflowStatus.SUPERSEDED,
-                        )
-                    )
+            # If this is attempt 1, lock the assessment; if attempt 2, replace attempt 1
+            if (getattr(artifact, "attempt_number", 1) or 1) == 1:
+                await self.lock_assessment_after_attempt_1_submission(
+                    artifact=artifact,
+                    moodle_user_id=moodle_user_id,
+                    moodle_username=moodle_username,
+                    actor_ip=actor_ip,
                 )
-                attempt1 = attempt1_q.scalar_one_or_none()
-                if attempt1:
-                    attempt1.workflow_status = WorkflowStatus.SUPERSEDED
-                    try:
-                        attempt1.add_log_entry("superseded_on_attempt2_submit", {
-                            "reason": "attempt_2_submitted_to_lms",
-                            "attempt_2_artifact_id": artifact.id
-                        })
-                    except Exception:
-                        pass
-                    await self.db.flush()
-                    logger.info(f"Marked attempt 1 (id={attempt1.id}) as SUPERSEDED after attempt 2 submission")
+            elif (getattr(artifact, "attempt_number", 1) or 1) == 2:
+                await self.replace_attempt_1_with_attempt_2(
+                    attempt2=artifact,
+                    moodle_user_id=moodle_user_id,
+                    moodle_username=moodle_username,
+                    actor_ip=actor_ip,
+                    unlock_result=unlock_result,
+                )
             
             # Log success
             await self.audit_service.log_action(
@@ -381,6 +418,308 @@ class SubmissionService:
             )
             
             return False, f"Unexpected error: {str(e)}", None
+
+    async def validate_attempt_submission_window(
+        self,
+        artifact: ExaminationArtifact,
+    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """
+        Enforce staff/student synchronization before Moodle submission.
+
+        Attempt 2 can only be submitted after staff unlocks it and uploads the
+        attempt 2 paper. If staff opened attempt 2 but has not uploaded a paper,
+        submitting the old attempt 1 artifact is rejected with a clear message.
+        """
+        attempt_number = getattr(artifact, "attempt_number", 1) or 1
+
+        if attempt_number == 2:
+            if getattr(artifact, "attempt_2_locked", True):
+                return False, "Attempt 2 is locked. Staff must unlock Attempt 2 before you can submit.", {
+                    "attempt_2_locked": True,
+                }
+            if not self._artifact_has_uploaded_paper(artifact):
+                return False, "Attempt 2 is open, but no Attempt 2 paper has been uploaded.", {
+                    "attempt_2_missing_paper": True,
+                }
+            return True, "", None
+
+        if getattr(artifact, "attempt_2_locked", True) is False:
+            attempt2 = await self._find_attempt_artifact(artifact, attempt_number=2)
+            if not attempt2:
+                return False, "Attempt 2 is open, but no Attempt 2 paper has been uploaded.", {
+                    "attempt_2_missing_paper": True,
+                }
+
+        return True, "", None
+
+    async def unlock_previous_attempt_for_replacement(
+        self,
+        artifact: ExaminationArtifact,
+        assignment_id: int,
+        moodle_user_id: int,
+        target_site_url: Optional[str],
+    ) -> Dict[str, Any]:
+        """
+        Unlock the existing Moodle submission before attempt 2 replaces it.
+
+        This uses teacher/admin APIs to clear Moodle's lock flag,
+        revert the previous submitted attempt to draft, and remove it. Without this
+        step Moodle can keep showing the Attempt 1 submission timestamp/files.
+        """
+        result: Dict[str, Any] = {
+            "attempted": False,
+            "success": False,
+            "assignment_id": assignment_id,
+            "moodle_user_id": moodle_user_id,
+        }
+
+        if (getattr(artifact, "attempt_number", 1) or 1) != 2:
+            result["reason"] = "not_attempt_2"
+            return result
+
+        admin_token = self._get_admin_token()
+        if not admin_token:
+            result["reason"] = "admin_token_missing"
+            return result
+
+        effective_url = (target_site_url or settings.moodle_base_url or "").rstrip("/")
+        client = MoodleClient(base_url=effective_url, token=admin_token)
+        result["attempted"] = True
+        result["target_site_url"] = effective_url
+        result["actions"] = []
+        result["errors"] = []
+
+        try:
+            try:
+                unlock_res = await client.set_user_flags_locked(
+                    assignment_id=assignment_id,
+                    user_id=moodle_user_id,
+                    locked=False,
+                    token=admin_token,
+                )
+                result["actions"].append({
+                    "name": "mod_assign_set_user_flags",
+                    "result": unlock_res,
+                })
+            except Exception as e:
+                result["errors"].append(f"set_user_flags_unlock_failed: {e}")
+
+            try:
+                unlock_sub_res = await client.unlock_submissions(
+                    assignment_id=assignment_id,
+                    user_ids=[moodle_user_id],
+                    token=admin_token,
+                )
+                result["actions"].append({
+                    "name": "mod_assign_unlock_submissions",
+                    "result": unlock_sub_res,
+                })
+            except Exception as e:
+                result["errors"].append(f"unlock_submissions_failed: {e}")
+
+            try:
+                draft_res = await client.revert_submissions_to_draft(
+                    assignment_id=assignment_id,
+                    user_ids=[moodle_user_id],
+                    token=admin_token,
+                )
+                result["actions"].append({
+                    "name": "mod_assign_revert_submissions_to_draft",
+                    "result": draft_res,
+                })
+            except Exception as e:
+                result["errors"].append(f"revert_submissions_to_draft_failed: {e}")
+
+            try:
+                remove_res = await client.remove_submission(
+                    assignment_id=assignment_id,
+                    user_id=moodle_user_id,
+                    token=admin_token,
+                )
+                result["actions"].append({
+                    "name": "mod_assign_remove_submission",
+                    "result": remove_res,
+                })
+            except Exception as e:
+                result["errors"].append(f"remove_submission_failed: {e}")
+
+            result["success"] = len(result["actions"]) > 0
+            if not result["success"]:
+                result["reason"] = "all_admin_unlock_actions_failed"
+            return result
+        except Exception as e:
+            result["error"] = str(e)
+            logger.warning(
+                "Could not unlock previous Moodle submission before attempt 2 replacement: %s",
+                e,
+            )
+            return result
+        finally:
+            await client.close()
+
+    async def lock_assessment_after_attempt_1_submission(
+        self,
+        artifact: ExaminationArtifact,
+        moodle_user_id: int,
+        moodle_username: str,
+        actor_ip: Optional[str],
+    ) -> None:
+        """Lock the group after attempt 1 is submitted so attempt 2 needs staff action."""
+        if (getattr(artifact, "attempt_number", 1) or 1) != 1:
+            return
+
+        await self._set_group_attempt_lock(artifact, locked=True)
+        artifact.add_log_entry("assessment_locked_after_attempt_1", {
+            "reason": "attempt_1_submitted",
+        })
+        await self.audit_service.log_action(
+            action="assessment_locked_after_attempt_1",
+            action_category="submit",
+            actor_type="student",
+            actor_id=str(moodle_user_id),
+            actor_username=moodle_username,
+            actor_ip=actor_ip,
+            artifact_id=artifact.id,
+            description="Assessment locked automatically after Attempt 1 submission",
+            request_data={
+                "reg_no": artifact.parsed_reg_no,
+                "subject_code": artifact.parsed_subject_code,
+                "exam_type": artifact.exam_type,
+                "attempt_number": 1,
+            },
+        )
+
+    async def replace_attempt_1_with_attempt_2(
+        self,
+        attempt2: ExaminationArtifact,
+        moodle_user_id: int,
+        moodle_username: str,
+        actor_ip: Optional[str],
+        unlock_result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Make attempt 2 the active submission and retire attempt 1.
+
+        Database replacement flow:
+        1. Delete the attempt 1 row from exam_submissions.
+        2. Mark the attempt 1 artifact SUPERSEDED for history.
+        3. Re-lock the group after attempt 2 is submitted.
+        4. Write an audit log linking old and new artifacts.
+        """
+        if (getattr(attempt2, "attempt_number", 1) or 1) != 2:
+            return
+
+        attempt1 = await self._find_attempt_artifact(attempt2, attempt_number=1)
+        await self._delete_exam_submission_record(attempt2, attempt_number=1)
+
+        if attempt1:
+            attempt1.workflow_status = WorkflowStatus.SUPERSEDED
+            attempt1.add_log_entry("attempt_1_removed_for_attempt_2", {
+                "attempt_2_artifact_id": attempt2.id,
+                "reason": "attempt_2_submitted",
+            })
+
+        attempt2.add_log_entry("attempt_2_replaced_attempt_1", {
+            "attempt_1_artifact_id": attempt1.id if attempt1 else None,
+            "unlock_result": unlock_result or {},
+        })
+
+        await self._set_group_attempt_lock(attempt2, locked=True)
+        await self.audit_service.log_action(
+            action="attempt_1_replaced_by_attempt_2",
+            action_category="submit",
+            actor_type="student",
+            actor_id=str(moodle_user_id),
+            actor_username=moodle_username,
+            actor_ip=actor_ip,
+            artifact_id=attempt2.id,
+            target_type="examination_artifact",
+            target_id=str(attempt1.id) if attempt1 else None,
+            description="Attempt 1 submission removed and replaced by Attempt 2",
+            request_data={
+                "reg_no": attempt2.parsed_reg_no,
+                "subject_code": attempt2.parsed_subject_code,
+                "exam_type": attempt2.exam_type,
+                "removed_attempt": 1,
+                "active_attempt": 2,
+                "attempt_1_artifact_id": attempt1.id if attempt1 else None,
+                "attempt_2_artifact_id": attempt2.id,
+            },
+            response_data={
+                "unlock_previous_submission": unlock_result or {},
+            },
+        )
+
+    def _artifact_has_uploaded_paper(self, artifact: ExaminationArtifact) -> bool:
+        """Return True if the artifact has a paper file path or content."""
+        return bool(artifact.file_blob_path or artifact.file_content)
+
+    async def _find_attempt_artifact(
+        self,
+        artifact: ExaminationArtifact,
+        attempt_number: int,
+    ) -> Optional[ExaminationArtifact]:
+        """Find an artifact for the same student/subject/exam with a specific attempt number."""
+        from sqlalchemy import select, and_
+        query = await self.db.execute(
+            select(ExaminationArtifact).where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                    ExaminationArtifact.attempt_number == attempt_number,
+                    ExaminationArtifact.workflow_status != WorkflowStatus.DELETED,
+                )
+            )
+        )
+        return query.scalars().first()
+
+    async def _delete_exam_submission_record(
+        self,
+        artifact: ExaminationArtifact,
+        attempt_number: int,
+    ) -> None:
+        """Remove the active submission row for a specific attempt."""
+        from sqlalchemy import delete, and_
+        await self.db.execute(
+            delete(ExamSubmission).where(
+                and_(
+                    ExamSubmission.student_id == artifact.parsed_reg_no,
+                    ExamSubmission.subject_code == artifact.parsed_subject_code,
+                    ExamSubmission.exam_type == artifact.exam_type,
+                    ExamSubmission.attempt_number == attempt_number,
+                )
+            )
+        )
+        await self.db.flush()
+
+    async def _set_group_attempt_lock(
+        self,
+        artifact: ExaminationArtifact,
+        locked: bool,
+    ) -> None:
+        """Lock or unlock Attempt 2 for the entire group of artifacts."""
+        from sqlalchemy import update, and_
+        await self.db.execute(
+            update(ExaminationArtifact)
+            .where(
+                and_(
+                    ExaminationArtifact.parsed_reg_no == artifact.parsed_reg_no,
+                    ExaminationArtifact.parsed_subject_code == artifact.parsed_subject_code,
+                    ExaminationArtifact.exam_type == artifact.exam_type,
+                )
+            )
+            .values(attempt_2_locked=locked)
+        )
+        await self.db.flush()
+
+    def _get_admin_token(self) -> Optional[str]:
+        """Get the configured local Moodle admin token."""
+        return (
+            (getattr(settings, "local_moodle_admin_token", None) or "").strip()
+            or (settings.moodle_admin_token or "").strip()
+        )
+
     
     async def _resolve_assignment_id(self, artifact: ExaminationArtifact) -> Tuple[Optional[int], Optional[str], Optional[str]]:
         """Resolve the Moodle assignment ID for an artifact. Returns (assignment_id, target_site_url, error_message)"""

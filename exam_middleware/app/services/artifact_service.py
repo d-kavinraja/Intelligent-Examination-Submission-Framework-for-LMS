@@ -249,6 +249,16 @@ class ArtifactService:
                             f"subject {parsed_subject_code}, exam {exam_type} already has {latest.attempt_number} attempt(s)."
                         )
         
+        # Inherit lock status from the latest active artifact in the group if one exists
+        attempt_2_locked_val = True
+        if parsed_reg_no and parsed_subject_code:
+            try:
+                active_existing = [a for a in existing_artifacts if getattr(a, 'workflow_status', None) != WorkflowStatus.DELETED]
+                if active_existing:
+                    attempt_2_locked_val = getattr(active_existing[0], 'attempt_2_locked', True)
+            except NameError:
+                pass
+
         artifact = ExaminationArtifact(
             raw_filename=raw_filename,
             original_filename=original_filename,
@@ -258,6 +268,7 @@ class ArtifactService:
             parsed_subject_code=parsed_subject_code,
             exam_type=exam_type,
             attempt_number=attempt_number,
+            attempt_2_locked=attempt_2_locked_val,
             file_size_bytes=file_size_bytes,
             mime_type=mime_type,
             file_content=file_content,
@@ -350,7 +361,6 @@ class ArtifactService:
             WorkflowStatus.QUEUED,
             WorkflowStatus.UPLOADING,
             WorkflowStatus.SUBMITTING,
-            WorkflowStatus.SUPERSEDED,
         ]
 
         # Build identity conditions conservatively
@@ -397,7 +407,8 @@ class ArtifactService:
                     ExaminationArtifact.parsed_reg_no == register_number,
                     ExaminationArtifact.workflow_status.in_([
                         WorkflowStatus.SUBMITTED_TO_LMS,
-                        WorkflowStatus.COMPLETED
+                        WorkflowStatus.COMPLETED,
+                        WorkflowStatus.SUPERSEDED
                     ])
                 )
             )

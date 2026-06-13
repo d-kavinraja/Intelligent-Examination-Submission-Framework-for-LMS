@@ -427,6 +427,16 @@
             color: var(--gray-600);
         }
 
+        .status-locked {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .status-unlocked {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+
         .exam-type-filter {
             display: flex;
             gap: 0.5rem;
@@ -1770,21 +1780,17 @@
             }
         }
 
-        function renderPapers() {
-            const grid = document.getElementById('papersGrid');
-            const emptyState = document.getElementById('emptyState');
+        function renderAttemptCol(attemptName, paper, attemptNum, isLockedByGroup, colClass) {
+            let statusClass = 'pending';
+            let statusText = 'Pending';
+            let previewContent = '';
+            let detailsHtml = '';
+            let buttonsHtml = '';
+            let isSubmitted = false;
 
-            if (papers.length === 0) {
-                grid.innerHTML = '';
-                emptyState.style.display = 'block';
-                return;
-            }
-
-            emptyState.style.display = 'none';
-
-            grid.innerHTML = papers.map(paper => {
+            if (paper) {
                 const status = (paper.workflow_status || 'pending').toLowerCase();
-                const isSubmitted = status === 'submitted_to_moodle' || status === 'completed' || status === 'submitted_to_lms';
+                isSubmitted = status === 'submitted_to_moodle' || status === 'completed' || status === 'submitted_to_lms';
                 const isFailed = status === 'failed';
                 const isQueued = status === 'queued';
                 const isProcessing = status === 'uploading' || status === 'submitting' || status === 'processing';
@@ -1792,12 +1798,9 @@
 
                 const canSubmit = paper.can_submit !== false && !isProcessing && !isSubmitted && !isSuperseded;
 
-                let statusClass = 'pending';
-                let statusText = 'Pending';
-
                 if (isSuperseded) {
                     statusClass = 'superseded';
-                    statusText = 'Replaced';
+                    statusText = 'Superseded';
                 } else if (isSubmitted) {
                     statusClass = 'submitted';
                     statusText = 'Submitted';
@@ -1810,78 +1813,145 @@
                 } else if (isProcessing) {
                     statusClass = 'processing';
                     statusText = 'Processing...';
+                } else {
+                    statusClass = 'unlocked';
+                    statusText = 'Unlocked';
                 }
 
-                // include session token in preview URL when available (server requires X-Session-ID or session param)
                 const previewUrl = `/student/paper/${paper.artifact_uuid}/view${sessionToken ? '?session=' + encodeURIComponent(sessionToken) : ''}`;
-                // Append fragment to hide PDF viewer toolbar/navpanes (Chrome/Edge)
                 const securePreviewUrl = previewUrl + '#toolbar=0&navpanes=0&scrollbar=1';
                 const isImage = ['jpg', 'jpeg', 'png'].includes(paper.file_extension?.toLowerCase());
-                const previewContent = isImage
-                    ? `<img src="${previewUrl}" alt="Paper preview" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-image text-secondary\\' style=\\'font-size: 5rem;\\'></i>'">`
+                previewContent = isImage
+                    ? `<img src="${previewUrl}" alt="Paper preview" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-image text-secondary\\' style=\\'font-size: 4rem;\\'></i>'">`
                     : `<object data="${securePreviewUrl}" type="application/pdf" style="width:100%; height:100%;">
                             <iframe src="${securePreviewUrl}" style="width:100%; height:100%; border:0;"></iframe>
                        </object>`;
 
-                return `
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card paper-card h-100">
-                            <div class="paper-preview">
-                                ${previewContent}
-                            </div>
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h5 class="card-title mb-0">${paper.subject_code}</h5>
-                                    <span class="status-badge status-${statusClass}">${statusText}</span>
-                                </div>
-                                <div class="d-flex gap-2 flex-wrap mb-2">
-                                    ${paper.exam_type ? `<span class="badge ${paper.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white" style="font-size: 0.7rem;">${paper.exam_type === 'CIA1' ? 'CIA-1' : paper.exam_type === 'CIA2' ? 'CIA-2' : paper.exam_type}</span>` : ''}
-                                    <span class="badge ${paper.attempt_number === 2 ? 'bg-warning text-dark' : 'bg-success text-white'}" style="font-size: 0.7rem;">
-                                        <i class="bi ${paper.attempt_number === 2 ? 'bi-arrow-repeat' : 'bi-1-circle'}"></i> Attempt ${paper.attempt_number || 1}
-                                    </span>
-                                    ${isSuperseded ? `<span class="badge bg-secondary text-white" style="font-size: 0.7rem;"><i class="bi bi-archive"></i> Replaced by newer attempt</span>` : ''}
-                                </div>
-                                ${paper.subject_name ? `<p class="card-text text-muted small mb-1">${paper.subject_name}</p>` : ''}
-                                ${paper.target_site_url ? `<p class="card-text small mb-1" style="color:#0d6efd;"><i class="bi bi-hdd-network me-1"></i><a href="${paper.target_site_url}" target="_blank" rel="noopener" class="text-decoration-none fw-semibold" style="color:#0d6efd;">${getSiteLabel(paper.target_site_url)}</a></p>` : ''}
-                                <p class="card-text text-muted small">
-                                    <i class="bi bi-file-earmark me-1"></i>
-                                    ${paper.filename || paper.original_filename}
-                                </p>
-                                <p class="card-text text-muted small mb-3">
-                                    <i class="bi bi-calendar me-1"></i>
-                                    Uploaded: ${new Date(paper.upload_timestamp).toLocaleDateString()}
-                                </p>
-                                ${isFailed && paper.error_message ? `<div class="alert alert-danger p-2 small mb-3"><i class="bi bi-exclamation-circle me-1"></i>${paper.error_message}</div>` : ''}
-                                ${paper.message ? `<div class="unmapped-alert mb-3"><i class="bi bi-exclamation-triangle-fill"></i> ${paper.message}</div>` : ''}
-                                <div class="d-flex gap-2 mt-auto">
-                                    <button class="btn btn-outline-primary btn-sm flex-grow-1" onclick="viewPaper('${paper.artifact_uuid}', '${paper.subject_code}', ${isSubmitted})">
-                                        <i class="bi bi-eye me-1"></i> View
-                                    </button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="openReportModal('${paper.artifact_uuid}')">
-                                        <i class="bi bi-flag-fill me-1"></i> Report
-                                    </button>
-                                    ${!isSubmitted ? `
-                                        <button class="btn btn-submit btn-sm flex-grow-1" ${!canSubmit ? 'disabled' : ''} onclick="initSubmission('${paper.artifact_uuid}', '${paper.subject_code}', '${paper.filename || paper.original_filename}')">
-                                            <i class="bi bi-cloud-upload me-1"></i> ${isFailed ? 'Retry' : 'Submit'}
-                                        </button>
-                                    ` : `
-                                        <button class="btn btn-success btn-sm flex-grow-1" disabled>
-                                            <i class="bi bi-check-circle me-1"></i> Done
-                                        </button>
-                                    `}
-                                </div>
-                            </div>
-                        </div>
+                detailsHtml = `
+                    <p class="card-text text-muted small mb-1">
+                        <i class="bi bi-file-earmark me-1"></i>
+                        ${paper.filename || paper.original_filename}
+                    </p>
+                    <p class="card-text text-muted small mb-3">
+                        <i class="bi bi-calendar me-1"></i>
+                        Uploaded: ${new Date(paper.upload_timestamp).toLocaleDateString()}
+                    </p>
+                    ${isFailed && paper.error_message ? `<div class="alert alert-danger p-2 small mb-3"><i class="bi bi-exclamation-circle me-1"></i>${paper.error_message}</div>` : ''}
+                    ${paper.message ? `<div class="unmapped-alert mb-3"><i class="bi bi-exclamation-triangle-fill"></i> ${paper.message}</div>` : ''}
+                `;
+
+                buttonsHtml = `
+                    <div class="d-flex gap-2 mt-auto">
+                        <button class="btn btn-outline-primary btn-sm flex-grow-1" onclick="viewPaper('${paper.artifact_uuid}', '${paper.subject_code}', ${isSubmitted})">
+                            <i class="bi bi-eye me-1"></i> View
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="openReportModal('${paper.artifact_uuid}')">
+                            <i class="bi bi-flag-fill me-1"></i> Report
+                        </button>
+                        ${!isSubmitted ? `
+                            <button class="btn btn-submit btn-sm flex-grow-1" ${!canSubmit ? 'disabled' : ''} onclick="initSubmission('${paper.artifact_uuid}', '${paper.subject_code}', '${paper.filename || paper.original_filename}')">
+                                <i class="bi bi-cloud-upload me-1"></i> ${isFailed ? 'Retry' : 'Submit'}
+                            </button>
+                        ` : `
+                            <button class="btn btn-success btn-sm flex-grow-1" disabled>
+                                <i class="bi bi-check-circle me-1"></i> Done
+                            </button>
+                        `}
                     </div>
                 `;
-            }).join('');
+            } else {
+                if (attemptNum === 2) {
+                    if (isLockedByGroup) {
+                        statusClass = 'locked';
+                        statusText = 'Locked';
+                        previewContent = `
+                            <div class="paper-preview d-flex flex-column align-items-center justify-content-center bg-light text-muted" style="height: 180px;">
+                                <i class="bi bi-lock-fill" style="font-size: 3rem; color: var(--gray-400);"></i>
+                                <small class="mt-2 text-center px-3 fw-semibold">Attempt 2 is locked by staff</small>
+                            </div>
+                        `;
+                        detailsHtml = `
+                            <p class="card-text text-muted small mb-3">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Status: Locked. Staff must unlock Attempt 2 before submission.
+                            </p>
+                        `;
+                        buttonsHtml = `
+                            <div class="d-flex gap-2 mt-auto">
+                                <button class="btn btn-secondary btn-sm flex-grow-1" disabled>
+                                    <i class="bi bi-lock-fill me-1"></i> Locked
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        statusClass = 'unlocked';
+                        statusText = 'Unlocked';
+                        previewContent = `
+                            <div class="paper-preview d-flex flex-column align-items-center justify-content-center bg-light text-muted" style="height: 180px;">
+                                <i class="bi bi-cloud-arrow-up-fill" style="font-size: 3rem; color: var(--warning);"></i>
+                                <small class="mt-2 text-center px-3 fw-semibold">Unlocked. Awaiting Attempt 2 upload</small>
+                            </div>
+                        `;
+                        detailsHtml = `
+                            <p class="card-text text-muted small mb-3">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Status: Unlocked, but staff has not uploaded the Attempt 2 paper yet.
+                            </p>
+                        `;
+                        buttonsHtml = `
+                            <div class="d-flex gap-2 mt-auto">
+                                <button class="btn btn-warning btn-sm flex-grow-1 text-dark" disabled>
+                                    <i class="bi bi-hourglass-split me-1"></i> Awaiting Upload
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    statusClass = 'locked';
+                    statusText = 'No Paper';
+                    previewContent = `
+                        <div class="paper-preview d-flex flex-column align-items-center justify-content-center bg-light text-muted" style="height: 180px;">
+                            <i class="bi bi-file-earmark-x" style="font-size: 3rem; color: var(--gray-400);"></i>
+                            <small class="mt-2 text-center px-3 fw-semibold">No Attempt 1 paper uploaded</small>
+                        </div>
+                    `;
+                    detailsHtml = `
+                        <p class="card-text text-muted small mb-3">
+                            No Attempt 1 paper has been uploaded by the department.
+                        </p>
+                    `;
+                    buttonsHtml = `
+                        <div class="d-flex gap-2 mt-auto">
+                            <button class="btn btn-secondary btn-sm flex-grow-1" disabled>
+                                <i class="bi bi-slash-circle me-1"></i> Unavailable
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
+            return `
+                <div class="${colClass}">
+                    <div class="card attempt-card h-100 p-3" style="background: rgba(255, 255, 255, 0.7); border-radius: 12px; border: 1px solid rgba(226, 232, 240, 0.8);">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0 text-secondary">${attemptName}</h6>
+                            <span class="status-badge status-${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="paper-preview mb-3" style="position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200);">
+                            ${previewContent}
+                        </div>
+                        ${detailsHtml}
+                        ${buttonsHtml}
+                    </div>
+                </div>
+            `;
         }
 
         let currentExamFilter = 'all';
         let currentAttemptFilter = 'all';
+
         function filterByExamType(type) {
             currentExamFilter = type;
-            // Update button active states
             document.querySelectorAll('#examTypeFilter .btn').forEach(btn => {
                 btn.classList.remove('active');
             });
@@ -1898,20 +1968,16 @@
             renderPapers();
         }
 
-        // Patch renderPapers to respect exam type, attempt filters, and search
-        const _originalRenderPapers = renderPapers;
-        renderPapers = function () {
+        function renderPapers() {
             const grid = document.getElementById('papersGrid');
             const emptyState = document.getElementById('emptyState');
             const searchInput = document.getElementById('studentPapersSearch');
             const searchTerm = (searchInput ? searchInput.value : '').trim().toLowerCase();
 
+            // 1. Filter papers by exam type and search term first
             let filteredPapers = papers;
             if (currentExamFilter !== 'all') {
                 filteredPapers = filteredPapers.filter(p => p.exam_type === currentExamFilter);
-            }
-            if (currentAttemptFilter !== 'all') {
-                filteredPapers = filteredPapers.filter(p => (p.attempt_number || 1) === currentAttemptFilter);
             }
             if (searchTerm) {
                 filteredPapers = filteredPapers.filter(p => {
@@ -1927,7 +1993,46 @@
                 });
             }
 
-            if (filteredPapers.length === 0) {
+            // 2. Group the papers by subject_code + exam_type
+            const groups = {};
+            filteredPapers.forEach(p => {
+                const key = `${p.subject_code}_${p.exam_type || 'CIA1'}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        subject_code: p.subject_code,
+                        subject_name: p.subject_name || '',
+                        exam_type: p.exam_type || 'CIA1',
+                        target_site_url: p.target_site_url || null,
+                        attempt1: null,
+                        attempt2: null,
+                        attempt_2_locked: true
+                    };
+                }
+                const g = groups[key];
+                if (!g.subject_name && p.subject_name) g.subject_name = p.subject_name;
+                if (!g.target_site_url && p.target_site_url) g.target_site_url = p.target_site_url;
+
+                if (p.attempt_number === 2) {
+                    g.attempt2 = p;
+                } else {
+                    g.attempt1 = p;
+                }
+
+                if (p.attempt_2_locked === false) {
+                    g.attempt_2_locked = false;
+                }
+            });
+
+            let groupList = Object.values(groups);
+
+            // 3. Filter groupList by attempt selection if appropriate
+            if (currentAttemptFilter === 1) {
+                groupList = groupList.filter(g => g.attempt1 !== null);
+            } else if (currentAttemptFilter === 2) {
+                groupList = groupList.filter(g => g.attempt2 !== null || !g.attempt_2_locked);
+            }
+
+            if (groupList.length === 0) {
                 grid.innerHTML = '';
                 emptyState.style.display = 'block';
                 return;
@@ -1935,16 +2040,52 @@
 
             emptyState.style.display = 'none';
 
-            // Temporarily swap papers, render, then restore
-            const allPapers = papers;
-            papers = filteredPapers;
-            _originalRenderPapers();
-            papers = allPapers;
-        };
+            grid.innerHTML = groupList.map(group => {
+                let columnsHtml = '';
+                if (currentAttemptFilter === 'all') {
+                    columnsHtml += renderAttemptCol('Attempt 1 Submission', group.attempt1, 1, group.attempt_2_locked, 'col-md-6');
+                    columnsHtml += renderAttemptCol('Attempt 2 Submission', group.attempt2, 2, group.attempt_2_locked, 'col-md-6');
+                } else if (currentAttemptFilter === 1) {
+                    columnsHtml += renderAttemptCol('Attempt 1 Submission', group.attempt1, 1, group.attempt_2_locked, 'col-12');
+                } else if (currentAttemptFilter === 2) {
+                    columnsHtml += renderAttemptCol('Attempt 2 Submission', group.attempt2, 2, group.attempt_2_locked, 'col-12');
+                }
+
+                return `
+                    <div class="col-12 mb-4">
+                        <div class="card subject-card p-4" style="background: rgba(255, 255, 255, 0.85); border-radius: 20px; box-shadow: var(--shadow-sm); border: 1px solid rgba(226, 232, 240, 0.8);">
+                            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+                                <div>
+                                    <h4 class="mb-1 text-primary" style="font-family: var(--font-display); font-weight: 700; font-size: 1.35rem;">
+                                        ${group.subject_code} - ${group.subject_name || 'Subject'}
+                                    </h4>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <span class="badge ${group.exam_type === 'CIA2' ? 'bg-info' : 'bg-secondary'} text-white" style="font-size: 0.75rem;">
+                                            ${group.exam_type === 'CIA1' ? 'CIA-1' : group.exam_type === 'CIA2' ? 'CIA-2' : group.exam_type}
+                                        </span>
+                                        ${group.target_site_url ? `
+                                            <span class="small" style="color:#0d6efd;">
+                                                <i class="bi bi-hdd-network me-1"></i>
+                                                <a href="${group.target_site_url}" target="_blank" rel="noopener" class="text-decoration-none fw-semibold" style="color:#0d6efd;">
+                                                    ${getSiteLabel(group.target_site_url)}
+                                                </a>
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                ${columnsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
         function updateStats() {
             const total = papers.length;
-            const successStates = ['submitted_to_moodle', 'completed', 'submitted_to_lms'];
+            const successStates = ['submitted_to_moodle', 'completed', 'submitted_to_lms', 'superseded'];
             const submitted = papers.filter(p => successStates.includes((p.workflow_status || '').toLowerCase())).length;
             const pending = total - submitted;
 

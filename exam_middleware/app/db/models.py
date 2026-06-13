@@ -391,6 +391,7 @@ class ExamSubmission(Base):
     subject_code = Column(String(20), nullable=False)
     assignment_id = Column(Integer, nullable=True)  # Moodle assignment ID
     exam_type = Column(String(10), nullable=False, default="CIA1")
+    attempt_number = Column(Integer, nullable=False, default=1, server_default="1")
     artifact_id = Column(Integer, ForeignKey("examination_artifacts.id", ondelete="SET NULL"), nullable=True)
 
     # Submission lifecycle
@@ -406,6 +407,6 @@ class ExamSubmission(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint('student_id', 'subject_code', 'exam_type', name='uq_exam_submission'),
-        Index('ix_exam_sub_student', 'student_id', 'subject_code', 'exam_type'),
+        UniqueConstraint('student_id', 'subject_code', 'exam_type', 'attempt_number', name='uq_exam_submission'),
+        Index('ix_exam_sub_student', 'student_id', 'subject_code', 'exam_type', 'attempt_number'),
     )

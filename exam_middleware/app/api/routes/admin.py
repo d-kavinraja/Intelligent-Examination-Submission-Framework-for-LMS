@@ -1073,7 +1073,7 @@ async def purge_all_artifacts(
     Requires confirm='yes' query parameter.
     """
     import shutil
-    from app.db.models import AuditLog, SubmissionQueue
+    from app.db.models import AuditLog, SubmissionQueue, ExamSubmission
 
     if confirm.lower() != "yes":
         raise HTTPException(
@@ -1090,6 +1090,7 @@ async def purge_all_artifacts(
     # Delete all related rows
     await db.execute(delete(AuditLog))
     await db.execute(delete(SubmissionQueue))
+    await db.execute(delete(ExamSubmission))
     await db.execute(delete(ExaminationArtifact))
     await db.commit()
 
@@ -1098,6 +1099,7 @@ async def purge_all_artifacts(
         await db.execute(text("ALTER SEQUENCE examination_artifacts_id_seq RESTART WITH 1"))
         await db.execute(text("ALTER SEQUENCE audit_logs_id_seq RESTART WITH 1"))
         await db.execute(text("ALTER SEQUENCE submission_queue_id_seq RESTART WITH 1"))
+        await db.execute(text("ALTER SEQUENCE exam_submissions_id_seq RESTART WITH 1"))
         await db.commit()
         logger.info("Reset ID sequences to 1")
     except Exception as e:
@@ -1132,7 +1134,7 @@ async def delete_artifact(
     along with all related audit logs and submission queue entries (CASCADE).
     """
     import os
-    from app.db.models import AuditLog, SubmissionQueue
+    from app.db.models import AuditLog, SubmissionQueue, ExamSubmission
 
     artifact_service = ArtifactService(db)
 
@@ -1142,6 +1144,10 @@ async def delete_artifact(
 
     artifact_id = artifact.id
     artifact_filename = artifact.original_filename or artifact.raw_filename or str(artifact_uuid)
+    artifact_reg_no = artifact.parsed_reg_no
+    artifact_subject_code = artifact.parsed_subject_code
+    artifact_exam_type = getattr(artifact, "exam_type", "CIA1") or "CIA1"
+    artifact_attempt_number = getattr(artifact, "attempt_number", 1) or 1
 
     # Attempt to delete physical file
     try:
@@ -1164,6 +1170,18 @@ async def delete_artifact(
         await db.execute(
             delete(SubmissionQueue).where(SubmissionQueue.artifact_id == artifact_id)
         )
+        await db.execute(
+            delete(ExamSubmission).where(ExamSubmission.artifact_id == artifact_id)
+        )
+        if artifact_reg_no and artifact_subject_code:
+            await db.execute(
+                delete(ExamSubmission).where(
+                    ExamSubmission.student_id == artifact_reg_no,
+                    ExamSubmission.subject_code == artifact_subject_code,
+                    ExamSubmission.exam_type == artifact_exam_type,
+                    ExamSubmission.attempt_number == artifact_attempt_number,
+                )
+            )
     except Exception as e:
         logger.warning("Error cleaning up related rows for artifact %s: %s", artifact_id, e)
 
@@ -1345,7 +1363,9 @@ async def toggle_attempt_lock(
 
     # Update ALL artifacts in the same group (reg_no + subject_code + exam_type)
     if artifact.parsed_reg_no and artifact.parsed_subject_code:
-        from sqlalchemy import update, and_
+        from sqlalchemy import update, and_, delete
+        from app.db.models import ExamSubmission
+        
         stmt = (
             update(ExaminationArtifact)
             .where(
@@ -1358,6 +1378,22 @@ async def toggle_attempt_lock(
             .values(attempt_2_locked=new_locked)
         )
         await db.execute(stmt)
+        
+        # If unlocking attempt 2, remove any existing attempt 2 submission locks
+        # so the student can re-submit attempt 2 without being blocked
+        if not new_locked:
+            del_stmt = (
+                delete(ExamSubmission)
+                .where(
+                    and_(
+                        ExamSubmission.student_id == artifact.parsed_reg_no,
+                        ExamSubmission.subject_code == artifact.parsed_subject_code,
+                        ExamSubmission.exam_type == artifact.exam_type,
+                        ExamSubmission.attempt_number == 2,
+                    )
+                )
+            )
+            await db.execute(del_stmt)
     else:
         # Single artifact without parsed metadata
         artifact.attempt_2_locked = new_locked
