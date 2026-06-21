@@ -1,4 +1,4 @@
-import { Hexagon, ArrowUpRight } from "lucide-react"
+import { ArrowUpRight } from "lucide-react"
 
 export function Footer() {
   return (
@@ -8,7 +8,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <Hexagon className="h-8 w-8 text-[#111111]" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-8 w-auto object-contain" />
               <span className="font-serif text-3xl text-[#111111] tracking-tight">IESF-LMS</span>
             </div>
             <p className="font-mono text-xs text-[#555555] mb-6 leading-relaxed">

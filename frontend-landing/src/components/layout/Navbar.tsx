@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Menu, X, Hexagon, FileText } from "lucide-react"
+import { Menu, X, FileText } from "lucide-react"
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -32,7 +32,7 @@ export function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <Hexagon className="h-6 w-6 text-[#111111]" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-8 w-auto object-contain" />
             <span className="font-serif text-2xl tracking-tight text-[#111111]">IESF-LMS</span>
           </div>
 
