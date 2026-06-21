@@ -58,7 +58,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="w-full lg:w-1/2 relative"
           >
-            <div className="absolute -top-7 right-8 text-[#2563eb] font-serif italic text-xl -rotate-3 z-10 pointer-events-none select-none">
+            <div className="absolute -top-8 right-8 text-[#2563eb] font-serif italic text-xl z-10 pointer-events-none select-none">
               live from your server
             </div>
             
