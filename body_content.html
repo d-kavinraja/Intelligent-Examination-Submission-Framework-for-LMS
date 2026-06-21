@@ -1,0 +1,1333 @@
+
+  <!-- Page shimmer on load -->
+  <div class="page-shimmer" id="pageShimmer"></div>
+
+  <!-- ================================================
+       HEADER
+  ================================================ -->
+  <header id="header">
+    <div class="container">
+      <div class="nav-inner">
+        <a href="#" class="logo">
+          <div class="logo-icon">
+            <img src="https://guileless-jalebi-7d5aff.netlify.app/sec.jpg" alt="SEC Logo">
+          </div>
+          <span class="logo-text">IESF-LMS</span>
+        </a>
+
+        <nav class="desktop-nav">
+          <a href="#features">Features</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#api">API</a>
+          <a href="#deployment">Deployment</a>
+          <a href="#installation">Setup</a>
+          <a href="#structure">Structure</a>
+        </nav>
+
+        <div class="header-actions">
+          <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="github-btn" id="nav-github">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </a>
+          <a href="#installation" class="btn-nav-cta" id="nav-get-started">Get Started</a>
+          <button class="hamburger" id="menuToggle" aria-label="Toggle Menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile overlay -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <!-- Mobile Nav -->
+  <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
+    <a href="#features" onclick="closeMenu()">Features</a>
+    <a href="#architecture" onclick="closeMenu()">Architecture</a>
+    <a href="#workflow" onclick="closeMenu()">Workflow</a>
+    <a href="#api" onclick="closeMenu()">API</a>
+    <a href="#deployment" onclick="closeMenu()">Deployment</a>
+    <a href="#installation" onclick="closeMenu()">Setup</a>
+    <a href="#structure" onclick="closeMenu()">Structure</a>
+    <div class="mobile-nav-divider"></div>
+    <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" onclick="closeMenu()">GitHub →</a>
+  </nav>
+
+  <!-- ================================================
+       HERO
+  ================================================ -->
+  <section class="hero" id="hero">
+    <div class="hero-mesh"></div>
+    <div class="hero-grid"></div>
+
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        AI-Powered · Exam Management · LMS Integration
+      </div>
+
+      <h1>Intelligent Examination<br><span class="accent-word">Submission Framework</span></h1>
+
+      <p class="hero-subtitle">
+        <span class="typing-text" id="typingText"></span><span class="typing-cursor" id="typingCursor"></span>
+      </p>
+
+      <div class="hero-ctas">
+        <a href="#installation" class="btn-hero-primary" id="hero-quickstart">
+          Quick Start
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </a>
+        <a href="#architecture" class="btn-hero-secondary" id="hero-arch">View Architecture</a>
+        <a href="https://exam-middleware.onrender.com" target="_blank" class="btn-hero-secondary" id="hero-demo">
+          Live Demo
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        </a>
+      </div>
+
+      <div class="hero-badges">
+        <span class="hero-badge">FastAPI</span>
+        <span class="hero-badge">PostgreSQL</span>
+        <span class="hero-badge">YOLO + CRNN</span>
+        <span class="hero-badge">Moodle LMS</span>
+        <span class="hero-badge">HuggingFace</span>
+        <span class="hero-badge">Docker</span>
+      </div>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-number" data-count="20" data-suffix="+">0</span>
+        <span class="stat-label">API Endpoints</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-count="100" data-suffix="%">0</span>
+        <span class="stat-label">Audit Trail</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-text="CIA-1/2">—</span>
+        <span class="stat-label">Exam Support</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-text="AI">—</span>
+        <span class="stat-label">Smart Scan</span>
+      </div>
+    </div>
+
+    <div class="scroll-indicator" onclick="document.getElementById('problems').scrollIntoView({behavior:'smooth'})">
+      <span class="scroll-indicator-text">Scroll</span>
+      <div class="scroll-mouse"></div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       PROBLEM / SOLUTION
+  ================================================ -->
+  <section id="problems" class="problems-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">The Challenge</span>
+        <h2 class="section-title">Why IESF-LMS <span class="hl-warm">Exists</span></h2>
+        <p class="section-desc">Academic institutions transitioning to digital grading face major logistical hurdles with physical answer scripts.</p>
+      </div>
+
+      <div class="ps-layout">
+        <!-- Problems -->
+        <div>
+          <div class="ps-side-label problem reveal">The Problems</div>
+          <div class="problem-cards">
+            <div class="problem-card reveal reveal-delay-1">
+              <div class="problem-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <div>
+                <h3>Manual Labor</h3>
+                <p>Individually scanning, renaming, and uploading hundreds of answer scripts is time-consuming and inefficient.</p>
+              </div>
+            </div>
+            <div class="problem-card reveal reveal-delay-2">
+              <div class="problem-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+              <div>
+                <h3>Human Error</h3>
+                <p>Manual processes are prone to uploading wrong files or mislabeling student submissions.</p>
+              </div>
+            </div>
+            <div class="problem-card reveal reveal-delay-3">
+              <div class="problem-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              </div>
+              <div>
+                <h3>Security &amp; Integrity</h3>
+                <p>Unverified uploads can compromise the chain of custody for examination papers.</p>
+              </div>
+            </div>
+            <div class="problem-card reveal reveal-delay-4">
+              <div class="problem-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              </div>
+              <div>
+                <h3>No Verification</h3>
+                <p>Students lack a mechanism to verify their paper was scanned correctly before grading.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Solution -->
+        <div>
+          <div class="ps-side-label solution reveal">The Solution</div>
+          <div class="solution-steps">
+            <div class="sol-step reveal reveal-delay-1">
+              <div class="sol-num">1</div>
+              <div>
+                <h3>Bulk Ingestion</h3>
+                <p>Staff uploads scanned PDFs via drag &amp; drop. AI extracts metadata automatically — no manual naming needed.</p>
+              </div>
+            </div>
+            <div class="sol-step reveal reveal-delay-2">
+              <div class="sol-num">2</div>
+              <div>
+                <h3>Intelligent Processing</h3>
+                <p>YOLO detects text regions, CRNN reads register numbers and subject codes from each page with high accuracy.</p>
+              </div>
+            </div>
+            <div class="sol-step reveal reveal-delay-3">
+              <div class="sol-num">3</div>
+              <div>
+                <h3>Student-Led Submission</h3>
+                <p>Students verify their papers via secure PDF viewer and submit to Moodle, ensuring non-repudiation.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Core concept box -->
+      <div class="core-callout reveal">
+        <div class="core-callout-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        </div>
+        <div>
+          <h3>Core Concept</h3>
+          <p>An intelligent intermediary between the physical examination hall and the digital grading environment, ensuring secure validation and student verification at every step.</p>
+          <div class="core-tags">
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Non-repudiation</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Audit Trail</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Secure Tokens</span>
+            <span class="core-tag"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Extraction</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       FEATURES
+  ================================================ -->
+  <section id="features" class="features-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">Capabilities</span>
+        <h2 class="section-title">Key <span class="hl">Features</span></h2>
+        <p class="section-desc">A comprehensive feature set covering the entire examination submission lifecycle.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-icon fc-blue">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h3>Smart Scan AI</h3>
+          <p>Scanner agent with YOLO object detection and CRNN text recognition extracts register numbers and subject codes from scanned answer sheets automatically.</p>
+          <span class="feature-tag">HuggingFace Spaces</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-card-icon fc-green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <h3>Bulk Upload</h3>
+          <p>Drag and drop hundreds of scanned files at once. Per-file savepoints ensure partial failures don't lose progress. Duplicate detection built-in.</p>
+          <span class="feature-tag">Staff Portal</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-card-icon fc-purple">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </div>
+          <h3>CIA-1 / CIA-2 Exams</h3>
+          <p>Full CIA exam type separation. Uniqueness constraints respect exam type. Students can submit CIA-1 and CIA-2 independently.</p>
+          <span class="feature-tag">Exam Management</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-4">
+          <div class="feature-card-icon fc-warm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <h3>Attempt Management</h3>
+          <p>Admin-controlled lock/unlock per attempt. Attempt 2 requires Attempt 1 completed. Each attempt creates a separate artifact.</p>
+          <span class="feature-tag">Admin Control</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-5">
+          <div class="feature-card-icon fc-green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </div>
+          <h3>Email Notifications</h3>
+          <p>SendGrid/SMTP integration sends upload confirmation emails to students via Moodle email lookup. Fully async and non-blocking.</p>
+          <span class="feature-tag">SendGrid</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-6">
+          <div class="feature-card-icon fc-blue">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <h3>Student Portal</h3>
+          <p>Students verify their papers via secure PDF viewer, view dashboard stats, and submit to Moodle — all with real-time status updates.</p>
+          <span class="feature-tag">Moodle SSO</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-icon fc-purple">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </div>
+          <h3>Subject &amp; Student Mapping</h3>
+          <p>Admin maps subject codes to Moodle assignments and register numbers to Moodle usernames. Auto-discover from Moodle courses.</p>
+          <span class="feature-tag">Admin Panel</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-card-icon fc-green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          </div>
+          <h3>Database-Backed Storage</h3>
+          <p>Self-healing file persistence for cloud deployments. File content stored in PostgreSQL to survive Render's ephemeral filesystem.</p>
+          <span class="feature-tag">Cloud-Ready</span>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-card-icon fc-warm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <h3>Security &amp; Audit</h3>
+          <p>bcrypt password hashing, AES-256 token encryption, JWT authentication, SHA-256 file hashing, and complete audit logging.</p>
+          <span class="feature-tag">Enterprise Grade</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       ARCHITECTURE
+  ================================================ -->
+  <section id="architecture" class="arch-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">System Design</span>
+        <h2 class="section-title">System <span class="hl">Architecture</span></h2>
+        <p class="section-desc">Designed for data integrity, security, and complete auditability across every step.</p>
+      </div>
+
+      <!-- 4-node flow -->
+      <div class="arch-flow reveal">
+        <div class="arch-node">
+          <div class="arch-node-icon ani-muted">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h4>Physical Layer</h4>
+          <p>Scanned Answer Sheets</p>
+          <div class="arch-tags"><span class="arch-tag">PDF/JPG/PNG</span></div>
+        </div>
+        <div class="arch-arrow-cell">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon ani-blue">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          </div>
+          <h4>FastAPI Middleware</h4>
+          <p>PostgreSQL + JWT</p>
+          <div class="arch-tags"><span class="arch-tag">Auth</span><span class="arch-tag">Upload</span><span class="arch-tag">Submit</span></div>
+        </div>
+        <div class="arch-arrow-cell">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon ani-green">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <h4>HuggingFace Spaces</h4>
+          <p>YOLO + CRNN Models</p>
+          <div class="arch-tags"><span class="arch-tag">ML Inference</span></div>
+        </div>
+        <div class="arch-arrow-cell">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon ani-purple">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          </div>
+          <h4>Moodle LMS</h4>
+          <p>Assignment Submissions</p>
+          <div class="arch-tags"><span class="arch-tag">Web Services</span></div>
+        </div>
+      </div>
+
+      <!-- DB Schema -->
+      <div class="db-card reveal">
+        <div class="db-card-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          <h3>Database Schema</h3>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="model-name">ExaminationArtifact</td><td class="model-desc">Core entity — UUID, file path, SHA-256 hash, metadata, workflow status, exam_type, attempt, file_content (binary)</td></tr>
+              <tr><td class="model-name">SubjectMapping</td><td class="model-desc">Maps Subject Code &rarr; Moodle Assignment ID + Course ID with exam_type support</td></tr>
+              <tr><td class="model-name">UsernameRegMapping</td><td class="model-desc">Maps Moodle username &rarr; Register Number for student lookup</td></tr>
+              <tr><td class="model-name">StaffUser</td><td class="model-desc">Admin/staff accounts with bcrypt-hashed passwords and role flags</td></tr>
+              <tr><td class="model-name">StudentSession</td><td class="model-desc">Ephemeral sessions with AES-256 encrypted Moodle access tokens</td></tr>
+              <tr><td class="model-name">AuditLog</td><td class="model-desc">Immutable ledger of all actions with IP addresses and timestamps</td></tr>
+              <tr><td class="model-name">SubmissionQueue</td><td class="model-desc">Retry buffer for Moodle API failures — no submission is lost</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Security pills -->
+      <div class="security-pills reveal">
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+          <div><h4>bcrypt Hashing</h4><p>12-round password hashing</p></div>
+        </div>
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+          <div><h4>AES-256 Encryption</h4><p>Fernet for Moodle tokens</p></div>
+        </div>
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+          <div><h4>Audit Logging</h4><p>Complete chain of custody</p></div>
+        </div>
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg></div>
+          <div><h4>JWT Tokens</h4><p>Short-lived access tokens</p></div>
+        </div>
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></div>
+          <div><h4>SHA-256 Hashing</h4><p>File integrity verification</p></div>
+        </div>
+        <div class="sec-pill">
+          <div class="sec-pill-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>
+          <div><h4>CORS Protection</h4><p>Configurable origin whitelist</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       WORKFLOW
+  ================================================ -->
+  <section id="workflow" class="workflow-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">How It Works</span>
+        <h2 class="section-title">Platform <span class="hl">Workflow</span></h2>
+        <p class="section-desc">A streamlined 3-phase process ensuring secure and verified submissions.</p>
+      </div>
+
+      <div class="timeline">
+        <!-- Phase 1 -->
+        <div class="timeline-phase">
+          <div class="phase-number reveal">1</div>
+          <div class="phase-body reveal reveal-delay-1">
+            <div class="phase-label-tag">Phase 1</div>
+            <h3>Administration &amp; Setup</h3>
+            <div class="steps-grid">
+              <div class="step-box"><div class="step-num-badge">1</div><div><h4>Subject Mapping</h4><p>Map subject codes to Moodle Assignment IDs (auto-discover from Moodle)</p></div></div>
+              <div class="step-box"><div class="step-num-badge">2</div><div><h4>Student Mapping</h4><p>Map register numbers to Moodle usernames</p></div></div>
+              <div class="step-box"><div class="step-num-badge">3</div><div><h4>Scanning</h4><p>Exam cell scans papers: {RegNo}_{SubCode}.pdf</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 2 -->
+        <div class="timeline-phase">
+          <div class="phase-number reveal">2</div>
+          <div class="phase-body reveal reveal-delay-1">
+            <div class="phase-label-tag">Phase 2</div>
+            <h3>Staff Operations</h3>
+            <div class="steps-grid">
+              <div class="step-box"><div class="step-num-badge">1</div><div><h4>Login</h4><p>Staff authenticates via JWT</p></div></div>
+              <div class="step-box"><div class="step-num-badge">2</div><div><h4>Bulk Upload</h4><p>Drag &amp; drop scanned files with duplicate detection</p></div></div>
+              <div class="step-box"><div class="step-num-badge">3</div><div><h4>Validation</h4><p>Filename validation, SHA-256 hashing, mapping check</p></div></div>
+              <div class="step-box"><div class="step-num-badge">4</div><div><h4>Smart Scan</h4><p>Optional AI extraction via scanner agent + HF Spaces</p></div></div>
+              <div class="step-box"><div class="step-num-badge">5</div><div><h4>Email</h4><p>SendGrid notifies students of uploaded papers</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 3 -->
+        <div class="timeline-phase">
+          <div class="phase-number reveal">3</div>
+          <div class="phase-body reveal reveal-delay-1">
+            <div class="phase-label-tag">Phase 3</div>
+            <h3>Student Operations</h3>
+            <div class="steps-grid">
+              <div class="step-box"><div class="step-num-badge">1</div><div><h4>Login</h4><p>Moodle credentials authentication</p></div></div>
+              <div class="step-box"><div class="step-num-badge">2</div><div><h4>Dashboard</h4><p>View papers tagged with register number</p></div></div>
+              <div class="step-box"><div class="step-num-badge">3</div><div><h4>Review</h4><p>Secure PDF viewer to verify paper</p></div></div>
+              <div class="step-box"><div class="step-num-badge">4</div><div><h4>Submit</h4><p>One-click submission to Moodle LMS</p></div></div>
+              <div class="step-box"><div class="step-num-badge">5</div><div><h4>Confirmation</h4><p>Status updates to SUBMITTED_TO_LMS</p></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File naming convention -->
+      <div class="file-naming-box reveal">
+        <h3>File Naming Convention</h3>
+        <div class="file-pattern">
+          <span class="var">{RegNumber}</span><span class="sep">_</span><span class="var">{SubCode}</span><span class="sep">.</span><span class="var">{ext}</span>
+        </div>
+        <div class="file-examples">
+          <span class="file-ex">611221104088_19AI405.pdf</span>
+          <span class="file-ex">611221104089_ML.jpg</span>
+          <span class="file-ex">611221104090_19AI411.png</span>
+        </div>
+        <div class="file-rules">
+          <span class="file-rule"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Register Number: 12 digits</span>
+          <span class="file-rule"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Subject Code: 2–10 alphanumeric</span>
+          <span class="file-rule"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Extensions: pdf, jpg, jpeg, png</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       API ENDPOINTS
+  ================================================ -->
+  <section id="api" class="api-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">REST API</span>
+        <h2 class="section-title">API <span class="hl">Endpoints</span></h2>
+        <p class="section-desc">Complete RESTful API with authentication, file management, extraction, and submission handling.</p>
+      </div>
+
+      <!-- Access points -->
+      <div class="access-grid reveal">
+        <div class="access-item"><h4>Staff Portal</h4><code>/portal/staff</code></div>
+        <div class="access-item"><h4>Student Portal</h4><code>/portal/student</code></div>
+        <div class="access-item"><h4>API Documentation</h4><code>/docs</code></div>
+        <div class="access-item"><h4>Health Check</h4><code>/health</code></div>
+        <div class="access-item"><h4>Production URL</h4><code>https://exam-middleware.onrender.com</code></div>
+        <div class="access-item"><h4>ML Service</h4><code>kavinraja-ml-service.hf.space</code></div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container reveal">
+        <div class="tab-bar" role="tablist">
+          <button class="tab-btn active" id="tab-auth-btn" onclick="showTab('tab-auth', this)" role="tab" aria-selected="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Auth
+          </button>
+          <button class="tab-btn" id="tab-upload-btn" onclick="showTab('tab-upload', this)" role="tab" aria-selected="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Upload
+          </button>
+          <button class="tab-btn" id="tab-student-btn" onclick="showTab('tab-student', this)" role="tab" aria-selected="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Student
+          </button>
+          <button class="tab-btn" id="tab-admin-btn" onclick="showTab('tab-admin', this)" role="tab" aria-selected="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06"></path></svg>
+            Admin
+          </button>
+          <button class="tab-btn" id="tab-extract-btn" onclick="showTab('tab-extract', this)" role="tab" aria-selected="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Extract
+          </button>
+        </div>
+
+        <div id="tab-auth" class="tab-panel active" role="tabpanel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/staff/login</span><span class="ep-desc">Staff login</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/staff/register</span><span class="ep-desc">Register staff (admin-only)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/student/login</span><span class="ep-desc">Student login with Moodle creds</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/auth/student/logout</span><span class="ep-desc">Student logout</span></div>
+          </div>
+        </div>
+
+        <div id="tab-upload" class="tab-panel" role="tabpanel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/single</span><span class="ep-desc">Upload single file</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/bulk</span><span class="ep-desc">Upload multiple files (with savepoints)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/validate</span><span class="ep-desc">Validate filename format</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/upload/auto-processed</span><span class="ep-desc">List auto-processed (ML) artifacts</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/upload/scan-upload</span><span class="ep-desc">Smart Scan: AI process + upload</span></div>
+          </div>
+        </div>
+
+        <div id="tab-student" class="tab-panel" role="tabpanel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/dashboard</span><span class="ep-desc">Get assigned papers &amp; stats</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/paper/{id}/view</span><span class="ep-desc">Secure PDF viewer</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/student/submit/{id}</span><span class="ep-desc">Submit paper to Moodle</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/student/submission/{id}/status</span><span class="ep-desc">Check submission status</span></div>
+          </div>
+        </div>
+
+        <div id="tab-admin" class="tab-panel" role="tabpanel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/artifacts</span><span class="ep-desc">List all artifacts (with filters)</span></div>
+            <div class="ep-item"><span class="method delete">DELETE</span><span class="ep-path">/admin/artifacts/{id}</span><span class="ep-desc">Hard-delete artifact</span></div>
+            <div class="ep-item"><span class="method delete">DELETE</span><span class="ep-path">/admin/artifacts/purge-all</span><span class="ep-desc">Purge all artifacts</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/mappings</span><span class="ep-desc">Subject mappings (CRUD)</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/username-mappings</span><span class="ep-desc">Student mappings (CRUD)</span></div>
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/admin/attempt/{id}/lock</span><span class="ep-desc">Lock/unlock attempt</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/admin/stats</span><span class="ep-desc">System statistics</span></div>
+          </div>
+        </div>
+
+        <div id="tab-extract" class="tab-panel" role="tabpanel">
+          <div class="ep-list">
+            <div class="ep-item"><span class="method post">POST</span><span class="ep-path">/extract/process</span><span class="ep-desc">Extract metadata from image via AI</span></div>
+            <div class="ep-item"><span class="method get">GET</span><span class="ep-path">/extract/status</span><span class="ep-desc">HF Spaces health check</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- cURL code block -->
+      <div class="notion-code-block reveal" id="curl-codeblock">
+        <div class="code-block-header">
+          <span class="code-block-lang">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            bash — Quick API Test
+          </span>
+          <button class="copy-btn" onclick="copyCode('curl-code-pre', this)" aria-label="Copy code">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy
+          </button>
+        </div>
+        <pre id="curl-code-pre"><span class="code-comment"># Staff Login</span>
+curl -X POST https://exam-middleware.onrender.com/auth/staff/login \
+  -F <span class="code-str">"username=admin"</span> \
+  -F <span class="code-str">"password=admin123"</span>
+
+<span class="code-comment"># Upload File (with token)</span>
+curl -X POST https://exam-middleware.onrender.com/upload/single \
+  -H <span class="code-str">"Authorization: Bearer YOUR_TOKEN"</span> \
+  -F <span class="code-str">"file=@611221104088_19AI405.pdf"</span> \
+  -F <span class="code-str">"exam_type=CIA-1"</span>
+
+<span class="code-comment"># Health Check</span>
+curl https://exam-middleware.onrender.com/health</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       QUICK START
+  ================================================ -->
+  <section id="installation" class="quickstart-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">Getting Started</span>
+        <h2 class="section-title">Quick <span class="hl">Setup</span></h2>
+        <p class="section-desc">Get up and running locally in minutes.</p>
+      </div>
+
+      <div class="prereq-box reveal">
+        <h3>Prerequisites</h3>
+        <div class="prereq-tags">
+          <span class="prereq-tag">Python 3.10+</span>
+          <span class="prereq-tag">PostgreSQL 14+</span>
+          <span class="prereq-tag">Moodle LMS with Web Services</span>
+          <span class="prereq-tag">Git</span>
+        </div>
+      </div>
+
+      <div class="install-steps">
+        <div class="install-step reveal reveal-delay-1">
+          <div class="install-step-head">
+            <div class="install-step-num">1</div>
+            <div class="install-step-title">Clone Repository</div>
+          </div>
+          <div class="install-code">
+            <pre>git clone https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS.git
+cd Intelligent-Examination-Submission-Framework-for-LMS/exam_middleware</pre>
+          </div>
+        </div>
+
+        <div class="install-step reveal reveal-delay-2">
+          <div class="install-step-head">
+            <div class="install-step-num">2</div>
+            <div class="install-step-title">Create Virtual Environment</div>
+          </div>
+          <div class="install-code">
+            <pre>python -m venv venv
+
+<span class="code-comment"># Windows</span>
+.\venv\Scripts\activate
+
+<span class="code-comment"># Linux / Mac</span>
+source venv/bin/activate</pre>
+          </div>
+        </div>
+
+        <div class="install-step reveal reveal-delay-3">
+          <div class="install-step-head">
+            <div class="install-step-num">3</div>
+            <div class="install-step-title">Install Dependencies</div>
+          </div>
+          <div class="install-code">
+            <pre>pip install -r requirements.txt</pre>
+          </div>
+        </div>
+
+        <div class="install-step reveal reveal-delay-4">
+          <div class="install-step-head">
+            <div class="install-step-num">4</div>
+            <div class="install-step-title">Configure Environment</div>
+          </div>
+          <div class="install-code">
+            <pre>copy .env.example .env</pre>
+          </div>
+          <div class="install-note">Edit .env with your PostgreSQL credentials, Moodle URL, and HF Space URL</div>
+        </div>
+
+        <div class="install-step reveal reveal-delay-5">
+          <div class="install-step-head">
+            <div class="install-step-num">5</div>
+            <div class="install-step-title">Setup Database</div>
+          </div>
+          <div class="install-code">
+            <pre>psql -U postgres -c "CREATE DATABASE exam_middleware;"
+python init_db.py</pre>
+          </div>
+          <div class="install-note">Creates tables, default admin user (admin/admin123), and initial mappings</div>
+        </div>
+
+        <div class="install-step reveal reveal-delay-6">
+          <div class="install-step-head">
+            <div class="install-step-num">6</div>
+            <div class="install-step-title">Run Application</div>
+          </div>
+          <div class="install-code">
+            <pre>python run.py</pre>
+          </div>
+          <div class="install-note">Server starts at http://localhost:8000 — Staff Portal at /portal/staff, Student Portal at /portal/student</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       DEPLOYMENT
+  ================================================ -->
+  <section id="deployment" class="deploy-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">Infrastructure</span>
+        <h2 class="section-title">Cloud <span class="hl">Deployment</span></h2>
+        <p class="section-desc">Production-ready on Render.com with ML inference on HuggingFace Spaces.</p>
+      </div>
+
+      <div class="deploy-grid">
+        <div class="deploy-card reveal reveal-delay-1">
+          <div class="deploy-card-icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg></div>
+          <h3>Render.com</h3>
+          <p>FastAPI application deployed as a Docker web service with managed PostgreSQL. Auto-seeding admin user, database-backed file storage for ephemeral filesystem.</p>
+          <code class="deploy-url">https://exam-middleware.onrender.com</code>
+          <div class="deploy-features">
+            <span class="deploy-feat">Docker</span>
+            <span class="deploy-feat">PostgreSQL</span>
+            <span class="deploy-feat">Auto-seed</span>
+            <span class="deploy-feat">CORS</span>
+            <span class="deploy-feat">Health Checks</span>
+          </div>
+        </div>
+
+        <div class="deploy-card reveal reveal-delay-2">
+          <div class="deploy-card-icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent-warm)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 9.05v-.1"></path><path d="M16 9.05v-.1"></path><path d="M16 14c-.5 1.5-1.79 3-4 3s-3.5-1.5-4-3"></path></svg></div>
+          <h3>HuggingFace Spaces</h3>
+          <p>ML models (YOLO object detection + CRNN text recognition) offloaded to HF Spaces. Eliminates heavy PyTorch/OpenCV packages from the server Dockerfile.</p>
+          <code class="deploy-url">https://kavinraja-ml-service.hf.space</code>
+          <div class="deploy-features">
+            <span class="deploy-feat">YOLO</span>
+            <span class="deploy-feat">CRNN</span>
+            <span class="deploy-feat">GPU Inference</span>
+            <span class="deploy-feat">REST API</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Moodle Config accordion -->
+      <div class="moodle-accordion">
+        <div class="accordion-header reveal">
+          <div>
+            <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.25rem;">Moodle Configuration</h3>
+            <p style="font-size:0.875rem;color:var(--text-secondary);">Required Moodle setup for Web Services integration</p>
+          </div>
+          <button class="accordion-toggle-btn" id="moodleToggle" onclick="toggleAccordion('moodleBody', this)" aria-expanded="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            Show Setup Steps
+          </button>
+        </div>
+
+        <div id="moodleBody" class="accordion-body">
+          <div class="config-steps">
+            <div class="config-card reveal reveal-delay-1">
+              <div class="config-card-head"><div class="config-num">1</div><h3>Enable Web Services</h3></div>
+              <div class="config-path">Site administration &rarr; Advanced features &rarr; Enable web services</div>
+            </div>
+            <div class="config-card reveal reveal-delay-2">
+              <div class="config-card-head"><div class="config-num">2</div><h3>Create External Service</h3></div>
+              <div class="config-path">Site administration &rarr; Server &rarr; Web services &rarr; External services &rarr; Create "FileUpload"</div>
+              <div class="func-tags">
+                <span class="func-tag">core_webservice_get_site_info</span>
+                <span class="func-tag">mod_assign_save_submission</span>
+                <span class="func-tag">mod_assign_submit_for_grading</span>
+              </div>
+            </div>
+            <div class="config-card reveal reveal-delay-3">
+              <div class="config-card-head"><div class="config-num">3</div><h3>Create Token</h3></div>
+              <div class="config-path">Site administration &rarr; Server &rarr; Web services &rarr; Manage tokens &rarr; Create for admin user with "FileUpload" service</div>
+            </div>
+            <div class="config-card reveal reveal-delay-4">
+              <div class="config-card-head"><div class="config-num">4</div><h3>Enable Upload Protocol</h3></div>
+              <div class="config-path">Ensure webservice/upload.php is accessible. Configure max upload size in Moodle settings.</div>
+            </div>
+          </div>
+
+          <div class="moodle-security reveal">
+            <h3 style="display:flex;align-items:center;gap:0.5rem;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Security Considerations</h3>
+            <div class="sec-list-grid">
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>Password Hashing</h4><p>bcrypt with 12 rounds</p></div></div>
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>Token Encryption</h4><p>AES-256 (Fernet)</p></div></div>
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>JWT Authentication</h4><p>Short-lived access tokens</p></div></div>
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>File Validation</h4><p>SHA-256 hash + format checks</p></div></div>
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>Audit Logging</h4><p>All operations tracked with IP</p></div></div>
+              <div class="sec-list-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><div><h4>CORS Protection</h4><p>Configurable origin whitelist</p></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       EXECUTION FLOW
+  ================================================ -->
+  <section id="execution-flow" class="execution-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">Technical Deep Dive</span>
+        <h2 class="section-title">Execution Flow &amp; <span class="hl">Codebase Architecture</span></h2>
+        <p class="section-desc">Complete analysis of the system's multi-stage pipeline from setup through deployment.</p>
+      </div>
+
+      <div class="exec-grid">
+        <div class="exec-card reveal reveal-delay-1">
+          <div class="exec-card-head"><div class="exec-num">1</div><h3>Setup &amp; Initialization</h3></div>
+          <p><strong>Environment Configuration:</strong> PostgreSQL, Moodle LMS, Email services, ML inference, file storage</p>
+          <p><strong>Database Initialization:</strong> Creates core tables (ExaminationArtifact, SubjectMapping, StaffUser, StudentSession, AuditLog)</p>
+          <p><strong>Service Dependencies:</strong> FastAPI app with middleware stack, async connection pooling, OAuth2 setup</p>
+          <div class="inline-code-block">python init_db.py  # Auto-creates tables + admin user (admin/admin123)</div>
+        </div>
+
+        <div class="exec-card reveal reveal-delay-2">
+          <div class="exec-card-head"><div class="exec-num">2</div><h3>Data Pipeline — Ingestion (5 Stages)</h3></div>
+          <ul>
+            <li><strong>Stage 1 — File Reception:</strong> Staff uploads via REST API with JWT authentication</li>
+            <li><strong>Stage 2 — Filename Parsing:</strong> Regex extraction of register number (12 digits) &amp; subject code</li>
+            <li><strong>Stage 3 — File Storage:</strong> SHA-256 hashing, async file I/O, persistent DB storage (BYTEA)</li>
+            <li><strong>Stage 4 — Artifact Creation:</strong> Idempotent operation with transaction IDs, workflow status = PENDING</li>
+            <li><strong>Stage 5 — Background Processing:</strong> Email notifications, audit logging</li>
+          </ul>
+          <p><strong>File Organization:</strong> uploads/pending, uploads/processed, uploads/failed, uploads/temp</p>
+        </div>
+
+        <div class="exec-card reveal reveal-delay-3">
+          <div class="exec-card-head"><div class="exec-num">3</div><h3>Core Logic &amp; Business Rules</h3></div>
+          <p><strong>Artifact State Machine:</strong> PENDING → VALIDATED → READY_FOR_REVIEW → SUBMITTED_TO_LMS → COMPLETED</p>
+          <p><strong>Multi-Attempt Support:</strong> Max 2 attempts per exam type (CIA1, CIA2), admin-controlled unlock</p>
+          <p><strong>Subject Mapping:</strong> Bidirectional lookup: subject code → assignment ID → course ID</p>
+          <p><strong>File Persistence:</strong> Primary: filesystem | Fallback: PostgreSQL BYTEA (cloud resilience)</p>
+        </div>
+
+        <div class="exec-card reveal reveal-delay-4">
+          <div class="exec-card-head"><div class="exec-num">4</div><h3>ML Pipeline — YOLO + CRNN</h3></div>
+          <p><strong>YOLO Component:</strong> YOLOv8 object detection for text region localization on answer sheets</p>
+          <p><strong>CRNN Architecture:</strong> 6-layer CNN → 2-layer LSTM (512→256, bidirectional) → FC(512→classes)</p>
+          <ul>
+            <li><strong>Register Number:</strong> best_crnn_model(git).pth — 12-digit numeric prediction</li>
+            <li><strong>Subject Code:</strong> best_subject_model_final.pth — 2–10 char alphanumeric</li>
+          </ul>
+          <p><strong>Confidence Scoring:</strong> Register ≥60%, Subject ≥70%</p>
+        </div>
+
+        <div class="exec-card reveal reveal-delay-5">
+          <div class="exec-card-head"><div class="exec-num">5</div><h3>Student Portal — Verification &amp; Submission</h3></div>
+          <p><strong>Authentication:</strong> Moodle token exchange → session creation → register number extraction</p>
+          <p><strong>Dashboard:</strong> Grouped artifacts by exam type, real-time submission status</p>
+          <p><strong>3-Phase Submission Workflow:</strong></p>
+          <ol>
+            <li>Draft upload to Moodle (core_files_upload)</li>
+            <li>Assignment association (mod_assign_save_submission)</li>
+            <li>Submission finalization + admin lock (mod_assign_submit_for_grading)</li>
+          </ol>
+          <p><strong>Error Handling:</strong> Transactional approach with idempotent retry logic via transaction IDs</p>
+        </div>
+
+        <div class="exec-card reveal reveal-delay-6">
+          <div class="exec-card-head"><div class="exec-num">6</div><h3>Deployment &amp; Production</h3></div>
+          <p><strong>Render.com Cloud:</strong> Auto-scaling, PostgreSQL managed hosting, environment variable config</p>
+          <p><strong>Async Architecture:</strong> FastAPI + asyncpg for non-blocking database ops, aiofiles for file I/O</p>
+          <p><strong>Security Hardening:</strong> CORS middleware, GZip compression, JWT tokens, Fernet encryption, rate limiting</p>
+          <p><strong>Database Backups:</strong> Daily snapshots, manual export/restore scripts included</p>
+          <p><strong>ML Inference:</strong> Offloaded to HuggingFace Spaces (lightweight Render deployment)</p>
+        </div>
+      </div>
+
+      <!-- Tech highlights -->
+      <div class="tech-highlights-box reveal">
+        <h3>Key Technologies &amp; Implementation Details</h3>
+        <div class="tech-grid-4">
+          <div class="tech-group">
+            <h4>Core Services</h4>
+            <ul>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>FastAPI 0.104+</strong> - Async REST API</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>SQLAlchemy 2.0</strong> - Async ORM</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>asyncpg</strong> - PostgreSQL driver</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>httpx</strong> - Async HTTP client</li>
+            </ul>
+          </div>
+          <div class="tech-group">
+            <h4>Security</h4>
+            <ul>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>bcrypt</strong> - Password hashing</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>PyJWT</strong> - JWT tokens</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Fernet</strong> - AES-256 encryption</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>SHA-256</strong> - File integrity</li>
+            </ul>
+          </div>
+          <div class="tech-group">
+            <h4>ML &amp; Computer Vision</h4>
+            <ul>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>PyTorch 2.0.1</strong> - Deep learning</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>YOLOv8</strong> - Object detection</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>OpenCV</strong> - Image processing</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Torchvision</strong> - Transforms</li>
+            </ul>
+          </div>
+          <div class="tech-group">
+            <h4>Email &amp; Notifications</h4>
+            <ul>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>SendGrid API</strong> - Primary email</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>SMTP</strong> - Fallback local dev</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Async mail</strong> - Non-blocking</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       PROJECT STRUCTURE + CONTRIBUTORS
+  ================================================ -->
+  <section id="structure" class="structure-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="section-label">Project Organization</span>
+        <h2 class="section-title">Development <span class="hl">Structure</span></h2>
+        <p class="section-desc">Complete folder organization and project layout for development and deployment.</p>
+      </div>
+
+      <!-- exam_middleware folder -->
+      <div style="margin-bottom:1rem;" class="reveal">
+        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.375rem;">exam_middleware/ <span style="font-size:1.25rem;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span></h3>
+        <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1.25rem;">Primary FastAPI middleware with database, services, and submission pipeline.</p>
+      </div>
+
+      <div class="structure-grid">
+        <div class="structure-card reveal reveal-delay-1">
+          <h4>App Core</h4>
+          <ul class="structure-list">
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">app/</span><span class="tree-desc">FastAPI entry, templates, schemas</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">main.py</span><span class="tree-desc">Application lifespan + router mount</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">core/</span><span class="tree-desc">config.py, security.py, lms_registry.py</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">db/</span><span class="tree-desc">database.py + models.py</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">schemas/</span><span class="tree-desc">Pydantic request/response models</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">templates/</span><span class="tree-desc">HTML UI templates</span></span></li>
+          </ul>
+        </div>
+
+        <div class="structure-card reveal reveal-delay-2">
+          <h4>APIs &amp; Services</h4>
+          <ul class="structure-list">
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">api/routes/</span><span class="tree-desc">admin, auth, extract, health, student, upload</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">services/</span><span class="tree-desc">artifact, submission, extraction, moodle, mail</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">artifact_service.py</span><span class="tree-desc">Exam paper management</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">submission_service.py</span><span class="tree-desc">Moodle submission flow</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">extraction_service.py</span><span class="tree-desc">Local ML inference</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">remote_extraction_service.py</span><span class="tree-desc">HF Spaces fallback</span></span></li>
+          </ul>
+        </div>
+
+        <div class="structure-card reveal reveal-delay-3">
+          <h4>Ops &amp; Data</h4>
+          <ul class="structure-list">
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">uploads/</span><span class="tree-desc">pending, processed, failed, temp</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">models/</span><span class="tree-desc">YOLO + CRNN weights</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">migrations/</span><span class="tree-desc">SQL schema updates</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">scripts/db/</span><span class="tree-desc">backup + restore utilities</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg></span><span><span class="tree-name">tests/</span><span class="tree-desc">unit + integration tests</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">init_db.py</span><span class="tree-desc">DB initialization</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">run.py</span><span class="tree-desc">Application startup</span></span></li>
+            <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">scanner_agent.py</span><span class="tree-desc">Scanner integration</span></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="hf-folder-card reveal">
+        <h4>hf_space/ <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg> — HuggingFace Spaces ML inference service</h4>
+        <ul class="structure-list">
+          <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">app.py</span><span class="tree-desc">FastAPI ML inference server</span></span></li>
+          <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">requirements.txt</span><span class="tree-desc">torch, ultralytics, opencv, pillow</span></span></li>
+          <li><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-3px;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span><span class="tree-name">README.md</span><span class="tree-desc">setup instructions</span></span></li>
+        </ul>
+      </div>
+
+      <!-- Key config files -->
+      <div class="key-config-box reveal">
+        <h3>Key Configuration Files</h3>
+        <div class="config-file-item">
+          <div class="config-file-bar bar-blue"></div>
+          <div>
+            <h4><code>.env.example</code></h4>
+            <p>Configuration template with DATABASE_URL, SECRET_KEY, MOODLE_BASE_URL, ENCRYPTION_KEY, SENDGRID_API_KEY, and more.</p>
+          </div>
+        </div>
+        <div class="config-file-item">
+          <div class="config-file-bar bar-purple"></div>
+          <div>
+            <h4><code>requirements.txt</code></h4>
+            <p>FastAPI, SQLAlchemy, asyncpg, httpx, torch, ultralytics, cryptography, python-jose, aiofiles, pillow</p>
+          </div>
+        </div>
+        <div class="config-file-item">
+          <div class="config-file-bar bar-green"></div>
+          <div>
+            <h4><code>render.yaml</code></h4>
+            <p>Infrastructure-as-code for Render.com deployment with Web Service and PostgreSQL configuration.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contributors -->
+      <div class="section-head reveal" style="margin-top:5rem;margin-bottom:2.5rem;">
+        <span class="section-label">Team</span>
+        <h2 class="section-title"><span class="hl">Contributors</span></h2>
+      </div>
+
+      <div class="contributors-grid">
+        <div class="contrib-card reveal reveal-delay-1">
+          <div class="contrib-avatar">
+            <img src="https://github.com/d-kavinraja.png" alt="D. Kavinraja" loading="lazy">
+          </div>
+          <h3>D. Kavinraja</h3>
+          <div class="contrib-handle">@d-kavinraja</div>
+          <div class="contrib-role">Core features, Smart Scan AI, deployment, bug fixes</div>
+        </div>
+        <div class="contrib-card reveal reveal-delay-2">
+          <div class="contrib-avatar">
+            <img src="https://github.com/SANTHAN-KUMAR.png" alt="Santhan Kumar" loading="lazy">
+          </div>
+          <h3>Santhan Kumar</h3>
+          <div class="contrib-handle">@SANTHAN-KUMAR</div>
+          <div class="contrib-role">Email notifications, SendGrid, Dockerfile</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       CTA BANNER
+  ================================================ -->
+  <div class="cta-banner">
+    <div class="container">
+      <h2 class="reveal">
+        Ready to <span class="gradient-text">Transform</span><br>Your Exam Workflow?
+      </h2>
+      <p class="reveal reveal-delay-1">
+        Infrastructure being deployed on <strong style="color:rgba(255,255,255,0.8);">Render.com</strong> with managed PostgreSQL, auto-scaling, and 24/7 uptime.
+        Current status: <span style="color:#FFD700;font-weight:700;">In Progress</span>
+      </p>
+      <div class="cta-btns reveal reveal-delay-2">
+        <a href="/docs" target="_blank" class="btn-cta-primary" id="cta-api-docs">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          API Documentation
+        </a>
+        <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="btn-cta-ghost" id="cta-github">
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================
+       FOOTER
+  ================================================ -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a href="#" class="logo">
+            <div class="logo-icon" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">
+              <img src="https://guileless-jalebi-7d5aff.netlify.app/sec.jpg" alt="SEC Logo">
+            </div>
+            <span class="logo-text" style="color:white;">IESF-LMS</span>
+          </a>
+          <p class="footer-brand-desc">An intelligent, AI-powered bridge for digitizing and submitting physical examination answer sheets to Moodle LMS.</p>
+          <a href="https://github.com/d-kavinraja/Intelligent-Examination-Submission-Framework-for-LMS" target="_blank" class="footer-github-btn" id="footer-github">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <ul class="footer-links-list">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#workflow">Workflow</a></li>
+            <li><a href="#api">API</a></li>
+            <li><a href="#deployment">Deployment</a></li>
+            <li><a href="#installation">Setup</a></li>
+            <li><a href="#structure">Structure</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Tech Stack</h4>
+          <div class="footer-tech-tags">
+            <span class="footer-tech-tag">Python 3.10+</span>
+            <span class="footer-tech-tag">FastAPI</span>
+            <span class="footer-tech-tag">PostgreSQL</span>
+            <span class="footer-tech-tag">SQLAlchemy 2.0</span>
+            <span class="footer-tech-tag">Moodle LMS</span>
+            <span class="footer-tech-tag">YOLO</span>
+            <span class="footer-tech-tag">CRNN</span>
+            <span class="footer-tech-tag">HuggingFace</span>
+            <span class="footer-tech-tag">SendGrid</span>
+            <span class="footer-tech-tag">Docker</span>
+            <span class="footer-tech-tag">Render</span>
+            <span class="footer-tech-tag">JWT</span>
+            <span class="footer-tech-tag">bcrypt</span>
+            <span class="footer-tech-tag">AES-256</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>Made with <span class="heart">&hearts;</span> by <a href="https://github.com/d-kavinraja" target="_blank">D. Kavinraja</a> &amp; <a href="https://github.com/SANTHAN-KUMAR" target="_blank">Santhan Kumar</a></p>
+        <p style="margin-top:0.5rem;font-size:0.75rem;">&copy; 2026 Intelligent Examination Submission Framework. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================================================
+       JAVASCRIPT
+  ================================================ -->
+  <script>
+    /* ─── Page Load Shimmer ─── */
+    window.addEventListener('load', () => {
+      const shimmer = document.getElementById('pageShimmer');
+      if (shimmer) {
+        shimmer.style.opacity = '0';
+        shimmer.style.transition = 'opacity 0.4s ease';
+        setTimeout(() => shimmer.remove(), 400);
+      }
+    });
+
+    /* ─── Header Scroll ─── */
+    const header = document.getElementById('header');
+    window.addEventListener('scroll', () => {
+      header.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    /* ─── Mobile Menu ─── */
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileNav  = document.getElementById('mobileNav');
+    const overlay    = document.getElementById('mobileOverlay');
+
+    menuToggle.addEventListener('click', () => {
+      const isOpen = mobileNav.classList.toggle('open');
+      overlay.classList.toggle('open', isOpen);
+      menuToggle.classList.toggle('active', isOpen);
+      menuToggle.setAttribute('aria-expanded', isOpen);
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+    });
+
+    overlay.addEventListener('click', closeMenu);
+
+    function closeMenu() {
+      mobileNav.classList.remove('open');
+      overlay.classList.remove('open');
+      menuToggle.classList.remove('active');
+      menuToggle.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    /* ─── API Tabs ─── */
+    function showTab(tabId, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.remove('active');
+        p.setAttribute('aria-hidden', 'true');
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      const panel = document.getElementById(tabId);
+      if (panel) { panel.classList.add('active'); panel.setAttribute('aria-hidden', 'false'); }
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+    }
+
+    /* ─── Code Copy ─── */
+    function copyCode(preId, btn) {
+      const pre = document.getElementById(preId);
+      if (!pre) return;
+      const text = pre.innerText || pre.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+        btn.style.color = '#4DAB9A';
+        setTimeout(() => { btn.innerHTML = original; btn.style.color = ''; }, 2000);
+      });
+    }
+
+    /* ─── Accordion ─── */
+    function toggleAccordion(bodyId, btn) {
+      const body = document.getElementById(bodyId);
+      if (!body) return;
+      const isOpen = body.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+      btn.setAttribute('aria-expanded', isOpen);
+      btn.querySelector('span:not(svg)') && (btn.querySelector('span:not(svg)') || btn).textContent;
+      const textNode = [...btn.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (textNode) textNode.textContent = isOpen ? ' Hide Setup Steps' : ' Show Setup Steps';
+    }
+
+    /* ─── Scroll Reveal (Intersection Observer) ─── */
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+    /* ─── Stat Counter Animation ─── */
+    function animateCounter(el) {
+      const target = parseInt(el.dataset.count);
+      const suffix = el.dataset.suffix || '';
+      const text   = el.dataset.text;
+
+      if (text) { el.textContent = text; return; }
+      if (isNaN(target)) return;
+
+      const duration = 1600;
+      const step     = 20;
+      const increment = target / (duration / step);
+      let current = 0;
+
+      el.textContent = '0' + suffix;
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          clearInterval(timer);
+          el.textContent = target + suffix;
+        } else {
+          el.textContent = Math.floor(current) + suffix;
+        }
+      }, step);
+    }
+
+    const statsObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll('.stat-number').forEach(animateCounter);
+          statsObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    const heroStats = document.querySelector('.hero-stats');
+    if (heroStats) statsObserver.observe(heroStats);
+
+    /* ─── Typing Effect ─── */
+    const phrases = [
+      'Digitize physical exam papers into Moodle LMS.',
+      'AI-powered YOLO + CRNN metadata extraction.',
+      'Student-verified, audit-trailed submissions.',
+      'Enterprise-grade security for every exam.'
+    ];
+    let phraseIndex = 0, charIndex = 0, deleting = false;
+    const typingEl = document.getElementById('typingText');
+    const cursorEl = document.getElementById('typingCursor');
+
+    function typeWriter() {
+      if (!typingEl) return;
+      const current = phrases[phraseIndex];
+
+      if (!deleting) {
+        typingEl.textContent = current.slice(0, charIndex + 1);
+        charIndex++;
+        if (charIndex === current.length) {
+          deleting = true;
+          setTimeout(typeWriter, 2200);
+          return;
+        }
+      } else {
+        typingEl.textContent = current.slice(0, charIndex - 1);
+        charIndex--;
+        if (charIndex === 0) {
+          deleting = false;
+          phraseIndex = (phraseIndex + 1) % phrases.length;
+        }
+      }
+
+      setTimeout(typeWriter, deleting ? 38 : 52);
+    }
+
+    setTimeout(typeWriter, 800);
+
+    /* ─── Smooth Scroll for anchor links ─── */
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          const offset = 72;
+          const top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      });
+    });
+  </script>
