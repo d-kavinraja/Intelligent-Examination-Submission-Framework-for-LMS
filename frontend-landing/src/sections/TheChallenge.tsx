@@ -47,6 +47,12 @@ export function TheChallenge() {
                     <td className="px-4 py-4 text-green-600 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div> done</td>
                   </tr>
                   <tr className="border-b border-dashed border-[#555555]">
+                    <td className="px-4 py-4 text-[#2563eb]">artifact_validator</td>
+                    <td className="px-4 py-4">Validate SHA-256 hash & mapping</td>
+                    <td className="px-4 py-4">0m 12s</td>
+                    <td className="px-4 py-4 text-green-600 font-bold flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div> done</td>
+                  </tr>
+                  <tr className="border-b border-dashed border-[#555555]">
                     <td className="px-4 py-4 text-[#2563eb]">yolo_crnn_worker</td>
                     <td className="px-4 py-4">Extract 611221104088_19AI405</td>
                     <td className="px-4 py-4">1m 48s</td>
@@ -69,7 +75,7 @@ export function TheChallenge() {
             </div>
 
             <div className="mt-6 flex gap-6 font-mono text-sm font-bold text-[#111111]">
-              <span>3 completed</span>
+              <span>4 completed</span>
               <span className="text-[#2563eb]">1 in progress</span>
               <span className="text-green-600 ml-auto">avg accuracy: 98.5%</span>
             </div>

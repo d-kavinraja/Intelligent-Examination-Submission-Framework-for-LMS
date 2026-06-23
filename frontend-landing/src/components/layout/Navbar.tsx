@@ -32,8 +32,8 @@ export function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-12 w-auto object-contain" />
-            <span className="font-serif text-2xl tracking-tight text-[#111111]">IESF-LMS</span>
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-16 md:h-20 w-auto object-contain" />
+            <span className="font-serif text-2xl md:text-3xl tracking-tight text-[#111111]">IESF-LMS</span>
           </div>
 
           {/* Desktop Nav */}

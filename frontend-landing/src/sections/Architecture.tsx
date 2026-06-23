@@ -1,6 +1,80 @@
 import { motion } from "framer-motion"
 import { SectionHeader } from "../components/ui/SectionHeader"
-import { Database, FileText, Server, Layers } from "lucide-react"
+import { Database, FileText, Server, Layers, Folder, File } from "lucide-react"
+
+const projectStructure = [
+  {
+    name: "IESF-LMS",
+    type: "folder",
+    children: [
+      {
+        name: "exam_middleware",
+        type: "folder",
+        desc: "Primary Backend Framework",
+        children: [
+          {
+            name: "app",
+            type: "folder",
+            children: [
+              { name: "api/routes", type: "folder", desc: "Endpoints (auth, upload, student, admin)" },
+              { name: "core", type: "folder", desc: "Configuration & Cryptography (security, config)" },
+              { name: "db", type: "folder", desc: "DB Engine & SQLAlchemy Models (database, models)" },
+              { name: "services", type: "folder", desc: "Business Logic (moodle_client, submission_service)" },
+            ]
+          },
+          { name: "init_db.py", type: "file", desc: "Schema Creator & Sample Seeder" },
+          { name: "scanner_agent.py", type: "file", desc: "Scanned Folder Watcher Script" },
+          { name: "setup_subject_mapping.py", type: "file", desc: "Subject-to-LMS catalog configuration utility" },
+          { name: "setup_username_reg.py", type: "file", desc: "Username-to-Register map editor utility" },
+        ]
+      },
+      {
+        name: "hf_space",
+        type: "folder",
+        desc: "HuggingFace Space ML Inference Server",
+        children: [
+          { name: "app.py", type: "file", desc: "YOLOv8 + CRNN OCR API Server" },
+          { name: "requirements.txt", type: "file", desc: "PyTorch & YOLO Dependencies" },
+        ]
+      },
+      {
+        name: "frontend-landing",
+        type: "folder",
+        desc: "React Landing Page (This application)"
+      },
+      { name: "docker-compose.yml", type: "file", desc: "Local Docker Orchestration" },
+      { name: "index.html", type: "file", desc: "Root Entrypoint serving built React assets" },
+    ]
+  }
+];
+
+const renderTree = (nodes: any[], level = 0) => {
+  return nodes.map((node, idx) => (
+    <motion.div 
+      key={`${node.name}-${idx}`}
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: level * 0.1 + idx * 0.05 }}
+      className={`flex items-start gap-2 my-2 ${level > 0 ? "ml-6 border-l-2 border-dashed border-[#a1a1aa] pl-4" : ""}`}
+    >
+      <div className="mt-0.5 shrink-0">
+        {node.type === 'folder' ? <Folder className="h-5 w-5 text-[#2563eb]" fill="#2563eb" fillOpacity={0.2} /> : <File className="h-5 w-5 text-green-600" />}
+      </div>
+      <div className="flex-grow">
+        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+          <span className={`font-mono text-sm ${node.type === 'folder' ? 'font-bold text-[#111111]' : 'text-[#555555]'}`}>
+            {node.name}
+          </span>
+          {node.desc && (
+            <span className="font-sans text-xs text-[#777777] italic">- {node.desc}</span>
+          )}
+        </div>
+        {node.children && <div className="mt-2">{renderTree(node.children, level + 1)}</div>}
+      </div>
+    </motion.div>
+  ))
+}
 
 const schema = [
   { 
@@ -115,69 +189,54 @@ export function Architecture() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-5xl mx-auto mb-16"
+          className="max-w-5xl mx-auto mb-20"
         >
-          <div className="brutal-card bg-white p-6">
-            <h3 className="font-sans font-bold text-[#111111] uppercase tracking-wide text-sm mb-4 border-b-2 border-[#111111] pb-2">Project Structure</h3>
-            <pre className="font-mono text-xs md:text-sm text-[#555555] overflow-x-auto leading-relaxed">
-<span className="text-[#111111] font-bold">IESF-LMS/</span>
-├── <span className="text-[#2563eb] font-bold">exam_middleware/</span>                  <span className="text-[#a1a1aa] italic"># Primary Backend Framework</span>
-│   ├── <span className="text-[#2563eb] font-bold">app/</span>
-│   │   ├── <span className="text-[#2563eb] font-bold">api/routes/</span>                <span className="text-[#a1a1aa] italic"># Endpoints (auth, upload, student, admin)</span>
-│   │   ├── <span className="text-[#2563eb] font-bold">core/</span>                      <span className="text-[#a1a1aa] italic"># Configuration & Cryptography (security, config)</span>
-│   │   ├── <span className="text-[#2563eb] font-bold">db/</span>                        <span className="text-[#a1a1aa] italic"># DB Engine & SQLAlchemy Models (database, models)</span>
-│   │   └── <span className="text-[#2563eb] font-bold">services/</span>                  <span className="text-[#a1a1aa] italic"># Business Logic (moodle_client, submission_service)</span>
-│   ├── <span className="text-green-600 font-bold">init_db.py</span>                     <span className="text-[#a1a1aa] italic"># Schema Creator & Sample Seeder</span>
-│   ├── <span className="text-green-600 font-bold">scanner_agent.py</span>               <span className="text-[#a1a1aa] italic"># Scanned Folder Watcher Script</span>
-│   ├── <span className="text-green-600 font-bold">setup_subject_mapping.py</span>       <span className="text-[#a1a1aa] italic"># Subject-to-LMS catalog configuration utility</span>
-│   └── <span className="text-green-600 font-bold">setup_username_reg.py</span>          <span className="text-[#a1a1aa] italic"># Username-to-Register map editor utility</span>
-├── <span className="text-[#2563eb] font-bold">hf_space/</span>                         <span className="text-[#a1a1aa] italic"># HuggingFace Space ML Inference Server</span>
-│   ├── <span className="text-green-600 font-bold">app.py</span>                         <span className="text-[#a1a1aa] italic"># YOLOv8 + CRNN OCR API Server</span>
-│   └── <span className="text-[#555555]">requirements.txt</span>               <span className="text-[#a1a1aa] italic"># PyTorch & YOLO Dependencies</span>
-├── <span className="text-[#2563eb] font-bold">frontend-landing/</span>                 <span className="text-[#a1a1aa] italic"># React Landing Page (This application)</span>
-├── <span className="text-green-600 font-bold">docker-compose.yml</span>                <span className="text-[#a1a1aa] italic"># Local Docker Orchestration</span>
-└── <span className="text-green-600 font-bold">index.html</span>                        <span className="text-[#a1a1aa] italic"># Root Entrypoint serving built React assets</span>
-            </pre>
+          <div className="brutal-card bg-white p-6 md:p-8">
+            <div className="flex items-center gap-3 mb-6 border-b-2 border-[#111111] pb-4">
+              <Folder className="h-6 w-6 text-[#111111]" fill="#111111" />
+              <h3 className="font-sans font-bold text-[#111111] text-2xl tracking-tight">Project Structure</h3>
+            </div>
+            <div className="overflow-x-auto custom-scrollbar pb-4">
+              <div className="min-w-[600px] md:min-w-0">
+                {renderTree(projectStructure)}
+              </div>
+            </div>
           </div>
         </motion.div>
 
-        {/* Database Schema Table */}
+        {/* Database Schema Grid */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="max-w-5xl mx-auto"
         >
-          <div className="brutal-card bg-white overflow-hidden">
-            <div className="flex items-center gap-3 p-5 border-b-2 border-[#111111] bg-[#f4f2ea]">
-              <Database className="h-5 w-5 text-[#2563eb]" />
-              <h3 className="font-sans font-bold text-[#111111] uppercase tracking-wide text-sm">Database Schema</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-xs">
-                <thead>
-                  <tr className="border-b-2 border-[#111111] bg-white">
-                    <th className="px-6 py-4 font-bold text-[#555555] uppercase w-1/3">Model</th>
-                    <th className="px-6 py-4 font-bold text-[#555555] uppercase">Schema Attributes (Fields & Relationships)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schema.map((item, i) => (
-                    <tr key={i} className="hover:bg-[#f4f2ea] transition-colors border-b border-dashed border-[#a1a1aa] last:border-0 group">
-                      <td className="px-6 py-4 vertical-align-top">
-                        <span className="text-[#2563eb] font-bold block mb-1">
-                          {item.model}
-                        </span>
-                        <span className="text-[10px] text-[#777777] font-sans block">{item.desc}</span>
-                      </td>
-                      <td className="px-6 py-4 text-[#555555] leading-relaxed group-hover:text-[#111111] font-mono text-[10px] break-words whitespace-normal">
-                        {item.details}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex items-center gap-3 mb-8">
+            <Database className="h-8 w-8 text-[#2563eb]" />
+            <h3 className="font-sans font-bold text-[#111111] text-2xl tracking-tight">Database Schema</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {schema.map((item, i) => (
+              <motion.div 
+                key={i} 
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="brutal-card bg-white p-5 flex flex-col h-full hover:-translate-y-2 hover:shadow-[8px_8px_0px_#111111] transition-all duration-300"
+              >
+                <div className="flex items-center justify-between mb-4 border-b-2 border-[#111111] pb-3">
+                  <h4 className="font-sans font-bold text-[#2563eb] text-lg leading-tight">{item.model}</h4>
+                  <Database className="h-5 w-5 text-[#a1a1aa] shrink-0 ml-2" />
+                </div>
+                <p className="font-sans text-sm text-[#555555] mb-5 flex-grow font-medium leading-relaxed">{item.desc}</p>
+                <div className="bg-[#f4f2ea] p-4 rounded border-2 border-[#111111] max-h-40 overflow-y-auto custom-scrollbar shadow-inner relative">
+                  <p className="font-mono text-[11px] text-[#111111] leading-relaxed break-words whitespace-normal relative z-10">
+                    {item.details}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
       </div>
