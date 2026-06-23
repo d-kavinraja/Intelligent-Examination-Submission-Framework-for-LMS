@@ -8,7 +8,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-8 w-auto object-contain" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="IESF-LMS Logo" className="h-12 w-auto object-contain" />
               <span className="font-serif text-3xl text-[#111111] tracking-tight">IESF-LMS</span>
             </div>
             <p className="font-mono text-xs text-[#555555] mb-6 leading-relaxed">
