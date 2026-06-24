@@ -56,21 +56,25 @@ const renderTree = (nodes: any[], level = 0) => {
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ delay: level * 0.1 + idx * 0.05 }}
-      className={`flex items-start gap-2 my-2 ${level > 0 ? "ml-6 border-l-2 border-dashed border-[#a1a1aa] pl-4" : ""}`}
+      className={`flex items-start gap-1.5 md:gap-2 my-1.5 md:my-2 ${level > 0 ? "ml-3 md:ml-6 border-l border-dashed border-[#a1a1aa] pl-2 md:pl-4" : ""}`}
     >
       <div className="mt-0.5 shrink-0">
-        {node.type === 'folder' ? <Folder className="h-5 w-5 text-[#2563eb]" fill="#2563eb" fillOpacity={0.2} /> : <File className="h-5 w-5 text-green-600" />}
+        {node.type === 'folder' ? (
+          <Folder className="h-4 w-4 md:h-5 w-5 text-[#2563eb]" fill="#2563eb" fillOpacity={0.2} />
+        ) : (
+          <File className="h-4 w-4 md:h-5 w-5 text-green-600" />
+        )}
       </div>
-      <div className="flex-grow">
-        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
-          <span className={`font-mono text-sm ${node.type === 'folder' ? 'font-bold text-[#111111]' : 'text-[#555555]'}`}>
+      <div className="flex-grow min-w-0">
+        <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3">
+          <span className={`font-mono text-xs md:text-sm break-all ${node.type === 'folder' ? 'font-bold text-[#111111]' : 'text-[#555555]'}`}>
             {node.name}
           </span>
           {node.desc && (
-            <span className="font-sans text-xs text-[#777777] italic">- {node.desc}</span>
+            <span className="font-sans text-[10px] md:text-xs text-[#777777] italic break-words">- {node.desc}</span>
           )}
         </div>
-        {node.children && <div className="mt-2">{renderTree(node.children, level + 1)}</div>}
+        {node.children && <div className="mt-1 md:mt-2">{renderTree(node.children, level + 1)}</div>}
       </div>
     </motion.div>
   ))
@@ -197,7 +201,7 @@ export function Architecture() {
               <h3 className="font-sans font-bold text-[#111111] text-2xl tracking-tight">Project Structure</h3>
             </div>
             <div className="overflow-x-auto custom-scrollbar pb-4">
-              <div className="min-w-[600px] md:min-w-0">
+              <div className="w-full">
                 {renderTree(projectStructure)}
               </div>
             </div>
