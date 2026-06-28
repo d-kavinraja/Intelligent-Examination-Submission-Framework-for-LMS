@@ -5,6 +5,15 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy static frontend files to the default Nginx public directory
 COPY index.html /usr/share/nginx/html/index.html
+COPY favicon.png /usr/share/nginx/html/favicon.png
+COPY logo.png /usr/share/nginx/html/logo.png
+COPY assets /usr/share/nginx/html/assets
+
+# Create a symlink or copy for the base path subfolder to handle GitHub Pages style paths
+RUN mkdir -p /usr/share/nginx/html/Intelligent-Examination-Submission-Framework-for-LMS && \
+    ln -s /usr/share/nginx/html/assets /usr/share/nginx/html/Intelligent-Examination-Submission-Framework-for-LMS/assets && \
+    ln -s /usr/share/nginx/html/favicon.png /usr/share/nginx/html/Intelligent-Examination-Submission-Framework-for-LMS/favicon.png && \
+    ln -s /usr/share/nginx/html/logo.png /usr/share/nginx/html/Intelligent-Examination-Submission-Framework-for-LMS/logo.png
 
 # Expose port and start Nginx
 EXPOSE 80
