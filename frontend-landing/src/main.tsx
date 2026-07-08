@@ -6,7 +6,7 @@ import App from './App'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/Intelligent-Examination-Submission-Framework-for-LMS">
+    <BrowserRouter>
       <App />
     </BrowserRouter>
   </StrictMode>,

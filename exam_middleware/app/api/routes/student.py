@@ -3,7 +3,7 @@ Student API Routes
 Handles student dashboard and submission
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Header, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -24,6 +24,7 @@ from app.schemas import (
 )
 from app.services.artifact_service import ArtifactService, SubjectMappingService, AuditService
 from app.services.submission_service import SubmissionService
+from app.services.moodle_client import MoodleClient
 from app.api.routes.auth import get_current_student_session, get_decrypted_token
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,47 @@ async def get_student_session(
             detail="X-Session-ID header or session query parameter required",
         )
     return await get_current_student_session(session_id, db)
+
+
+@router.get("/avatar")
+async def get_moodle_avatar(
+    session: StudentSession = Depends(get_student_session),
+):
+    """
+    Get student's Moodle profile photo.
+    If not available in Moodle or if it fails, it will raise an HTTP 404
+    so the frontend can fall back to the default avatar.
+    """
+    import httpx
+    token = get_decrypted_token(session)
+    
+    # We can get site info
+    client = MoodleClient(token=token)
+    try:
+        site_info = await client.get_site_info(token=token)
+        userpictureurl = site_info.get("userpictureurl")
+        if not userpictureurl:
+            raise HTTPException(status_code=404, detail="No profile picture URL in Moodle")
+            
+        # Download and stream the image
+        async with httpx.AsyncClient() as http_client:
+            url = userpictureurl
+            if "?" not in url:
+                url += f"?token={token}"
+            else:
+                if "token=" not in url:
+                    url += f"&token={token}"
+                    
+            resp = await http_client.get(url, timeout=10.0, follow_redirects=True)
+            if resp.status_code == 200:
+                return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+            else:
+                raise HTTPException(status_code=404, detail="Failed to retrieve picture from Moodle")
+    except Exception as e:
+        logger.warning(f"Failed to fetch moodle avatar: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    finally:
+        await client.close()
 
 
 @router.get("/dashboard", response_model=StudentDashboardResponse)
@@ -409,6 +451,429 @@ async def view_paper_file(
         media_type=media_type,
         filename=safe_name,
         headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+    )
+
+
+@router.get("/paper/{artifact_uuid}/receipt")
+async def get_digital_receipt(
+    artifact_uuid: str,
+    session: StudentSession = Depends(get_student_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate and download a cryptographically signed digital receipt (PDF).
+    """
+    artifact_service = ArtifactService(db)
+    artifact = await artifact_service.get_by_uuid(artifact_uuid)
+    
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paper not found"
+        )
+    
+    # Security check
+    session_reg_no = _get_session_register_number(session)
+    if artifact.parsed_reg_no != session_reg_no:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own receipts"
+        )
+
+    # Check status
+    from app.db.models import WorkflowStatus
+    if artifact.workflow_status not in [WorkflowStatus.SUBMITTED_TO_LMS, WorkflowStatus.COMPLETED]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Receipts are only available for successfully submitted papers"
+        )
+
+    import hmac
+    import hashlib
+    import json
+    from io import BytesIO
+    from app.core.config import settings
+    import qrcode
+    from reportlab.pdfgen import canvas
+    import hmac
+    import hashlib
+    import json
+    from io import BytesIO
+    from app.core.config import settings
+    import qrcode
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.colors import HexColor
+
+    # Prepare data for signature
+    receipt_data = {
+        "artifact_uuid": str(artifact.artifact_uuid),
+        "register_number": artifact.parsed_reg_no,
+        "subject_code": artifact.parsed_subject_code,
+        "submit_timestamp": artifact.submit_timestamp.isoformat() if artifact.submit_timestamp else "",
+        "file_hash": artifact.file_hash
+    }
+    data_string = json.dumps(receipt_data, sort_keys=True)
+    
+    # Generate HMAC signature
+    secret = settings.secret_key.encode('utf-8')
+    signature = hmac.new(secret, data_string.encode('utf-8'), hashlib.sha256).hexdigest()
+    
+    # Generate QR Code
+    qr_data = f"Receipt Verification\nSignature: {signature}\nUUID: {artifact_uuid}"
+    qr = qrcode.QRCode(version=1, box_size=5, border=1)
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Save QR to a BytesIO
+    from reportlab.lib.utils import ImageReader
+    qr_bytes = BytesIO()
+    qr_img.save(qr_bytes, format='PNG')
+    qr_bytes.seek(0)
+
+    # Generate PDF
+    pdf_buffer = BytesIO()
+    c = canvas.Canvas(pdf_buffer, pagesize=letter)
+    width, height = letter # 612 x 792
+
+    # Outer Card
+    c.setStrokeColor(HexColor('#cbd5e1'))
+    c.setLineWidth(1)
+    c.roundRect(20, 20, width - 40, height - 40, 12, stroke=1, fill=0)
+
+    # --- Header Banner ---
+    c.saveState()
+    path = c.beginPath()
+    r = 12
+    x, y, w, h = 20, 20, width - 40, height - 40
+    # Top banner rect height = 110pt
+    path.moveTo(x, y + h - r)
+    path.arcTo(x, y + h - 2*r, x + 2*r, y + h, 90, 90)
+    path.lineTo(x + w - r, y + h)
+    path.arcTo(x + w - 2*r, y + h - 2*r, x + w, y + h, 0, 90)
+    path.lineTo(x + w, y + h - 110)
+    path.lineTo(x, y + h - 110)
+    path.close()
+    c.clipPath(path, fill=1, stroke=0)
+    
+    # Background fill for banner
+    c.setFillColor(HexColor('#0d47a1')) # Deep Blue
+    c.rect(x, y + h - 110, w, 110, fill=1, stroke=0)
+    
+    # Draw Shield Check in Header
+    c.setStrokeColor(HexColor('#ffffff'))
+    c.setLineWidth(2.5)
+    c.setLineJoin(1)
+    hx, hy = 60, height - 60
+    # Shield outline
+    c.setFillColor(HexColor('#0d47a1'))
+    shield = c.beginPath()
+    shield.moveTo(hx - 16, hy + 18)
+    shield.lineTo(hx + 16, hy + 18)
+    shield.lineTo(hx + 16, hy - 2)
+    shield.curveTo(hx + 16, hy - 14, hx + 8, hy - 22, hx, hy - 26)
+    shield.curveTo(hx - 8, hy - 22, hx - 16, hy - 14, hx - 16, hy - 2)
+    shield.close()
+    c.drawPath(shield, fill=1, stroke=1)
+    # Checkmark inside
+    c.setLineWidth(2.5)
+    check = c.beginPath()
+    check.moveTo(hx - 6, hy + 2)
+    check.lineTo(hx - 2, hy - 4)
+    check.lineTo(hx + 8, hy + 8)
+    c.drawPath(check, fill=0, stroke=1)
+    
+    # Draw Badge in Header Right
+    bx, by = width - 60, height - 60
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#ffffff'))
+    c.setLineWidth(1)
+    # Ribbon tails
+    ribbon = c.beginPath()
+    ribbon.moveTo(bx - 10, by)
+    ribbon.lineTo(bx - 18, by - 30)
+    ribbon.lineTo(bx - 8, by - 24)
+    ribbon.lineTo(bx + 2, by - 30)
+    ribbon.lineTo(bx + 10, by)
+    ribbon.close()
+    c.drawPath(ribbon, fill=1, stroke=0)
+    # Outer circle
+    c.circle(bx, by, 18, fill=1, stroke=0)
+    # Inner blue circle
+    c.setFillColor(HexColor('#0d47a1'))
+    c.circle(bx, by, 14, fill=1, stroke=0)
+    # Checkmark
+    c.setStrokeColor(HexColor('#ffffff'))
+    c.setLineWidth(2)
+    check2 = c.beginPath()
+    check2.moveTo(bx - 5, by + 1)
+    check2.lineTo(bx - 2, by - 3)
+    check2.lineTo(bx + 6, by + 5)
+    c.drawPath(check2, fill=0, stroke=1)
+
+    c.restoreState()
+
+    # Header Text
+    c.setFillColor(HexColor('#ffffff'))
+    c.setFont("Helvetica-Bold", 22)
+    c.drawString(100, height - 58, "Digital Submission Receipt")
+    c.setFont("Helvetica", 10)
+    c.setFillColor(HexColor('#bfdbfe'))
+    c.drawString(100, height - 76, "Saveetha Engineering College — Intelligent Examination Submission Framework")
+
+    # --- Submission Details Section ---
+    c.setFillColor(HexColor('#1e3a8a'))
+    c.setFont("Helvetica-Bold", 14)
+    # Sheet Icon
+    c.setFillColor(HexColor('#eff6ff'))
+    c.roundRect(40, height - 165, 26, 26, 6, fill=1, stroke=0)
+    c.setStrokeColor(HexColor('#3b82f6'))
+    c.setLineWidth(1.5)
+    doc = c.beginPath()
+    doc.moveTo(48, height - 146)
+    doc.lineTo(58, height - 146)
+    doc.moveTo(48, height - 152)
+    doc.lineTo(58, height - 152)
+    doc.moveTo(48, height - 158)
+    doc.lineTo(54, height - 158)
+    c.drawPath(doc, fill=0, stroke=1)
+    
+    c.setFillColor(HexColor('#1e3a8a'))
+    c.drawString(75, height - 157, "Submission Details")
+
+    details = [
+        ("Name", f"{session.moodle_fullname or 'Unknown'}"),
+        ("Register Number", f"{artifact.parsed_reg_no}"),
+        ("Subject Code", f"{artifact.parsed_subject_code}"),
+        ("Moodle Assignment ID", f"{artifact.moodle_assignment_id}"),
+        ("Submitted At", f"{artifact.submit_timestamp.strftime('%Y-%m-%d %H:%M:%S (UTC)') if artifact.submit_timestamp else 'N/A'}")
+    ]
+    
+    start_y = height - 200
+    row_height = 32
+    
+    for i, (label, val) in enumerate(details):
+        curr_y = start_y - (i * row_height)
+        
+        if i < len(details):
+            c.setStrokeColor(HexColor('#f1f5f9'))
+            c.setLineWidth(1)
+            c.line(40, curr_y - 12, width - 230, curr_y - 12)
+            
+        c.setFillColor(HexColor('#334155'))
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(40, curr_y, label)
+        
+        c.drawString(190, curr_y, ":")
+        
+        # Draw Light Blue Icon Container
+        c.setFillColor(HexColor('#eff6ff'))
+        c.roundRect(210, curr_y - 4, 18, 18, 4, fill=1, stroke=0)
+        
+        c.setStrokeColor(HexColor('#3b82f6'))
+        c.setFillColor(HexColor('#3b82f6'))
+        c.setLineWidth(1.2)
+        ix, iy = 219, curr_y + 5
+        
+        if i == 0: # User
+            c.circle(ix, iy+1, 2.5, fill=1, stroke=0)
+            up = c.beginPath()
+            up.moveTo(ix-4, iy-5)
+            up.curveTo(ix-4, iy-2, ix+4, iy-2, ix+4, iy-5)
+            c.drawPath(up, fill=0, stroke=1)
+        elif i == 1: # ID Card
+            c.roundRect(ix-5, iy-4, 10, 7, 1, fill=0, stroke=1)
+            c.rect(ix-3, iy-1, 2, 2, fill=1, stroke=0)
+            c.line(ix+1, iy, ix+3, iy)
+            c.line(ix-3, iy-2, ix+3, iy-2)
+        elif i == 2: # Book
+            c.rect(ix-4, iy-4, 4, 7, fill=0, stroke=1)
+            c.rect(ix, iy-4, 4, 7, fill=0, stroke=1)
+        elif i == 3: # Doc
+            c.roundRect(ix-4, iy-5, 8, 10, 1, fill=0, stroke=1)
+            c.line(ix-2, iy+2, ix+2, iy+2)
+            c.line(ix-2, iy, ix+2, iy)
+        elif i == 4: # Calendar
+            c.roundRect(ix-5, iy-5, 10, 9, 1, fill=0, stroke=1)
+            c.line(ix-5, iy+1, ix+5, iy+1)
+            c.line(ix-2, iy+4, ix-2, iy+5)
+            c.line(ix+2, iy+4, ix+2, iy+5)
+            c.circle(ix-2, iy-2, 0.5, fill=1, stroke=0)
+        
+        c.setFillColor(HexColor('#1e293b'))
+        c.setFont("Helvetica", 10)
+        c.drawString(240, curr_y, val)
+
+    # --- Document Lock Illustration ---
+    ill_x, ill_y = width - 130, height - 250
+    # Shadow
+    c.setFillColor(HexColor('#f1f5f9'))
+    c.roundRect(ill_x - 45, ill_y - 65, 90, 110, 12, fill=1, stroke=0)
+    # Doc
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#cbd5e1'))
+    c.setLineWidth(2)
+    c.roundRect(ill_x - 50, ill_y - 60, 90, 110, 8, fill=1, stroke=1)
+    # Lines
+    c.setFillColor(HexColor('#e2e8f0'))
+    c.rect(ill_x - 35, ill_y + 25, 45, 6, fill=1, stroke=0)
+    c.rect(ill_x - 35, ill_y + 10, 60, 6, fill=1, stroke=0)
+    c.rect(ill_x - 35, ill_y - 5, 60, 6, fill=1, stroke=0)
+    # Green Check Badge
+    c.setFillColor(HexColor('#10b981'))
+    c.circle(ill_x - 20, ill_y - 25, 18, fill=1, stroke=0)
+    c.setStrokeColor(HexColor('#ffffff'))
+    c.setLineWidth(3)
+    cb = c.beginPath()
+    cb.moveTo(ill_x - 28, ill_y - 25)
+    cb.lineTo(ill_x - 23, ill_y - 32)
+    cb.lineTo(ill_x - 12, ill_y - 18)
+    c.drawPath(cb, fill=0, stroke=1)
+    # Padlock
+    c.setFillColor(HexColor('#3b82f6'))
+    c.roundRect(ill_x + 10, ill_y - 55, 30, 24, 4, fill=1, stroke=0)
+    c.setStrokeColor(HexColor('#3b82f6'))
+    c.setLineWidth(3)
+    shackle = c.beginPath()
+    shackle.moveTo(ill_x + 16, ill_y - 31)
+    shackle.lineTo(ill_x + 16, ill_y - 25)
+    shackle.arcTo(ill_x + 16, ill_y - 34, ill_x + 34, ill_y - 16, 180, -180)
+    shackle.lineTo(ill_x + 34, ill_y - 31)
+    c.drawPath(shackle, fill=0, stroke=1)
+    c.setFillColor(HexColor('#ffffff'))
+    c.circle(ill_x + 25, ill_y - 42, 3, fill=1, stroke=0)
+    c.rect(ill_x + 24, ill_y - 48, 2, 6, fill=1, stroke=0)
+
+    # --- File Hash Card ---
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#e2e8f0'))
+    c.setLineWidth(1)
+    c.roundRect(40, height - 480, 310, 85, 8, fill=1, stroke=1)
+    
+    # Shield Icon in hash card
+    c.setFillColor(HexColor('#eff6ff'))
+    c.circle(70, height - 437, 20, fill=1, stroke=0)
+    c.setStrokeColor(HexColor('#1d4ed8'))
+    c.setLineWidth(2)
+    sc = c.beginPath()
+    sc.moveTo(60, height - 432)
+    sc.lineTo(80, height - 432)
+    sc.lineTo(80, height - 442)
+    sc.curveTo(80, height - 448, 75, height - 452, 70, height - 454)
+    sc.curveTo(65, height - 452, 60, height - 448, 60, height - 442)
+    sc.close()
+    c.drawPath(sc, fill=0, stroke=1)
+    
+    c.setFillColor(HexColor('#1e3a8a'))
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(100, height - 427, "File Hash (SHA-256)")
+    
+    # Textbox with Hash
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#cbd5e1'))
+    c.roundRect(100, height - 462, 235, 26, 4, fill=1, stroke=1)
+    c.setFillColor(HexColor('#475569'))
+    c.setFont("Courier", 7.5)
+    c.drawString(108, height - 452, artifact.file_hash)
+
+    # --- Digital Signature Card ---
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#e2e8f0'))
+    c.roundRect(40, height - 580, 310, 85, 8, fill=1, stroke=1)
+    
+    # Key Icon in signature card
+    c.setFillColor(HexColor('#ecfdf5'))
+    c.circle(70, height - 537, 20, fill=1, stroke=0)
+    c.setStrokeColor(HexColor('#10b981'))
+    c.setLineWidth(2)
+    kc = c.beginPath()
+    kc.moveTo(74, height - 533)
+    kc.lineTo(60, height - 547)
+    kc.moveTo(64, height - 543)
+    kc.lineTo(67, height - 546)
+    kc.moveTo(68, height - 539)
+    kc.lineTo(71, height - 542)
+    c.drawPath(kc, fill=0, stroke=1)
+    c.circle(76, height - 531, 3.5, fill=0, stroke=1)
+    
+    c.setFillColor(HexColor('#1e3a8a'))
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(100, height - 527, "Digital Signature")
+    
+    # Textbox with Signature
+    c.setFillColor(HexColor('#ffffff'))
+    c.setStrokeColor(HexColor('#cbd5e1'))
+    c.roundRect(100, height - 562, 235, 26, 4, fill=1, stroke=1)
+    c.setFillColor(HexColor('#475569'))
+    c.setFont("Courier", 7.5)
+    c.drawString(108, height - 552, signature)
+
+    # --- Verify Receipt Box ---
+    c.setFillColor(HexColor('#eff6ff'))
+    c.setStrokeColor(HexColor('#bfdbfe'))
+    c.roundRect(370, height - 580, 202, 185, 8, fill=1, stroke=1)
+    
+    c.setFillColor(HexColor('#1d4ed8'))
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(385, height - 415, "Verify Receipt")
+    c.setFillColor(HexColor('#4b5563'))
+    c.setFont("Helvetica", 8)
+    c.drawString(385, height - 428, "Scan the QR code to verify the authenticity")
+    c.drawString(385, height - 438, "of this submission.")
+    
+    # Draw QR Code
+    c.drawImage(ImageReader(qr_bytes), 421, height - 545, width=100, height=100)
+    
+    timestamp_str = artifact.submit_timestamp.strftime('%Y%m%d-%H%M%S') if artifact.submit_timestamp else "00000000-000000"
+    ref_code = f"SUB-{timestamp_str}"
+    c.setFillColor(HexColor('#1e3a8a'))
+    c.setFont("Helvetica-Bold", 8)
+    c.drawCentredString(471, height - 562, ref_code)
+
+    # --- Footer ---
+    c.setStrokeColor(HexColor('#e2e8f0'))
+    c.setLineWidth(1)
+    c.line(40, 60, width - 40, 60)
+    
+    c.setFillColor(HexColor('#10b981'))
+    shield_f = c.beginPath()
+    fx, fy = 50, 42
+    shield_f.moveTo(fx - 8, fy + 8)
+    shield_f.lineTo(fx + 8, fy + 8)
+    shield_f.lineTo(fx + 8, fy - 1)
+    shield_f.curveTo(fx + 8, fy - 7, fx + 4, fy - 11, fx, fy - 13)
+    shield_f.curveTo(fx - 4, fy - 11, fx - 8, fy - 7, fx - 8, fy - 1)
+    shield_f.close()
+    c.drawPath(shield_f, fill=1, stroke=0)
+    
+    c.setStrokeColor(HexColor('#ffffff'))
+    c.setLineWidth(1.5)
+    check_f = c.beginPath()
+    check_f.moveTo(fx - 3, fy)
+    check_f.lineTo(fx - 1, fy - 3)
+    check_f.lineTo(fx + 4, fy + 3)
+    c.drawPath(check_f, fill=0, stroke=1)
+    
+    c.setFillColor(HexColor('#047857'))
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(65, 39, "This receipt is cryptographically signed and serves as proof of submission.")
+
+    c.setFillColor(HexColor('#64748b'))
+    c.setFont("Helvetica", 8)
+    time_str = artifact.submit_timestamp.strftime('%Y-%m-%d %H:%M:%S (UTC)') if artifact.submit_timestamp else 'N/A'
+    c.drawRightString(width - 40, 39, f"Generated on: {time_str}")
+
+    c.showPage()
+    c.save()
+    
+    pdf_buffer.seek(0)
+    
+    filename = f"Receipt_{artifact.parsed_subject_code}_{artifact.parsed_reg_no}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
@@ -861,3 +1326,82 @@ async def get_submission_history(
         "total": len(history),
         "history": history[:limit]
     }
+
+
+@router.get("/activities")
+async def get_student_activities(
+    session: StudentSession = Depends(get_student_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get activities timeline for the student
+    """
+    from datetime import datetime
+    artifact_service = ArtifactService(db)
+    mapping_service = SubjectMappingService(db)
+    
+    # Get university register number
+    reg_no = _get_session_register_number(session)
+    
+    # Get all student artifacts
+    pending = await artifact_service.get_pending_for_student(
+        register_number=reg_no,
+        moodle_user_id=None,
+        moodle_username=session.moodle_username
+    )
+    
+    submitted = await artifact_service.get_submitted_for_student(
+        register_number=reg_no
+    )
+    
+    activities = []
+    
+    # For every pending artifact, staff added it
+    for a in pending:
+        # Get subject mapping info
+        exam_type = getattr(a, 'exam_type', 'CIA1') or 'CIA1'
+        mapping = await mapping_service.get_mapping(a.parsed_subject_code, exam_type) if a.parsed_subject_code else None
+        subj_name = mapping.subject_name if mapping else "Examination Paper"
+        
+        activities.append({
+            "type": "added",
+            "subject_code": a.parsed_subject_code or "Unknown",
+            "subject_name": subj_name,
+            "exam_type": exam_type,
+            "timestamp": a.uploaded_at.isoformat() if a.uploaded_at else datetime.now().isoformat(),
+            "filename": a.original_filename
+        })
+        
+    # For every submitted artifact, staff added it first, then student submitted it
+    for a in submitted:
+        exam_type = getattr(a, 'exam_type', 'CIA1') or 'CIA1'
+        mapping = await mapping_service.get_mapping(a.parsed_subject_code, exam_type) if a.parsed_subject_code else None
+        subj_name = mapping.subject_name if mapping else "Examination Paper"
+        
+        # 1. Added by staff
+        activities.append({
+            "type": "added",
+            "subject_code": a.parsed_subject_code or "Unknown",
+            "subject_name": subj_name,
+            "exam_type": exam_type,
+            "timestamp": a.uploaded_at.isoformat() if a.uploaded_at else datetime.now().isoformat(),
+            "filename": a.original_filename
+        })
+        
+        # 2. Submitted by student
+        if a.submit_timestamp:
+            activities.append({
+                "type": "submitted",
+                "subject_code": a.parsed_subject_code or "Unknown",
+                "subject_name": subj_name,
+                "exam_type": exam_type,
+                "timestamp": a.submit_timestamp.isoformat(),
+                "student_name": session.moodle_fullname or session.moodle_username,
+                "filename": a.original_filename
+            })
+            
+    # Sort activities by timestamp desc
+    activities.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return {"activities": activities}
+

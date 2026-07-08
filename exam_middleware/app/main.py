@@ -452,6 +452,30 @@ async def favicon():
     raise HTTPException(status_code=404)
 
 
+@app.get("/login_illustration.png", include_in_schema=False)
+async def get_login_illustration():
+    from fastapi.responses import FileResponse
+    if os.path.exists("login_illustration.png"):
+        return FileResponse("login_illustration.png")
+    raise HTTPException(status_code=404)
+
+
+@app.get("/logo.png", include_in_schema=False)
+async def get_logo_file():
+    from fastapi.responses import FileResponse
+    if os.path.exists("logo.png"):
+        return FileResponse("logo.png")
+    raise HTTPException(status_code=404)
+
+
+@app.get("/favicon.png", include_in_schema=False)
+async def get_favicon_png_file():
+    from fastapi.responses import FileResponse
+    if os.path.exists("favicon.png"):
+        return FileResponse("favicon.png")
+    raise HTTPException(status_code=404)
+
+
 # Templates setup
 templates = Jinja2Templates(directory="app/templates")
 
@@ -466,8 +490,12 @@ async def staff_portal(request: Request):
 
 
 @app.get("/portal/student", tags=["Portal"], include_in_schema=False)
-async def student_portal(request: Request):
-    """Student submission portal page."""
+@app.get("/portal/student/{full_path:path}", tags=["Portal"], include_in_schema=False)
+async def student_portal(request: Request, full_path: str = ""):
+    """Student submission portal page (React SPA)."""
+    from fastapi.responses import FileResponse
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
     return templates.TemplateResponse(
         "student_portal.html",
         {"request": request, "title": "Student Submission Portal"},
@@ -485,3 +513,5 @@ if __name__ == "__main__":
         reload=True,
         log_level="info",
     )
+
+# Trigger reload

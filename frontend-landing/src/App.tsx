@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Navbar } from "./components/layout/Navbar"
 import { Footer } from "./components/layout/Footer"
 import { Hero } from "./sections/Hero"
@@ -8,6 +8,8 @@ import { Architecture } from "./sections/Architecture"
 import { Workflow } from "./sections/Workflow"
 import { QuickStart } from "./sections/QuickStart"
 import { APIEndpoints } from "./sections/APIEndpoints"
+import StudentPortal from "./pages/StudentPortal"
+import StudentLogin from "./pages/StudentLogin"
 
 function Home() {
   return (
@@ -31,6 +33,10 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      {/* Redirect /portal to /portal/student */}
+      <Route path="/portal" element={<Navigate to="/portal/student" replace />} />
+      <Route path="/portal/student" element={<StudentPortal />} />
+      <Route path="/portal/student/login" element={<StudentLogin />} />
     </Routes>
   )
 }

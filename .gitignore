@@ -23,3 +23,8 @@ backups/
 moodle-docker/mariadb_data/
 moodle-docker/moodle_data/
 moodle-docker/moodledata_data/
+
+# SQLite databases
+*.db
+exam_middleware/lms_sync.db
+

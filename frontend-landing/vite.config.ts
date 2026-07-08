@@ -8,5 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  base: '/Intelligent-Examination-Submission-Framework-for-LMS/', // Change this to match your github repo name
+  base: '/Intelligent-Examination-Submission-Framework-for-LMS/', 
+  build: {
+    outDir: '../',
+    emptyOutDir: false,
+  }
 })
