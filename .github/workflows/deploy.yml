@@ -38,5 +38,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html assets/
-          git diff-index --quiet HEAD || git commit -m "chore: automated build release [skip ci]"
-          git push origin complete-application-setup-local-remote
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: automated build release [skip ci]"
+            git push origin complete-application-setup-local-remote
+          else
+            echo "No changes to commit"
+          fi
+
